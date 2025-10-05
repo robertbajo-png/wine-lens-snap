@@ -2,11 +2,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Camera, Upload, Wine } from "lucide-react";
+import { Camera, Upload, Wine, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import Tesseract from "tesseract.js";
 
 const WineSnap = () => {
+  const { toast } = useToast();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState("");
+  const [isOcrRunning, setIsOcrRunning] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
   const [results, setResults] = useState({
     grape: "",
     style: "",
@@ -14,12 +19,63 @@ const WineSnap = () => {
     pairing: ""
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const runOCR = async (imageData: string) => {
+    setIsOcrRunning(true);
+    setOcrProgress(0);
+    setOcrText("");
+
+    try {
+      const languages = ['eng', 'fra', 'ita', 'spa', 'deu'];
+      let allText = "";
+
+      for (const lang of languages) {
+        try {
+          const { data } = await Tesseract.recognize(
+            imageData,
+            lang,
+            {
+              logger: (m) => {
+                if (m.status === 'recognizing text') {
+                  setOcrProgress(Math.round(m.progress * 100));
+                }
+              }
+            }
+          );
+          if (data.text.trim()) {
+            allText += data.text + "\n\n";
+          }
+        } catch (langError) {
+          console.warn(`OCR failed for language ${lang}:`, langError);
+        }
+      }
+
+      if (allText.trim()) {
+        setOcrText(allText.trim());
+      } else {
+        throw new Error("No text recognized");
+      }
+    } catch (error) {
+      console.error("OCR error:", error);
+      toast({
+        title: "OCR-fel",
+        description: "Kunde inte läsa etiketten – försök fota rakare och i bra ljus.",
+        variant: "destructive"
+      });
+      setOcrText("");
+    } finally {
+      setIsOcrRunning(false);
+      setOcrProgress(0);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
+      reader.onloadend = async () => {
+        const imageData = reader.result as string;
+        setPreviewImage(imageData);
+        await runOCR(imageData);
       };
       reader.readAsDataURL(file);
     }
@@ -102,7 +158,15 @@ const WineSnap = () => {
         {/* OCR Section */}
         <Card>
           <CardHeader>
-            <CardTitle>Extraherad text (OCR)</CardTitle>
+            <CardTitle className="flex items-center justify-between">
+              <span>Extraherad text (OCR)</span>
+              {isOcrRunning && (
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {ocrProgress}%
+                </span>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Textarea
