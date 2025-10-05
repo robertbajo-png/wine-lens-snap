@@ -93,43 +93,61 @@ Deno.serve(async (req) => {
     let webText = "";
     if (PERPLEXITY_API_KEY && ocrText && ocrText.length > 5) {
       console.log("Searching web with Perplexity...");
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-        
-        const perplexityResponse = await fetch("https://api.perplexity.ai/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${PERPLEXITY_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          signal: controller.signal,
-          body: JSON.stringify({
-            model: "sonar",
-            messages: [
-              {
-                role: "user",
-                content: `Sök efter fakta om vinet: ${ocrText.slice(0, 150)}. Använd Systembolaget, Vivino eller Wine-Searcher. Max 200 ord.`
-              }
-            ],
-            max_tokens: 400,
-            return_images: false,
-            return_related_questions: false
-          })
-        });
+      
+      // Retry logic with exponential backoff
+      const maxRetries = 2;
+      let attempt = 0;
+      
+      while (attempt < maxRetries) {
+        try {
+          const controller = new AbortController();
+          const timeoutMs = 12000 + (attempt * 3000); // 12s, then 15s
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+          
+          const perplexityResponse = await fetch("https://api.perplexity.ai/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${PERPLEXITY_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            signal: controller.signal,
+            body: JSON.stringify({
+              model: "sonar",
+              search_depth: "basic",
+              focus: "internet",
+              messages: [
+                {
+                  role: "user",
+                  content: `Sök efter fakta om vinet: ${ocrText.slice(0, 150)}. Använd Systembolaget, Vivino eller Wine-Searcher. Max 200 ord.`
+                }
+              ],
+              max_tokens: 400,
+              return_images: false,
+              return_related_questions: false
+            })
+          });
 
-        clearTimeout(timeoutId);
+          clearTimeout(timeoutId);
 
-        if (perplexityResponse.ok) {
-          const perplexityData = await perplexityResponse.json();
-          webText = perplexityData?.choices?.[0]?.message?.content || "";
-          console.log("Web search successful, length:", webText.length);
-        } else {
-          const errText = await perplexityResponse.text();
-          console.error("Perplexity search failed:", perplexityResponse.status, errText);
+          if (perplexityResponse.ok) {
+            const perplexityData = await perplexityResponse.json();
+            webText = perplexityData?.choices?.[0]?.message?.content || "";
+            console.log("Web search successful, length:", webText.length);
+            break; // Success, exit retry loop
+          } else {
+            const errText = await perplexityResponse.text();
+            console.error(`Perplexity attempt ${attempt + 1} failed:`, perplexityResponse.status, errText);
+            if (attempt < maxRetries - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
+            }
+          }
+        } catch (e) {
+          console.error(`Perplexity attempt ${attempt + 1} error:`, e instanceof Error ? e.message : String(e));
+          if (attempt < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
+          }
         }
-      } catch (e) {
-        console.error("Perplexity search error (skipped):", e instanceof Error ? e.message : String(e));
+        attempt++;
       }
     }
 
@@ -204,42 +222,72 @@ REGLER:
 
     const userMessage = buildUserMessage(ocrText || "", webText, imageBase64);
 
-    const ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 2000,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage }
-        ],
-      }),
-    });
+    // Gemini API call with retry logic
+    const maxRetries = 2;
+    let attempt = 0;
+    let ai: Response | null = null;
+    
+    while (attempt < maxRetries) {
+      try {
+        const controller = new AbortController();
+        const timeoutMs = 30000 + (attempt * 15000); // 30s, then 45s
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!ai.ok) {
-      const errText = await ai.text();
-      console.error("AI Gateway error:", ai.status, errText);
+        ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "content-type": "application/json",
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: MODEL,
+            temperature: 0.1,
+            max_tokens: 1000,
+            response_format: { type: "json_object" },
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userMessage }
+            ],
+          }),
+        });
 
-      if (ai.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limits exceeded, please try again shortly." }),
-          { status: 429, headers: { ...cors, "content-type": "application/json" } }
-        );
+        clearTimeout(timeoutId);
+
+        if (ai.ok) {
+          break; // Success, exit retry loop
+        } else {
+          const errText = await ai.text();
+          console.error(`AI Gateway attempt ${attempt + 1} error:`, ai.status, errText);
+          
+          if (ai.status === 429 || ai.status === 402) {
+            // Rate limit or payment errors - don't retry
+            return new Response(
+              JSON.stringify({ 
+                error: ai.status === 429 
+                  ? "Rate limits exceeded, please try again shortly." 
+                  : "Payment required. Please add credits to your Lovable workspace." 
+              }),
+              { status: ai.status, headers: { ...cors, "content-type": "application/json" } }
+            );
+          }
+          
+          if (attempt < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
+          }
+        }
+      } catch (e) {
+        console.error(`AI Gateway attempt ${attempt + 1} error:`, e instanceof Error ? e.message : String(e));
+        if (attempt < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
+        }
       }
-      if (ai.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits to your Lovable workspace." }),
-          { status: 402, headers: { ...cors, "content-type": "application/json" } }
-        );
-      }
+      attempt++;
+    }
 
+    if (!ai || !ai.ok) {
       return new Response(
-        JSON.stringify({ error: "AI Gateway error", detail: errText }),
+        JSON.stringify({ error: "AI Gateway error after retries" }),
         { status: 500, headers: { ...cors, "content-type": "application/json" } }
       );
     }

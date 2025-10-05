@@ -3,11 +3,12 @@
  */
 
 /**
- * Resize image to max dimension while maintaining aspect ratio
+ * Optimized image resize for wine label OCR and vision analysis
+ * Max 1600px on longest side, JPEG quality 0.8
  */
 export async function resizeImage(
   imageData: string,
-  maxDimension: number = 2000
+  maxDimension: number = 1600
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -22,7 +23,7 @@ export async function resizeImage(
       let width = img.width;
       let height = img.height;
 
-      // Calculate new dimensions
+      // Calculate new dimensions (max 1600px on longest side)
       if (width > height && width > maxDimension) {
         height = (height * maxDimension) / width;
         width = maxDimension;
@@ -55,10 +56,10 @@ export async function fixOrientation(imageData: string): Promise<string> {
 }
 
 /**
- * Preprocess image: fix orientation, resize, compress
+ * Preprocess image: fix orientation, resize to 1600px, compress to JPEG 0.8
  */
 export async function preprocessImage(imageData: string): Promise<string> {
   const oriented = await fixOrientation(imageData);
-  const resized = await resizeImage(oriented, 2000);
+  const resized = await resizeImage(oriented, 1600);
   return resized;
 }
