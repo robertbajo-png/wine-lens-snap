@@ -58,32 +58,23 @@ Deno.serve(async (req) => {
 
     console.log(`Analyzing wine image with vision API, language: ${lang}`);
 
-    const system = `Du är en vinexpert. Läs etikettens text (OCR först) och returnera ENDAST giltig JSON enligt schemat nedan. Gissa inte; om data saknas, använd "–".
-
-JSON-schema:
-{
-  "vin": "string",
-  "land_region": "string",
-  "producent": "string",
-  "druvor": "string",
-  "karaktär": "string",           // t.ex. "Friskt & fruktigt"
-  "smak": "string",               // 1–2 meningar
-  "passar_till": ["string", "string", "string"],
-  "servering": "string",          // t.ex. "8–10 °C"
-  "årgång": "string",
-  "alkoholhalt": "string",        // t.ex. "13 %"
-  "volym": "string",              // t.ex. "750 ml"
-  "sockerhalt": "string",         // t.ex. "6 g/l" eller "–"
-  "syra": "string"                // t.ex. "6,2 g/l" eller "–"
-}
+    const system = `Du är vinexpert. Returnera ENDAST giltig JSON exakt enligt detta schema:
+{"vin":"","land_region":"","producent":"","druvor":"","karaktär":"","smak":"",
+ "passar_till":[],"servering":"","årgång":"","alkoholhalt":"","volym":"",
+ "sockerhalt":"","syra":""}
 
 Regler:
-- Använd en neutral, informativ ton (Systembolaget-stil).
-- Inga emojis, inga värdeomdömen.
-- Svara alltid på svenska.
-- Om OCR inte hittar text: returnera {"vin":"–","land_region":"–","producent":"–","druvor":"–","karaktär":"–","smak":"Ingen läsbar text på etiketten.","passar_till":[],"servering":"–","årgång":"–","alkoholhalt":"–","volym":"–","sockerhalt":"–","syra":"–"}.
+- Gissa inte från färg/layout. Bygg på text/etikett.
+- Om OCR saknas: fyll med "–" men om du ser nyckelord som "Tokaji" och "Furmint"
+  får du använda validerad domänkunskap nedan.
+- Svara på svenska. Ingen extra text/markdown.
+- Håll "passar_till" som array av korta strängar.
 
-Returnera ENDAST JSON utan markdown eller kommentarer.`;
+Domänkunskap (safe defaults när nyckelord matchar):
+- "Tokaji" + "Furmint" => 
+  land_region="Ungern, Tokaj", druvor="Furmint", karaktär="Friskt & fruktigt",
+  smak="Friskt och fruktigt med inslag av citrus, gröna äpplen och lätt honung/mineral.",
+  servering="8–10 °C", passar_till=["fisk","kyckling","milda ostar"].`;
 
     const userInstruction = "Analysera vinet på bilden och returnera strikt JSON enligt schema.";
 
