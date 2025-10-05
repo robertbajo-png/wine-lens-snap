@@ -29,6 +29,33 @@ serve(async (req) => {
 
     console.log(`Analyzing wine with language: ${lang}`);
 
+    // Quick heuristics to detect specific wines from OCR text
+    function quickHeuristics(txt: string) {
+      const t = txt.toLowerCase();
+      const hints: any = {};
+      
+      // Tokaji Furmint detection
+      if (t.includes("tokaji") && t.includes("furmint")) {
+        hints.druva = "Furmint";
+        hints.region = "Tokaj, Ungern";
+        hints.typ = "Vitt";
+        hints.servering = "8–10 °C";
+        hints.preset = true;
+      }
+      
+      // Other grape varieties
+      if (t.includes("riesling")) hints.druva = "Riesling";
+      if (t.includes("merlot")) hints.druva = "Merlot";
+      if (t.includes("pinot")) hints.druva = "Pinot";
+      if (t.includes("sangiovese")) hints.druva = "Sangiovese";
+      if (t.includes("chardonnay")) hints.druva = "Chardonnay";
+      if (t.includes("cabernet")) hints.druva = "Cabernet";
+      
+      return hints;
+    }
+
+    const heuristics = quickHeuristics(ocrText);
+
     const systemPrompt = `Du är vinexpert och datadisciplinerat verktyg. 
 Du gör ALDRIG visuella gissningar. Du baserar ALLA slutsatser ENBART på OCR-texten.
 Om texten inte räcker: skriv "Okänt" och ge inga fantasier.
@@ -49,18 +76,25 @@ ABSOLUTA REGLER:
 - FÖRBJUDET att hitta på druvsort från region eller annat
 - style: kort beskrivning (≤ 180 tecken), använd endast fakta från texten
 - serve_temp_c: temperaturintervall (t.ex. "14–16")
-- pairing: 3–4 korta svenska rätter (engelska om lang='en')
+- pairing: 3–5 korta svenska rätter (engelska om lang='en')
+
+${heuristics.preset ? `VIKTIGT: OCR-texten innehåller "${heuristics.druva}" från ${heuristics.region}. Använd denna information.` : ''}
 
 Språk: Svenska om lang='sv', engelska om lang='en'.
 
 Svara ENDAST med JSON. Ingen markdown, inga kommentarer.`;
 
-    const userPrompt = `OCR label text:
+    const userPrompt = `OCR-text från vinflaska:
 """
 ${ocrText}
 """
 
-Language: ${lang}`;
+${Object.keys(heuristics).length > 0 ? `Detekterade ledtrådar:
+${JSON.stringify(heuristics, null, 2)}` : ''}
+
+Språk: ${lang}
+
+Analysera och returnera JSON enligt schemat.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -132,6 +166,13 @@ Language: ${lang}`;
         JSON.stringify({ error: 'Failed to parse AI response' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+
+    // Apply heuristics if we have preset values
+    if (heuristics.preset) {
+      if (!analysis.grape || analysis.grape === "Okänt") analysis.grape = heuristics.druva;
+      if (!analysis.serve_temp_c) analysis.serve_temp_c = heuristics.servering;
     }
 
     return new Response(JSON.stringify(analysis), {

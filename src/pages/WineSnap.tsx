@@ -21,8 +21,8 @@ const WineSnap = () => {
     setProcessingStep("ocr");
     
     try {
-      // Step 1: Run OCR
-      const languages = ['eng', 'fra', 'ita', 'spa', 'deu'];
+      // Step 1: Run OCR with multiple languages including Hungarian for Tokaji wines
+      const languages = ['eng', 'hun', 'fra', 'ita', 'spa', 'deu'];
       let allText = "";
 
       for (const lang of languages) {
