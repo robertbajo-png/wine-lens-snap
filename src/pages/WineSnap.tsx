@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, Upload, Wine, Loader2, Download } from "lucide-react";
+import { Camera, Wine, Loader2, Download, Grape, Wind, Thermometer, UtensilsCrossed } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Tesseract from "tesseract.js";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,40 +12,22 @@ const WineSnap = () => {
   const { toast } = useToast();
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [lang, setLang] = useState("sv");
-  const [ocrText, setOcrText] = useState("");
-  const [isOcrRunning, setIsOcrRunning] = useState(false);
-  const [ocrProgress, setOcrProgress] = useState(0);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [results, setResults] = useState({
-    grape: "",
-    style: "",
-    serve_temp_c: "",
-    pairing: [] as string[]
-  });
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<"ocr" | "ai" | null>(null);
+  const [results, setResults] = useState<WineAnalysisResult | null>(null);
 
-  const runOCR = async (imageData: string) => {
-    setIsOcrRunning(true);
-    setOcrProgress(0);
-    setOcrText("");
-
+  const processWineImage = async (imageData: string) => {
+    setIsProcessing(true);
+    setProcessingStep("ocr");
+    
     try {
+      // Step 1: Run OCR
       const languages = ['eng', 'fra', 'ita', 'spa', 'deu'];
       let allText = "";
 
       for (const lang of languages) {
         try {
-          const { data } = await Tesseract.recognize(
-            imageData,
-            lang,
-            {
-              logger: (m) => {
-                if (m.status === 'recognizing text') {
-                  setOcrProgress(Math.round(m.progress * 100));
-                }
-              }
-            }
-          );
+          const { data } = await Tesseract.recognize(imageData, lang);
           if (data.text.trim()) {
             allText += data.text + "\n\n";
           }
@@ -56,72 +36,30 @@ const WineSnap = () => {
         }
       }
 
-      if (allText.trim()) {
-        setOcrText(allText.trim());
-      } else {
+      if (!allText.trim()) {
         throw new Error("No text recognized");
       }
-    } catch (error) {
-      console.error("OCR error:", error);
-      toast({
-        title: "OCR-fel",
-        description: "Kunde inte läsa etiketten – försök fota rakare och i bra ljus.",
-        variant: "destructive"
-      });
-      setOcrText("");
-    } finally {
-      setIsOcrRunning(false);
-      setOcrProgress(0);
-    }
-  };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const imageData = reader.result as string;
-        setPreviewImage(imageData);
-        await runOCR(imageData);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+      const ocrText = allText.trim();
 
-  const handleTakePhoto = () => {
-    document.getElementById("wineImageUpload")?.click();
-  };
-
-  const handleAnalyze = async (forceRefresh = false) => {
-    if (!ocrText) {
-      toast({
-        title: "Ingen text",
-        description: "Vänligen fota eller ladda upp en vinflaska först.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Check cache first (unless forcing refresh)
-    if (!forceRefresh) {
+      // Step 2: Check cache
       const cached = getCachedAnalysis(ocrText);
       if (cached) {
         setResults(cached);
         toast({
-          title: "Från cache",
-          description: "Visar tidigare analys (klicka 'Uppdatera analys' för ny)."
+          title: "Klart!",
+          description: "Analys hämtad från cache."
         });
         return;
       }
-    }
 
-    setIsAnalyzing(true);
-    
-    try {
+      // Step 3: Call AI
+      setProcessingStep("ai");
+
       const { data, error } = await supabase.functions.invoke('analyzeWineAI', {
         body: { 
           ocrText,
-          lang
+          lang: "sv"
         }
       });
 
@@ -136,25 +74,49 @@ const WineSnap = () => {
         };
         
         setResults(result);
-        
-        // Store in cache
         setCachedAnalysis(ocrText, result);
         
         toast({
-          title: "Analys klar!",
-          description: "Vinets egenskaper har analyserats."
+          title: "Klart!",
+          description: "Vinanalys slutförd."
         });
       }
     } catch (error) {
-      console.error('Analysis error:', error);
+      console.error("Processing error:", error);
       toast({
         title: "Fel",
-        description: "AI-analysen misslyckades, försök igen.",
+        description: "Kunde inte läsa etiketten – försök fota rakare och i bra ljus.",
         variant: "destructive"
       });
+      setPreviewImage(null);
     } finally {
-      setIsAnalyzing(false);
+      setIsProcessing(false);
+      setProcessingStep(null);
     }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const imageData = reader.result as string;
+        setPreviewImage(imageData);
+        await processWineImage(imageData);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleTakePhoto = () => {
+    document.getElementById("wineImageUpload")?.click();
+  };
+
+  const handleReset = () => {
+    setPreviewImage(null);
+    setResults(null);
+    setIsProcessing(false);
+    setProcessingStep(null);
   };
 
   return (
@@ -182,181 +144,145 @@ const WineSnap = () => {
           )}
         </div>
 
-        {/* Photo Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Fota eller ladda upp vinflaska</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-3">
-              <Button 
-                id="takePhotoBtn" 
-                onClick={handleTakePhoto}
-                className="flex-1"
-                variant="default"
-              >
-                <Camera className="mr-2 h-4 w-4" />
-                Öppna kamera
-              </Button>
-              <Button 
-                variant="secondary"
-                className="flex-1"
-                onClick={() => document.getElementById("wineImageUpload")?.click()}
-              >
-                <Upload className="mr-2 h-4 w-4" />
-                Ladda upp
-              </Button>
-            </div>
-            
-            <input
-              id="wineImageUpload"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleFileChange}
-              className="hidden"
-            />
+        {/* Hidden file input */}
+        <input
+          id="wineImageUpload"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileChange}
+          className="hidden"
+        />
 
-            {previewImage && (
-              <div id="wineImagePreview" className="mt-4">
+        {/* Image Preview with Processing Overlay */}
+        {previewImage && (
+          <Card className="relative overflow-hidden animate-fade-in">
+            <CardContent className="p-4">
+              <div className="relative">
                 <img 
                   src={previewImage} 
-                  alt="Wine bottle preview" 
+                  alt="Wine bottle" 
                   className="w-full rounded-lg shadow-md max-h-96 object-contain bg-muted"
                 />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* OCR Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Extraherad text (OCR)</span>
-              {isOcrRunning && (
-                <span className="text-sm text-muted-foreground flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {ocrProgress}%
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              id="ocrText"
-              readOnly
-              value={ocrText}
-              placeholder="Text från vinflaskans etikett visas här..."
-              className="min-h-32 resize-none bg-muted"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Language Selection */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Språk för analys</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Select value={lang} onValueChange={setLang}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Välj språk" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="sv">Svenska</SelectItem>
-                <SelectItem value="en">English</SelectItem>
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
-
-        {/* Results Section */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-semibold">Resultat</h2>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Druva</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p id="resGrape" className="text-muted-foreground">
-                {results.grape || "Väntar på analys..."}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Stil/smak</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p id="resStyle" className="text-muted-foreground">
-                {results.style || "Väntar på analys..."}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Servering</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p id="resServe" className="text-muted-foreground">
-                {results.serve_temp_c ? `Servering: ${results.serve_temp_c}` : "Väntar på analys..."}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Matparning</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div id="resPairing" className="text-muted-foreground">
-                {results.pairing.length > 0 ? (
-                  <ul className="list-disc list-inside space-y-1">
-                    {results.pairing.map((item, index) => (
-                      <li key={index}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  "Väntar på analys..."
+                
+                {/* Processing Overlay */}
+                {isProcessing && (
+                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg animate-fade-in">
+                    <div className="text-center space-y-3">
+                      <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+                      <p className="text-lg font-medium">
+                        {processingStep === "ocr" && "Läser etikett..."}
+                        {processingStep === "ai" && "Analyserar vinet..."}
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
             </CardContent>
           </Card>
-        </div>
+        )}
 
-        {/* Analyze Button */}
-        <div className="space-y-2">
+        {/* Results Section */}
+        {results && !isProcessing && (
+          <div className="space-y-4 animate-fade-in">
+            <h2 className="text-2xl font-semibold text-center">Analys</h2>
+            
+            <Card className="hover-scale">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Grape className="h-5 w-5 text-primary" />
+                  Druva
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground font-medium">
+                  {results.grape}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="hover-scale">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Wind className="h-5 w-5 text-primary" />
+                  Stil & smak
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  {results.style}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="hover-scale">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Thermometer className="h-5 w-5 text-primary" />
+                  Servering
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  {results.serve_temp_c}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="hover-scale">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <UtensilsCrossed className="h-5 w-5 text-primary" />
+                  Ät till
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {results.pairing.length > 0 ? (
+                  <ul className="space-y-2">
+                    {results.pairing.map((item, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-primary mt-1">•</span>
+                        <span className="text-muted-foreground">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-muted-foreground">Inga förslag tillgängliga</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Main CTA Button */}
+        <div className="fixed bottom-8 left-0 right-0 px-4 max-w-2xl mx-auto">
           <Button 
-            id="analyzeBtn"
-            onClick={() => handleAnalyze(false)}
+            onClick={results ? handleReset : handleTakePhoto}
             className="w-full"
             size="lg"
-            disabled={!ocrText || isAnalyzing}
+            disabled={isProcessing}
           >
-            {isAnalyzing ? (
+            {isProcessing ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Analyserar...
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Bearbetar...
+              </>
+            ) : results ? (
+              <>
+                <Camera className="mr-2 h-5 w-5" />
+                Fota ny flaska
               </>
             ) : (
-              "Analysera vin"
+              <>
+                <Camera className="mr-2 h-5 w-5" />
+                Fota vinflaska
+              </>
             )}
           </Button>
-          
-          {results.grape && (
-            <button
-              onClick={() => handleAnalyze(true)}
-              disabled={isAnalyzing}
-              className="w-full text-sm text-muted-foreground hover:text-foreground underline"
-            >
-              Uppdatera analys
-            </button>
-          )}
         </div>
+
+        {/* Spacer for fixed button */}
+        <div className="h-20" />
       </div>
     </div>
   );
