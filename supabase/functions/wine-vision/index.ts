@@ -170,16 +170,17 @@ Deno.serve(async (req) => {
     }
 
 
-    // System prompt - fact-checking AI sommelier
-    const systemPrompt = `DU ÄR: En faktagranskande AI-sommelier. Du läser etikettbilden (vision), använder den OCR-lästa texten och sammanfattar endast verifierad fakta från webbkällor. Du hittar aldrig på.
+    // System prompt - fact-checking AI sommelier with WEB_JSON
+    const systemPrompt = `DU ÄR: En faktagranskande AI-sommelier. Du får OCR-text från etiketten och ett JSON-objekt med webbfakta ("WEB_JSON"). Du ska returnera ENDAST ett giltigt JSON-objekt i Systembolaget-stil. Inga påhitt.
 
 ARBETSGÅNG:
-1) ETIKETT (OCR): Läs texten på etiketten: namn, producent, druvor, land/region, klassificering (DOC/DOCG/Brut/Extra Dry), årgång, alkoholhalt, volym.
-2) WEBBFAKTA: Använd sammanfattningen från webbsök-steget (WEB_TEXT). Lita i första hand på Systembolaget, därefter producentens sida, därefter Vivino/Wine-Searcher. Ignorera bloggar/oinställda källor.
-3) FILTRERA: Ta endast med fakta som finns på etiketten eller bekräftas i WEB_TEXT. Om uppgift saknas: "-".
-4) JSON ENDAST: Svara alltid med EN (1) giltig JSON enligt schemat nedan. Ingen extra text.
+1) Använd etikettens OCR_TEXT för att plocka upp namn, klassificering, årgång, alkoholhalt, volym om det står.
+2) Använd WEB_JSON för att fylla verifierade fakta (producent, druvor, land/region, ev. stiltyp etc).
+3) Vid konflikt: lita främst på Systembolaget, därefter producenten, därefter Vivino/Wine-Searcher. Annars behåll "-".
+4) Hitta inte på något som inte står i etikett eller WEB_JSON. Om fält saknas: "-".
+5) Svara endast med EN (1) giltig JSON enligt schema nedan (svenska, ingen markdown, ingen extra text).
 
-SCHEMA (SVENSKA):
+SCHEMA:
 {
   "vin": "",
   "land_region": "",
@@ -209,16 +210,29 @@ SCHEMA (SVENSKA):
 }
 
 REGLER:
-- Ingen fantasi. Skriv "-" när fakta saknas.
-- Fyll endast "karaktär/smak/passar_till/servering/meters" om webbkällan uttryckligen anger det.
-- För mousserande: sötma-mappning får användas deterministiskt om klassificering finns:
+- Typ/färg: härled bara från tydliga ord (Prosecco/Cava/Champagne/Spumante/Frizzante => mousserande; Rosé/Rosato/Rosado => rosé; Bianco/Blanc/White => vitt; Rosso/Rouge/Red => rött). Annars lämna tomt.
+- Mousserande sötma (får mappas utan webbcitat om klassificering står): 
   Brut Nature/Pas Dosé/Dosage Zéro=0; Extra Brut=0.5; Brut=1; Extra Dry=1.5; Dry/Sec=2.2; Demi-Sec/Semi-Seco=3.4; Dolce/Sweet=4.5.
-- Evidence: inkludera etikettens OCR-text (kortad) och de använda webbadresserna.`;
+- meters.fyllighet/fruktighet/fruktsyra: fyll ENDAST om källa uttryckligen anger värden/stilskala; annars null.
+- "källa": välj den viktigaste URL:en från WEB_JSON.källor (helst Systembolaget). 
+- "evidence": etiketttext (kortad) = OCR_TEXT (max 200 tecken). "webbträffar" = upp till tre URL:er från WEB_JSON.källor.`;
 
-    // Build user message with OCR context, optional web search results, and image
-    function buildUserMessage(ocrText: string, webText: string, imageBase64?: string): any {
-      const webContext = webText ? `\n\nWEB_TEXT:\n${webText}` : "\n\nWEB_TEXT:\n(AI söker automatiskt efter information)";
-      const context = `OCR_TEXT:\n${ocrText || "(ingen text)"}${webContext}\n\nAnalysera vinet baserat på OCR_TEXT och WEB_TEXT ovan och returnera ENDAST JSON enligt schemat.`;
+    // Build WEB_JSON from Perplexity results
+    const webJson = {
+      text: webText || "",
+      källor: webSources
+    };
+
+    // Build user message with OCR and WEB_JSON
+    function buildUserMessage(ocrText: string, webJson: any, imageBase64?: string): any {
+      const context = `DATA:
+OCR_TEXT:
+${ocrText || "(ingen text)"}
+
+WEB_JSON:
+${JSON.stringify(webJson, null, 2)}
+
+Analysera vinet baserat på OCR_TEXT och WEB_JSON ovan och returnera ENDAST JSON enligt schemat.`;
       
       if (imageBase64) {
         return [
@@ -238,7 +252,7 @@ REGLER:
       }
     }
 
-    const userMessage = buildUserMessage(ocrText || "", webText, imageBase64);
+    const userMessage = buildUserMessage(ocrText || "", webJson, imageBase64);
 
     // Gemini API call with retry logic
     const maxRetries = 2;
