@@ -122,8 +122,16 @@ const WineSnap = () => {
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      const data = await response.json();
-      console.log("Received data from vision API:", data);
+      const responseData = await response.json();
+      console.log("Received data from vision API:", responseData);
+
+      // Handle new response format: { ok, data, note }
+      if (!responseData.ok) {
+        throw new Error(responseData.error || "Analysis failed");
+      }
+
+      const data = responseData.data;
+      const note = responseData.note;
 
       if (data) {
         const result: WineAnalysisResult = {
@@ -153,9 +161,19 @@ const WineSnap = () => {
         setResults(result);
         setCachedAnalysis(imageData, result);
         
+        // Show appropriate toast based on note
+        const toastMessages = {
+          "hit_memory": "Klart! (från cache)",
+          "hit_supabase": "Klart! (från databas)",
+          "perplexity_timeout": "Klart! (baserat på etikett)",
+          "success": "Klart!"
+        };
+        
         toast({
-          title: "Klart!",
-          description: "Vinanalys slutförd."
+          title: toastMessages[note as keyof typeof toastMessages] || "Klart!",
+          description: note === "perplexity_timeout" 
+            ? "Webbsökning tog för lång tid – analys baserad endast på etikett."
+            : "Vinanalys slutförd."
         });
       }
     } catch (error) {

@@ -14,7 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      winesnap_cache: {
+        Row: {
+          created_at: string | null
+          data: Json
+          key: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: Json
+          key: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: Json
+          key?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
