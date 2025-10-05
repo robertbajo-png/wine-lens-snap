@@ -72,7 +72,7 @@ const WineSnap = () => {
         body: JSON.stringify({ 
           ocrText,
           noTextFound,
-          lang: "sv"
+          uiLang: "sv"
         })
       });
 
@@ -102,7 +102,9 @@ const WineSnap = () => {
           alkoholhalt: data.alkoholhalt || "–",
           volym: data.volym || "–",
           sockerhalt: data.sockerhalt || "–",
-          syra: data.syra || "–"
+          syra: data.syra || "–",
+          detekterat_språk: data.detekterat_språk,
+          originaltext: data.originaltext
         };
         
         setResults(result);

@@ -26,7 +26,9 @@ function parseWine(jsonText: string): any {
       alkoholhalt: "–",
       volym: "–",
       sockerhalt: "–",
-      syra: "–"
+      syra: "–",
+      detekterat_språk: "–",
+      originaltext: "–"
     };
   }
 }
@@ -74,28 +76,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { ocrText, noTextFound = false, lang = "sv" } = await req.json();
+    const { ocrText, noTextFound = false, uiLang = "sv" } = await req.json();
 
-    console.log(`Analyzing wine with OCR text, language: ${lang}`);
+    console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
-    const system = `Du är vinexpert. Returnera ENDAST giltig JSON exakt enligt detta schema:
-{"vin":"","land_region":"","producent":"","druvor":"","karaktär":"","smak":"",
- "passar_till":[],"servering":"","årgång":"","alkoholhalt":"","volym":"",
- "sockerhalt":"","syra":""}
-
+    const system = `Du är en vinexpert. Du får OCR-text från en vinetikett på okänt språk.
+1) Identifiera vinets namn, typ (white/red/rosé/sparkling/sweet), land, region, producent, druvor, årgång, alkohol, volym, socker, syra. 
+2) Gissa aldrig från färg/layout; bygg på text och allmän oenlig vinfakta.
+3) Upptäck källspråket och översätt fälten till UI-språket: ${uiLang}.
+4) Returnera ENDAST giltig JSON exakt enligt:
+{
+ "vin":"","land_region":"","producent":"","druvor":"",
+ "karaktär":"","smak":"","passar_till":[],
+ "servering":"","årgång":"","alkoholhalt":"",
+ "volym":"","sockerhalt":"","syra":"",
+ "detekterat_språk":"","originaltext":""
+}
 Regler:
-- Gissa inte från färg/layout. Bygg på text/etikett.
-- Om OCR saknas: fyll med "–" men om du ser nyckelord som "Tokaji" och "Furmint"
-  får du använda validerad domänkunskap nedan.
-- Svara på svenska. Ingen extra text/markdown.
-- Håll "passar_till" som array av korta strängar.
-
-Domänkunskap (safe defaults när nyckelord matchar):
-- "Tokaji" + "Furmint" => 
-  land_region="Ungern, Tokaj", druvor="Furmint", karaktär="Friskt & fruktigt",
-  smak="Friskt och fruktigt med inslag av citrus, gröna äpplen och lätt honung/mineral.",
-  servering="8–10 °C", passar_till=["fisk","kyckling","milda ostar"].`;
+- Neutral, informativ ton (Systembolaget-stil).
+- "passar_till" = korta fraser (2–5 st).
+- Om uppgift saknas: "–".
+- Lägg alltid "originaltext" (OCR-råtext) och "detekterat_språk" (BCP-47 kod, t.ex. "hu", "sv", "en").
+- Exempel på säkra normaliseringar:
+  - Om texten innehåller "Tokaji" och "Furmint" → typ=vitt, druvor=Furmint, land_region="Ungern, Tokaj", servering="8–10 °C", karaktär="Friskt & fruktigt".
+Svara på ${uiLang}.`;
 
     const userMessage = `Här är etikettens text från OCR:
 ---
@@ -181,6 +186,8 @@ Identifiera och returnera JSON enligt systemet. Använd domänkunskapen om Tokaj
       volym: safe.volym ?? "–",
       sockerhalt: safe.sockerhalt ?? "–",
       syra: safe.syra ?? "–",
+      detekterat_språk: safe.detekterat_språk ?? "–",
+      originaltext: safe.originaltext ?? ocrText ?? "–",
       _telemetry: telemetry
     };
 

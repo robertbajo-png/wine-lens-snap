@@ -41,6 +41,8 @@ export interface WineAnalysisResult {
   volym: string;
   sockerhalt: string;
   syra: string;
+  detekterat_språk?: string;
+  originaltext?: string;
 }
 
 export function getCachedAnalysis(ocrText: string): WineAnalysisResult | null {
