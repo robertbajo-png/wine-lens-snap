@@ -7,6 +7,30 @@ const cors = {
   "Access-Control-Allow-Headers": "content-type, authorization",
 };
 
+function parseWine(jsonText: string): any {
+  try {
+    // Trimma av ev. markdown-kodblock
+    const clean = jsonText.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
+    return JSON.parse(clean);
+  } catch {
+    return {
+      vin: "–",
+      land_region: "–",
+      producent: "–",
+      druvor: "–",
+      karaktär: "–",
+      smak: "Tekniskt fel vid tolkning.",
+      passar_till: [],
+      servering: "–",
+      årgång: "–",
+      alkoholhalt: "–",
+      volym: "–",
+      sockerhalt: "–",
+      syra: "–"
+    };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST")
@@ -110,20 +134,10 @@ Returnera ENDAST JSON utan markdown eller kommentarer.`;
 
     const json = await ai.json();
     let content: string = json?.choices?.[0]?.message?.content ?? "{}";
-    content = content.replace(/^```json/i, "").replace(/```$/i, "").trim();
 
     console.log("Vision API response:", content);
 
-    let parsed: any = {};
-    try {
-      parsed = JSON.parse(content);
-    } catch (parseError) {
-      console.error("Failed to parse JSON:", parseError, content);
-      return new Response(
-        JSON.stringify({ error: "Failed to parse AI response" }),
-        { status: 500, headers: { ...cors, "content-type": "application/json" } }
-      );
-    }
+    const parsed = parseWine(content);
 
     const data = {
       vin: parsed.vin ?? "–",
