@@ -81,40 +81,54 @@ Deno.serve(async (req) => {
     console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
-    // System prompt with placeholder for UI language
-    const systemPrompt = `Du är en vinexpert. Du får OCR-text från en vinetikett på okänt språk.
-1) Identifiera vinets namn, typ (white/red/rosé/sparkling/sweet), land, region, producent, druvor, årgång, alkohol, volym, socker, syra. 
-2) Gissa aldrig från färg/layout; bygg på text och allmän oenlig vinfakta.
-3) Upptäck källspråket och översätt fälten till UI-språket: <UI_LANG>.
-4) Returnera ENDAST giltig JSON exakt enligt:
+    // System prompt - Swedish sommelier style
+    const systemPrompt = `Du är en vinexpert och sommelier. Du får OCR-text från en vinflaska-etikett. Läs texten och analysera vinet.
+
+Följ dessa steg:
+
+1️⃣ Läs etikettens text och identifiera namn, typ, druva, region, land, producent och eventuell årgång.
+2️⃣ Identifiera vinets stil (t.ex. vitt, rött, rosé, mousserande, sött).
+3️⃣ Ange karaktär och smak enligt Systembolagets ton – informativ, neutral, kortfattad.
+4️⃣ Ange rekommenderad serveringstemperatur i °C.
+5️⃣ Ange passande maträtter (3–4 exempel).
+6️⃣ Ange alkoholhalt, volym, sockerhalt och syra om det framgår.
+7️⃣ Om något inte går att läsa, skriv "–", men gissa inte.
+8️⃣ Om du ser "Prosecco", "Furmint", "Tokaji", "Chianti", "Riesling" eller andra kända ursprung, fyll på rimlig bakgrundsinformation om stilen, men håll dig objektiv.
+
+Returnera informationen exakt i detta JSON-format:
 {
- "vin":"","land_region":"","producent":"","druvor":"",
- "karaktär":"","smak":"","passar_till":[],
- "servering":"","årgång":"","alkoholhalt":"",
- "volym":"","sockerhalt":"","syra":"",
- "detekterat_språk":"","originaltext":""
+  "vin": "",
+  "land_region": "",
+  "producent": "",
+  "druvor": "",
+  "karaktär": "",
+  "smak": "",
+  "passar_till": "",
+  "servering": "",
+  "årgång": "",
+  "alkoholhalt": "",
+  "volym": "",
+  "sockerhalt": "",
+  "syra": "",
+  "detekterat_språk": "",
+  "originaltext": ""
 }
+
 Regler:
-- Neutral, informativ ton (Systembolaget-stil).
-- "passar_till" = korta fraser (2–5 st).
-- Om uppgift saknas: "–".
-- Lägg alltid "originaltext" (OCR-råtext) och "detekterat_språk" (BCP-47 kod, t.ex. "hu", "sv", "en").
-- Exempel på säkra normaliseringar:
-  - Om texten innehåller "Tokaji" och "Furmint" → typ=vitt, druvor=Furmint, land_region="Ungern, Tokaj", servering="8–10 °C", karaktär="Friskt & fruktigt".
-Svara på <UI_LANG>.`;
+- "passar_till" ska vara en kommaseparerad sträng (t.ex. "Aperitif, förrätter, skaldjur, sallader")
+- Använd alltid "–" för saknad information
+- Lägg alltid "originaltext" (OCR-råtext) och "detekterat_språk" (BCP-47 kod)`;
 
     // Build user message
-    function buildUserMessage(ocrText: string, uiLang: string): string {
-      return `<UI_LANG> = ${uiLang}
-OCR_TEXT:
+    function buildUserMessage(ocrText: string): string {
+      return `OCR-text från vinflaska-etikett:
 ---
 ${ocrText || "(ingen text hittades)"}
 ---
 Analysera enligt systemet och returnera JSON.`;
     }
 
-    const system = systemPrompt.replace(/<UI_LANG>/g, uiLang);
-    const userMessage = buildUserMessage(ocrText || "", uiLang);
+    const userMessage = buildUserMessage(ocrText || "");
 
     const ai = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -127,7 +141,7 @@ Analysera enligt systemet och returnera JSON.`;
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
-          { role: "system", content: system },
+          { role: "system", content: systemPrompt },
           { role: "user", content: userMessage }
         ],
       }),
@@ -182,6 +196,14 @@ Analysera enligt systemet och returnera JSON.`;
     };
     console.log("Telemetry:", telemetry);
 
+    // Convert passar_till string to array if needed
+    let passarTillArray: string[] = [];
+    if (typeof safe.passar_till === 'string') {
+      passarTillArray = safe.passar_till.split(',').map((s: string) => s.trim()).filter(Boolean);
+    } else if (Array.isArray(safe.passar_till)) {
+      passarTillArray = safe.passar_till;
+    }
+
     const responseData = {
       vin: safe.vin ?? "–",
       land_region: safe.land_region ?? "–",
@@ -189,7 +211,7 @@ Analysera enligt systemet och returnera JSON.`;
       druvor: safe.druvor ?? "–",
       karaktär: safe.karaktär ?? "–",
       smak: safe.smak ?? "–",
-      passar_till: Array.isArray(safe.passar_till) ? safe.passar_till : [],
+      passar_till: passarTillArray,
       servering: safe.servering ?? "–",
       årgång: safe.årgång ?? "–",
       alkoholhalt: safe.alkoholhalt ?? "–",
