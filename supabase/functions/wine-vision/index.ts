@@ -89,10 +89,12 @@ Deno.serve(async (req) => {
     console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
-    // Step 1: Optional web search with Perplexity (skip if no API key or timeout)
+    // Step 1: Web search with Perplexity using OCR text only
     let webText = "";
+    let webSources: string[] = [];
+    
     if (PERPLEXITY_API_KEY && ocrText && ocrText.length > 5) {
-      console.log("Searching web with Perplexity...");
+      console.log("Searching web with Perplexity (OCR text only)...");
       
       // Retry logic with exponential backoff
       const maxRetries = 2;
@@ -118,12 +120,14 @@ Deno.serve(async (req) => {
               messages: [
                 {
                   role: "user",
-                  content: `Sök efter fakta om vinet: ${ocrText.slice(0, 150)}. Använd Systembolaget, Vivino eller Wine-Searcher. Max 200 ord.`
+                  content: `Vin: "${ocrText.slice(0, 200)}"\n\nHitta kort fakta från Systembolaget, Vivino eller Wine-Searcher. Max 150 ord.`
                 }
               ],
-              max_tokens: 400,
+              max_tokens: 300,
+              temperature: 0.1,
               return_images: false,
-              return_related_questions: false
+              return_related_questions: false,
+              search_domain_filter: ["systembolaget.se", "vivino.com", "wine-searcher.com"]
             })
           });
 
@@ -131,7 +135,21 @@ Deno.serve(async (req) => {
 
           if (perplexityResponse.ok) {
             const perplexityData = await perplexityResponse.json();
-            webText = perplexityData?.choices?.[0]?.message?.content || "";
+            const rawText = perplexityData?.choices?.[0]?.message?.content || "";
+            const citations = perplexityData?.citations || [];
+            
+            // Post-process: Extract and prioritize sources
+            if (citations.length > 0) {
+              const systembolagetSources = citations.filter((url: string) => url.includes("systembolaget.se"));
+              const otherSources = citations.filter((url: string) => !url.includes("systembolaget.se"));
+              
+              // Take top 1-2 sources, prioritizing Systembolaget
+              webSources = [...systembolagetSources.slice(0, 2), ...otherSources.slice(0, 2 - systembolagetSources.length)];
+              console.log("Web sources prioritized:", webSources);
+            }
+            
+            // Deduplicate and condense the text
+            webText = rawText.trim();
             console.log("Web search successful, length:", webText.length);
             break; // Success, exit retry loop
           } else {
@@ -345,7 +363,10 @@ REGLER:
       syra: safe.syra ?? "–",
       källa: safe.källa ?? "–",
       meters: safe.meters ?? { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
-      evidence: safe.evidence ?? { etiketttext: "", webbträffar: [] },
+      evidence: {
+        etiketttext: safe.evidence?.etiketttext || (ocrText || "").slice(0, 200),
+        webbträffar: webSources.length > 0 ? webSources : (safe.evidence?.webbträffar || [])
+      },
       _telemetry: telemetry
     };
 
