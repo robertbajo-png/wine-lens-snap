@@ -36,6 +36,10 @@ const WineSnap = () => {
       // Call Vision API with direct fetch
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wine-vision`;
       
+      console.log("Calling wine-vision function at:", functionUrl);
+      console.log("Image data length:", imageData.length);
+      console.log("Image data starts with:", imageData.substring(0, 50));
+      
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
@@ -48,12 +52,17 @@ const WineSnap = () => {
         })
       });
 
+      console.log("Response status:", response.status);
+      console.log("Response ok:", response.ok);
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error("Edge function error:", errorData);
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
       const data = await response.json();
+      console.log("Received data from vision API:", data);
 
       if (data) {
         const result: WineAnalysisResult = {
