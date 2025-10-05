@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Camera, Wine, Loader2, Download, Grape, Wind, Thermometer, UtensilsCrossed } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import Tesseract from "tesseract.js";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
@@ -13,52 +12,31 @@ const WineSnap = () => {
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStep, setProcessingStep] = useState<"ocr" | "ai" | null>(null);
+  const [processingStep, setProcessingStep] = useState<"vision" | null>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
 
   const processWineImage = async (imageData: string) => {
     setIsProcessing(true);
-    setProcessingStep("ocr");
+    setProcessingStep("vision");
     
     try {
-      // Step 1: Run OCR with multiple languages including Hungarian for Tokaji wines
-      const languages = ['eng', 'hun', 'fra', 'ita', 'spa', 'deu'];
-      let allText = "";
-
-      for (const lang of languages) {
-        try {
-          const { data } = await Tesseract.recognize(imageData, lang);
-          if (data.text.trim()) {
-            allText += data.text + "\n\n";
-          }
-        } catch (langError) {
-          console.warn(`OCR failed for language ${lang}:`, langError);
-        }
-      }
-
-      if (!allText.trim()) {
-        throw new Error("No text recognized");
-      }
-
-      const ocrText = allText.trim();
-
-      // Step 2: Check cache
-      const cached = getCachedAnalysis(ocrText);
+      // Check cache first (using image data as key)
+      const cached = getCachedAnalysis(imageData);
       if (cached) {
         setResults(cached);
         toast({
           title: "Klart!",
           description: "Analys hämtad från cache."
         });
+        setIsProcessing(false);
+        setProcessingStep(null);
         return;
       }
 
-      // Step 3: Call AI
-      setProcessingStep("ai");
-
-      const { data, error } = await supabase.functions.invoke('analyzeWineAI', {
+      // Call Vision API directly
+      const { data, error } = await supabase.functions.invoke('wine-vision', {
         body: { 
-          ocrText,
+          imageDataUrl: imageData,
           lang: "sv"
         }
       });
@@ -77,7 +55,7 @@ const WineSnap = () => {
         };
         
         setResults(result);
-        setCachedAnalysis(ocrText, result);
+        setCachedAnalysis(imageData, result);
         
         toast({
           title: "Klart!",
@@ -88,7 +66,7 @@ const WineSnap = () => {
       console.error("Processing error:", error);
       toast({
         title: "Fel",
-        description: "Kunde inte läsa etiketten – försök fota rakare och i bra ljus.",
+        description: "Kunde inte analysera bilden – försök fota rakare och i bra ljus.",
         variant: "destructive"
       });
       setPreviewImage(null);
@@ -295,8 +273,7 @@ const WineSnap = () => {
                       <div className="text-center space-y-3">
                         <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
                         <p className="text-lg font-semibold text-foreground">
-                          {processingStep === "ocr" && "Läser etikett..."}
-                          {processingStep === "ai" && "Analyserar vinet..."}
+                          Analyserar vinet...
                         </p>
                       </div>
                     </div>
