@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, Upload, Wine, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Tesseract from "tesseract.js";
@@ -10,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 const WineSnap = () => {
   const { toast } = useToast();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [lang, setLang] = useState("sv");
   const [ocrText, setOcrText] = useState("");
   const [isOcrRunning, setIsOcrRunning] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
@@ -103,7 +105,7 @@ const WineSnap = () => {
       const { data, error } = await supabase.functions.invoke('analyzeWineAI', {
         body: { 
           ocrText,
-          lang: 'sv'
+          lang
         }
       });
 
@@ -125,8 +127,8 @@ const WineSnap = () => {
     } catch (error) {
       console.error('Analysis error:', error);
       toast({
-        title: "Analys misslyckades",
-        description: "Kunde inte analysera vinet. Försök igen.",
+        title: "Fel",
+        description: "AI-analysen misslyckades, försök igen.",
         variant: "destructive"
       });
     } finally {
@@ -217,6 +219,24 @@ const WineSnap = () => {
           </CardContent>
         </Card>
 
+        {/* Language Selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Språk för analys</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Select value={lang} onValueChange={setLang}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Välj språk" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sv">Svenska</SelectItem>
+                <SelectItem value="en">English</SelectItem>
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
         {/* Results Section */}
         <div className="space-y-4">
           <h2 className="text-2xl font-semibold">Resultat</h2>
@@ -249,7 +269,7 @@ const WineSnap = () => {
             </CardHeader>
             <CardContent>
               <p id="resServe" className="text-muted-foreground">
-                {results.serve_temp_c || "Väntar på analys..."}
+                {results.serve_temp_c ? `Servering: ${results.serve_temp_c}` : "Väntar på analys..."}
               </p>
             </CardContent>
           </Card>
