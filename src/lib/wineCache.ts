@@ -32,15 +32,29 @@ export interface WineAnalysisResult {
   land_region: string;
   producent: string;
   druvor: string;
+  årgång: string;
+  typ: string;
+  färgtyp: string;
+  klassificering: string;
+  alkoholhalt: string;
+  volym: string;
   karaktär: string;
   smak: string;
   passar_till: string[];
   servering: string;
-  årgång: string;
-  alkoholhalt: string;
-  volym: string;
   sockerhalt: string;
   syra: string;
+  källa: string;
+  meters?: {
+    sötma: number | null;
+    fyllighet: number | null;
+    fruktighet: number | null;
+    fruktsyra: number | null;
+  };
+  evidence?: {
+    etiketttext: string;
+    webbträffar: string[];
+  };
   detekterat_språk?: string;
   originaltext?: string;
 }
