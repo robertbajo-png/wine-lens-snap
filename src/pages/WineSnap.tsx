@@ -3,14 +3,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, Upload, Wine, Loader2 } from "lucide-react";
+import { Camera, Upload, Wine, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Tesseract from "tesseract.js";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
+import { usePWAInstall } from "@/hooks/usePWAInstall";
 
 const WineSnap = () => {
   const { toast } = useToast();
+  const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [lang, setLang] = useState("sv");
   const [ocrText, setOcrText] = useState("");
@@ -165,6 +167,19 @@ const WineSnap = () => {
             <h1 className="text-4xl font-bold text-foreground">WineSnap</h1>
           </div>
           <p className="text-muted-foreground">Analysera din vinflaska med AI</p>
+          
+          {/* PWA Install Button */}
+          {isInstallable && !isInstalled && (
+            <Button 
+              onClick={handleInstall}
+              variant="outline"
+              size="sm"
+              className="mt-2"
+            >
+              <Download className="mr-2 h-4 w-4" />
+              Installera app
+            </Button>
+          )}
         </div>
 
         {/* Photo Section */}
