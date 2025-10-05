@@ -1,5 +1,5 @@
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const MODEL = "gpt-4.1-2025-04-14";
+const MODEL = "gpt-4o";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { ocrText, noTextFound = false, uiLang = "sv-SE" } = await req.json();
+    const { ocrText, imageBase64, noTextFound = false, uiLang = "sv-SE" } = await req.json();
 
     console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
@@ -127,16 +127,31 @@ Regler:
 - För meters: om du hittar verifierad info om sötma/fyllighet/fruktighet/fruktsyra, sätt värde 0-5, annars null.
 - Svara endast med JSON, inga kommentarer eller extra text.`;
 
-    // Build user message
-    function buildUserMessage(ocrText: string): string {
-      return `OCR-text från vinflaska-etikett:
+    // Build user message with image
+    function buildUserMessage(ocrText: string, imageBase64?: string): any {
+      if (imageBase64) {
+        return [
+          {
+            type: "image_url",
+            image_url: {
+              url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`
+            }
+          },
+          {
+            type: "text",
+            text: `Analysera denna vinflaske-etikett. OCR-text (som backup): ${ocrText || "(ingen text)"}\n\nSök på webben efter verifierad information om detta vin och returnera JSON enligt formatet.`
+          }
+        ];
+      } else {
+        return `OCR-text från vinflaska-etikett:
 ---
 ${ocrText || "(ingen text hittades)"}
 ---
 Analysera enligt systemet och returnera JSON.`;
+      }
     }
 
-    const userMessage = buildUserMessage(ocrText || "");
+    const userMessage = buildUserMessage(ocrText || "", imageBase64);
 
     const ai = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -146,7 +161,8 @@ Analysera enligt systemet och returnera JSON.`;
       },
       body: JSON.stringify({
         model: MODEL,
-        max_completion_tokens: 4000,
+        temperature: 0.1,
+        max_tokens: 4000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },

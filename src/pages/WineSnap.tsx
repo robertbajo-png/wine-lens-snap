@@ -90,6 +90,7 @@ const WineSnap = () => {
         },
         body: JSON.stringify({ 
           ocrText,
+          imageBase64: processedImage,
           noTextFound,
           uiLang
         })
