@@ -7,18 +7,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import WineCardSB from "@/components/WineCardSB";
+import { preprocessImage } from "@/lib/imagePrep";
+import { createWorker } from "tesseract.js";
 
 const WineSnap = () => {
   const { toast } = useToast();
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStep, setProcessingStep] = useState<"vision" | null>(null);
+  const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | null>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
 
   const processWineImage = async (imageData: string) => {
     setIsProcessing(true);
-    setProcessingStep("vision");
+    setProcessingStep("prep");
     
     try {
       // Check cache first (using image data as key)
@@ -34,12 +36,32 @@ const WineSnap = () => {
         return;
       }
 
-      // Call Vision API with direct fetch
-      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wine-vision`;
+      // Step 1: Preprocess image
+      console.log("Step 1: Preprocessing image...");
+      const processedImage = await preprocessImage(imageData);
+      console.log("Image preprocessed, size:", processedImage.length);
+
+      // Step 2: OCR with Tesseract.js
+      setProcessingStep("ocr");
+      console.log("Step 2: Running OCR with Tesseract.js...");
       
-      console.log("Calling wine-vision function at:", functionUrl);
-      console.log("Image data length:", imageData.length);
-      console.log("Image data starts with:", imageData.substring(0, 50));
+      const worker = await createWorker(['eng', 'hun', 'swe']);
+      const { data: { text } } = await worker.recognize(processedImage);
+      await worker.terminate();
+      
+      // Clean OCR text
+      const ocrText = text.trim().replace(/\s+/g, ' ');
+      console.log("OCR text length:", ocrText.length);
+      console.log("OCR text preview:", ocrText.substring(0, 200));
+      
+      const noTextFound = ocrText.length < 10;
+      console.log("No text found flag:", noTextFound);
+
+      // Step 3: GPT Analysis with OCR text
+      setProcessingStep("analysis");
+      console.log("Step 3: Analyzing with GPT...");
+      
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wine-vision`;
       
       const response = await fetch(functionUrl, {
         method: 'POST',
@@ -48,7 +70,8 @@ const WineSnap = () => {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
         },
         body: JSON.stringify({ 
-          imageDataUrl: imageData,
+          ocrText,
+          noTextFound,
           lang: "sv"
         })
       });
@@ -219,7 +242,9 @@ const WineSnap = () => {
                       <div className="text-center space-y-3">
                         <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
                         <p className="text-lg font-semibold text-foreground">
-                          Analyserar vinet...
+                          {processingStep === "prep" && "Förbereder bild..."}
+                          {processingStep === "ocr" && "Läser etikett..."}
+                          {processingStep === "analysis" && "Analyserar vin..."}
                         </p>
                       </div>
                     </div>

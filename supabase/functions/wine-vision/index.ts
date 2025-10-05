@@ -42,10 +42,18 @@ function enrichFallback(ocrText: string, data: any) {
     data.land_region = data.land_region && data.land_region !== "–" ? data.land_region : "Ungern, Tokaj";
     data.druvor = data.druvor && data.druvor !== "–" ? data.druvor : "Furmint";
     data.karaktär = data.karaktär && data.karaktär !== "–" ? data.karaktär : "Friskt & fruktigt";
-    data.smak = data.smak && !/Ingen läsbar text/i.test(data.smak) ? data.smak :
+    data.smak = data.smak && !/Ingen läsbar text/i.test(data.smak) && data.smak !== "–" ? data.smak :
       "Friskt och fruktigt med inslag av citrus, gröna äpplen och lätt honung/mineral.";
     data.servering = data.servering && data.servering !== "–" ? data.servering : "8–10 °C";
     data.passar_till = Array.isArray(data.passar_till) && data.passar_till.length ? data.passar_till : ["fisk","kyckling","milda ostar"];
+  }
+  return data;
+}
+
+function sanitize(data: any) {
+  // Remove any OCR error messages from smak field
+  if (data.smak && /tekniskt fel|ingen läsbar text|ocr|error/i.test(data.smak)) {
+    data.smak = "–";
   }
   return data;
 }
@@ -66,16 +74,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { imageDataUrl, lang = "sv" } = await req.json();
+    const { ocrText, noTextFound = false, lang = "sv" } = await req.json();
 
-    if (!imageDataUrl || !imageDataUrl.startsWith("data:image")) {
-      return new Response(JSON.stringify({ error: "No image provided" }), {
-        status: 400,
-        headers: { ...cors, "content-type": "application/json" },
-      });
-    }
-
-    console.log(`Analyzing wine image with vision API, language: ${lang}`);
+    console.log(`Analyzing wine with OCR text, language: ${lang}`);
+    console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
     const system = `Du är vinexpert. Returnera ENDAST giltig JSON exakt enligt detta schema:
 {"vin":"","land_region":"","producent":"","druvor":"","karaktär":"","smak":"",
@@ -95,9 +97,9 @@ Domänkunskap (safe defaults när nyckelord matchar):
   smak="Friskt och fruktigt med inslag av citrus, gröna äpplen och lätt honung/mineral.",
   servering="8–10 °C", passar_till=["fisk","kyckling","milda ostar"].`;
 
-    const userInstruction = `Här är etikettens text (tom sträng om OCR misslyckades):
+    const userMessage = `Här är etikettens text från OCR:
 ---
-(Se bilden nedan)
+${ocrText || "(ingen text hittades)"}
 ---
 Identifiera och returnera JSON enligt systemet. Använd domänkunskapen om Tokaji/Furmint upptäcks.`;
 
@@ -109,16 +111,11 @@ Identifiera och returnera JSON enligt systemet. Använd domänkunskapen om Tokaj
       },
       body: JSON.stringify({
         model: MODEL,
-        temperature: 0.2,
+        temperature: 0,
+        response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userInstruction },
-              { type: "image_url", image_url: { url: imageDataUrl } },
-            ],
-          },
+          { role: "user", content: userMessage }
         ],
       }),
     });
@@ -147,29 +144,44 @@ Identifiera och returnera JSON enligt systemet. Använd domänkunskapen om Tokaj
     }
 
     const json = await ai.json();
-    let content: string = json?.choices?.[0]?.message?.content ?? "{}";
+    const content: string = json?.choices?.[0]?.message?.content ?? "{}";
 
-    console.log("Vision API response:", content);
+    console.log("GPT response:", content);
 
+    // Parse, enrich, and sanitize
     const parsed = parseWine(content);
+    console.log("Parsed JSON:", parsed);
     
-    // Kör enrichFallback baserat på AI:ns raw response (content innehåller ev. Tokaji/Furmint)
-    const enriched = enrichFallback(content, parsed);
+    const enriched = enrichFallback(ocrText || "", parsed);
+    console.log("After enrichFallback:", enriched);
+    
+    const safe = sanitize(enriched);
+    console.log("After sanitize:", safe);
+    
+    // Telemetry
+    const telemetry = {
+      ocr_len: (ocrText || "").length,
+      no_text_found: noTextFound,
+      json_parse_ok: parsed.vin !== "–" || parsed.land_region !== "–",
+      fallback_applied: ocrText && (/tokaji/i.test(ocrText) && /furmint/i.test(ocrText))
+    };
+    console.log("Telemetry:", telemetry);
 
     const data = {
-      vin: enriched.vin ?? "–",
-      land_region: enriched.land_region ?? "–",
-      producent: enriched.producent ?? "–",
-      druvor: enriched.druvor ?? "–",
-      karaktär: enriched.karaktär ?? "–",
-      smak: enriched.smak ?? "–",
-      passar_till: Array.isArray(enriched.passar_till) ? enriched.passar_till : [],
-      servering: enriched.servering ?? "–",
-      årgång: enriched.årgång ?? "–",
-      alkoholhalt: enriched.alkoholhalt ?? "–",
-      volym: enriched.volym ?? "–",
-      sockerhalt: enriched.sockerhalt ?? "–",
-      syra: enriched.syra ?? "–",
+      vin: safe.vin ?? "–",
+      land_region: safe.land_region ?? "–",
+      producent: safe.producent ?? "–",
+      druvor: safe.druvor ?? "–",
+      karaktär: safe.karaktär ?? "–",
+      smak: safe.smak ?? "–",
+      passar_till: Array.isArray(safe.passar_till) ? safe.passar_till : [],
+      servering: safe.servering ?? "–",
+      årgång: safe.årgång ?? "–",
+      alkoholhalt: safe.alkoholhalt ?? "–",
+      volym: safe.volym ?? "–",
+      sockerhalt: safe.sockerhalt ?? "–",
+      syra: safe.syra ?? "–",
+      _telemetry: telemetry
     };
 
     return new Response(JSON.stringify(data), {
