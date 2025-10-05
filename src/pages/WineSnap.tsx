@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, Wine, Loader2, Download } from "lucide-react";
@@ -32,14 +32,17 @@ const WineSnap = () => {
   const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | null>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
 
-  // Auto-trigger camera on mount if no results
-  useState(() => {
-    if (!results && !previewImage) {
-      setTimeout(() => {
-        document.getElementById("wineImageUpload")?.click();
-      }, 100);
-    }
-  });
+  // Auto-trigger camera on mount if no image/results
+  const autoOpenedRef = useRef(false);
+  useEffect(() => {
+    if (results || previewImage) return;
+    if (autoOpenedRef.current) return;
+    autoOpenedRef.current = true;
+    const t = setTimeout(() => {
+      document.getElementById("wineImageUpload")?.click();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [results, previewImage]);
 
   const processWineImage = async (imageData: string) => {
     // Get user's language from browser
@@ -209,6 +212,22 @@ const WineSnap = () => {
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // If no image and no results, auto-open camera and render only the hidden input (no second screen)
+  if (!previewImage && !results) {
+    return (
+      <div className="min-h-screen">
+        <input
+          id="wineImageUpload"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileChange}
+          className="hidden"
+        />
       </div>
     );
   }
