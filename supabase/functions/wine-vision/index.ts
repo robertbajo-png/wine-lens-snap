@@ -89,67 +89,48 @@ Deno.serve(async (req) => {
     console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
-    // Step 1: Search web for verified wine facts using Perplexity
-    let webText = "(ingen webbinformation hittades)";
-    if (ocrText && ocrText.length > 5) {
+    // Step 1: Optional web search with Perplexity (skip if no API key or timeout)
+    let webText = "";
+    if (PERPLEXITY_API_KEY && ocrText && ocrText.length > 5) {
       console.log("Searching web with Perplexity...");
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+        
         const perplexityResponse = await fetch("https://api.perplexity.ai/chat/completions", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${PERPLEXITY_API_KEY}`,
             "Content-Type": "application/json",
           },
+          signal: controller.signal,
           body: JSON.stringify({
-            model: "llama-3.1-sonar-large-128k-online",
+            model: "llama-3.1-sonar-small-128k-online",
             messages: [
               {
-                role: "system",
-                content: "Du är en faktabaserad vinexpert. Returnera endast korta faktautdrag från officiella källor."
-              },
-              {
                 role: "user",
-                content: `Sök efter verifierad fakta om vinet "${ocrText}".
-Prioritera officiella och pålitliga källor i denna ordning:
-1. Systembolaget.se
-2. Producentens egen webbplats
-3. Vivino.com
-4. Wine-Searcher.com
-5. Decanter.com
-
-Ignorera bloggar, Reddit, Amazon, Pinterest, AI-genererade texter och andra opålitliga källor.
-
-Hämta endast korta och faktabaserade textutdrag (max ca 300 ord totalt) som beskriver:
-- vinets producent
-- druvsort(er)
-- land och region
-- klassificering (t.ex. DOC/DOCG, Brut, Extra Dry)
-- årgång
-- alkoholhalt och volym
-- eventuell officiell stiltyp (t.ex. "Friskt & fruktigt", "Kryddigt & mustigt")
-- eventuella serveringsrekommendationer eller matförslag, om uttryckligen angivet.
-
-Returnera endast textutdragen, inga länkar eller förklaringar.`
+                content: `Sök efter fakta om vinet: ${ocrText.slice(0, 150)}. Använd Systembolaget, Vivino eller Wine-Searcher. Max 200 ord.`
               }
             ],
             temperature: 0.2,
-            top_p: 0.9,
-            max_tokens: 800,
+            max_tokens: 400,
             return_images: false,
-            return_related_questions: false,
-            search_recency_filter: "year"
+            return_related_questions: false
           })
         });
 
+        clearTimeout(timeoutId);
+
         if (perplexityResponse.ok) {
           const perplexityData = await perplexityResponse.json();
-          webText = perplexityData?.choices?.[0]?.message?.content || "(ingen webbinformation hittades)";
-          console.log("Web search result length:", webText.length);
+          webText = perplexityData?.choices?.[0]?.message?.content || "";
+          console.log("Web search successful, length:", webText.length);
         } else {
-          console.error("Perplexity search failed:", perplexityResponse.status);
+          const errText = await perplexityResponse.text();
+          console.error("Perplexity search failed:", perplexityResponse.status, errText);
         }
       } catch (e) {
-        console.error("Perplexity search error:", e);
+        console.error("Perplexity search error (skipped):", e instanceof Error ? e.message : String(e));
       }
     }
 
@@ -199,9 +180,10 @@ REGLER:
   Brut Nature/Pas Dosé/Dosage Zéro=0; Extra Brut=0.5; Brut=1; Extra Dry=1.5; Dry/Sec=2.2; Demi-Sec/Semi-Seco=3.4; Dolce/Sweet=4.5.
 - Evidence: inkludera etikettens OCR-text (kortad) och de använda webbadresserna.`;
 
-    // Build user message with OCR context, web search results, and image
+    // Build user message with OCR context, optional web search results, and image
     function buildUserMessage(ocrText: string, webText: string, imageBase64?: string): any {
-      const context = `OCR_TEXT:\n${ocrText || "(ingen text hittades)"}\n\nWEB_TEXT:\n${webText}\n\nAnalysera vinet baserat på OCR_TEXT och WEB_TEXT ovan och returnera ENDAST JSON enligt schemat.`;
+      const webContext = webText ? `\n\nWEB_TEXT:\n${webText}` : "\n\nWEB_TEXT:\n(AI söker automatiskt efter information)";
+      const context = `OCR_TEXT:\n${ocrText || "(ingen text)"}${webContext}\n\nAnalysera vinet baserat på OCR_TEXT och WEB_TEXT ovan och returnera ENDAST JSON enligt schemat.`;
       
       if (imageBase64) {
         return [
