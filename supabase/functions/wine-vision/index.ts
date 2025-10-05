@@ -76,15 +76,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { ocrText, noTextFound = false, uiLang = "sv" } = await req.json();
+    const { ocrText, noTextFound = false, uiLang = "sv-SE" } = await req.json();
 
     console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
-    const system = `Du är en vinexpert. Du får OCR-text från en vinetikett på okänt språk.
+    // System prompt with placeholder for UI language
+    const systemPrompt = `Du är en vinexpert. Du får OCR-text från en vinetikett på okänt språk.
 1) Identifiera vinets namn, typ (white/red/rosé/sparkling/sweet), land, region, producent, druvor, årgång, alkohol, volym, socker, syra. 
 2) Gissa aldrig från färg/layout; bygg på text och allmän oenlig vinfakta.
-3) Upptäck källspråket och översätt fälten till UI-språket: ${uiLang}.
+3) Upptäck källspråket och översätt fälten till UI-språket: <UI_LANG>.
 4) Returnera ENDAST giltig JSON exakt enligt:
 {
  "vin":"","land_region":"","producent":"","druvor":"",
@@ -100,14 +101,20 @@ Regler:
 - Lägg alltid "originaltext" (OCR-råtext) och "detekterat_språk" (BCP-47 kod, t.ex. "hu", "sv", "en").
 - Exempel på säkra normaliseringar:
   - Om texten innehåller "Tokaji" och "Furmint" → typ=vitt, druvor=Furmint, land_region="Ungern, Tokaj", servering="8–10 °C", karaktär="Friskt & fruktigt".
-Svara på ${uiLang}.`;
+Svara på <UI_LANG>.`;
 
-    const userMessage = `<UI_LANG> = ${uiLang}
+    // Build user message
+    function buildUserMessage(ocrText: string, uiLang: string): string {
+      return `<UI_LANG> = ${uiLang}
 OCR_TEXT:
 ---
 ${ocrText || "(ingen text hittades)"}
 ---
 Analysera enligt systemet och returnera JSON.`;
+    }
+
+    const system = systemPrompt.replace(/<UI_LANG>/g, uiLang);
+    const userMessage = buildUserMessage(ocrText || "", uiLang);
 
     const ai = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -150,15 +157,17 @@ Analysera enligt systemet och returnera JSON.`;
     }
 
     const json = await ai.json();
-    const content: string = json?.choices?.[0]?.message?.content ?? "{}";
+    const rawContent: string = json?.choices?.[0]?.message?.content ?? "{}";
 
-    console.log("GPT response:", content);
+    console.log("GPT response:", rawContent);
 
-    // Parse, enrich, and sanitize
-    const parsed = parseWine(content);
-    console.log("Parsed JSON:", parsed);
+    // Parse JSON directly (response_format json_object guarantees valid JSON)
+    const parsedData = JSON.parse(rawContent);
+
+    console.log("Parsed data:", parsedData);
     
-    const enriched = enrichFallback(ocrText || "", parsed);
+    // Enrich and sanitize
+    const enriched = enrichFallback(ocrText || "", parsedData);
     console.log("After enrichFallback:", enriched);
     
     const safe = sanitize(enriched);
@@ -168,12 +177,12 @@ Analysera enligt systemet och returnera JSON.`;
     const telemetry = {
       ocr_len: (ocrText || "").length,
       no_text_found: noTextFound,
-      json_parse_ok: parsed.vin !== "–" || parsed.land_region !== "–",
+      json_parse_ok: parsedData.vin !== "–" || parsedData.land_region !== "–",
       fallback_applied: ocrText && (/tokaji/i.test(ocrText) && /furmint/i.test(ocrText))
     };
     console.log("Telemetry:", telemetry);
 
-    const data = {
+    const responseData = {
       vin: safe.vin ?? "–",
       land_region: safe.land_region ?? "–",
       producent: safe.producent ?? "–",
@@ -192,7 +201,7 @@ Analysera enligt systemet och returnera JSON.`;
       _telemetry: telemetry
     };
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify(responseData), {
       headers: { ...cors, "content-type": "application/json" },
     });
   } catch (e: any) {

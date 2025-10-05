@@ -32,6 +32,10 @@ const WineSnap = () => {
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
 
   const processWineImage = async (imageData: string) => {
+    // Get user's language from browser
+    const uiLang = navigator.language || "sv-SE";
+    console.log("UI Language:", uiLang);
+    
     setIsProcessing(true);
     setProcessingStep("prep");
     
@@ -86,7 +90,7 @@ const WineSnap = () => {
         body: JSON.stringify({ 
           ocrText,
           noTextFound,
-          uiLang: "sv"
+          uiLang
         })
       });
 
