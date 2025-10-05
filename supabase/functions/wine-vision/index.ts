@@ -105,14 +105,13 @@ Deno.serve(async (req) => {
           },
           signal: controller.signal,
           body: JSON.stringify({
-            model: "llama-3.1-sonar-small-128k-online",
+            model: "sonar",
             messages: [
               {
                 role: "user",
                 content: `Sök efter fakta om vinet: ${ocrText.slice(0, 150)}. Använd Systembolaget, Vivino eller Wine-Searcher. Max 200 ord.`
               }
             ],
-            temperature: 0.2,
             max_tokens: 400,
             return_images: false,
             return_related_questions: false
