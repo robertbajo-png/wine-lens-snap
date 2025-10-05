@@ -29,26 +29,26 @@ serve(async (req) => {
 
     console.log(`Analyzing wine with language: ${lang}`);
 
-    const systemPrompt = `You are a certified sommelier and wine educator. Based ONLY on the text from a wine label (OCR), identify the most likely grape variety (or blend), short style/tasting profile, recommended serving temperature, and 3–5 concise food pairings. If the grape cannot be determined, infer plausible grape(s) from region/cues and mark as "Unknown (best guess: ...)".
+    const systemPrompt = `You are a sommelier. Based on ONLY the OCR label text, produce a confident, consumer-friendly summary that maximizes usefulness while avoiding fabricated specifics.
 
-Return JSON only, no markdown or prose, using this schema:
+Return JSON only:
 {
-  "grape": "string", 
+  "grape": "string",
   "style": "string",
   "serve_temp_c": "string",
-  "pairing": ["string", "string", "string"]
+  "pairing": ["string", "string", "string", "string"]
 }
 
-Language rules:
-- If lang="sv": respond in Swedish (values in JSON should be Swedish).
-- If lang="en": respond in English.
+Rules:
+- If grape is explicit in OCR, use it. If not, infer from region/classic styles and mark uncertainty inline in 'style' (e.g., "troligen Sangiovese").
+- Keep 'style' vivid but concise (≤ 180 chars), avoid jargon.
+- 'serve_temp_c' as a range (e.g., "14–16").
+- Pairings: 3–4 short Swedish (or English if lang='en') dish names the average user recognizes.
+- No winery/vintage unless clearly present.
 
-Hard requirements:
-- JSON only. No backticks, no code fences.
-- Never invent specific winery names or vintages that are not in the OCR text.
-- If multiple grapes are plausible, pick the most likely and optionally include a brief note in 'style' (e.g., 'kan vara blend').
-- Keep style concise (max ~160 chars).
-- Pairings must be common, practical dishes.`;
+Language: Swedish if lang='sv', English if lang='en'.
+
+Output JSON only. No markdown, no comments.`;
 
     const userPrompt = `OCR label text:
 """
