@@ -1,5 +1,5 @@
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const MODEL = "gpt-4o";
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const MODEL = "google/gemini-2.5-flash";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -69,8 +69,8 @@ Deno.serve(async (req) => {
     });
 
   try {
-    if (!OPENAI_API_KEY) {
-      return new Response(JSON.stringify({ error: "Missing OPENAI_API_KEY" }), {
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "Missing LOVABLE_API_KEY" }), {
         status: 500,
         headers: { ...cors, "content-type": "application/json" },
       });
@@ -153,16 +153,15 @@ Analysera enligt systemet och returnera JSON.`;
 
     const userMessage = buildUserMessage(ocrText || "", imageBase64);
 
-    const ai = await fetch("https://api.openai.com/v1/chat/completions", {
+    const ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({
         model: MODEL,
-        temperature: 0.1,
-        max_tokens: 4000,
+        max_tokens: 2000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
@@ -173,7 +172,7 @@ Analysera enligt systemet och returnera JSON.`;
 
     if (!ai.ok) {
       const errText = await ai.text();
-      console.error("OpenAI Vision error:", ai.status, errText);
+      console.error("AI Gateway error:", ai.status, errText);
 
       if (ai.status === 429) {
         return new Response(
@@ -183,13 +182,13 @@ Analysera enligt systemet och returnera JSON.`;
       }
       if (ai.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits to your account." }),
+          JSON.stringify({ error: "Payment required. Please add credits to your Lovable workspace." }),
           { status: 402, headers: { ...cors, "content-type": "application/json" } }
         );
       }
 
       return new Response(
-        JSON.stringify({ error: "OpenAI Vision error", detail: errText }),
+        JSON.stringify({ error: "AI Gateway error", detail: errText }),
         { status: 500, headers: { ...cors, "content-type": "application/json" } }
       );
     }
