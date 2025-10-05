@@ -32,6 +32,15 @@ const WineSnap = () => {
   const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | null>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
 
+  // Auto-trigger camera on mount if no results
+  useState(() => {
+    if (!results && !previewImage) {
+      setTimeout(() => {
+        document.getElementById("wineImageUpload")?.click();
+      }, 100);
+    }
+  });
+
   const processWineImage = async (imageData: string) => {
     // Get user's language from browser
     const uiLang = navigator.language || "sv-SE";
