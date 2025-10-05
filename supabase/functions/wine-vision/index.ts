@@ -1,5 +1,5 @@
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-const MODEL = "gpt-4o-mini";
+const MODEL = "gpt-4.1-2025-04-14";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -81,43 +81,51 @@ Deno.serve(async (req) => {
     console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
-    // System prompt - Swedish sommelier style
-    const systemPrompt = `Du är en vinexpert och sommelier. Du får OCR-text från en vinflaska-etikett. Läs texten och analysera vinet.
+    // System prompt with web search requirement
+    const systemPrompt = `Läs etiketten på bilden och sök på internet efter verifierad fakta om vinet.
+Använd bara tillförlitliga källor som Systembolaget, producentens hemsida, Vivino eller Wine-Searcher.
+Returnera enbart bekräftad information – inget påhitt.
 
-Följ dessa steg:
+Svara alltid i detta format (på svenska, som giltig JSON):
 
-1️⃣ Läs etikettens text och identifiera namn, typ, druva, region, land, producent och eventuell årgång.
-2️⃣ Identifiera vinets stil (t.ex. vitt, rött, rosé, mousserande, sött).
-3️⃣ Ange karaktär och smak enligt Systembolagets ton – informativ, neutral, kortfattad.
-4️⃣ Ange rekommenderad serveringstemperatur i °C.
-5️⃣ Ange passande maträtter (3–4 exempel).
-6️⃣ Ange alkoholhalt, volym, sockerhalt och syra om det framgår.
-7️⃣ Om något inte går att läsa, skriv "–", men gissa inte.
-8️⃣ Om du ser "Prosecco", "Furmint", "Tokaji", "Chianti", "Riesling" eller andra kända ursprung, fyll på rimlig bakgrundsinformation om stilen, men håll dig objektiv.
-
-Returnera informationen exakt i detta JSON-format:
 {
   "vin": "",
   "land_region": "",
   "producent": "",
   "druvor": "",
-  "karaktär": "",
-  "smak": "",
-  "passar_till": "",
-  "servering": "",
   "årgång": "",
+  "typ": "",
+  "färgtyp": "",
+  "klassificering": "",
   "alkoholhalt": "",
   "volym": "",
+  "karaktär": "",
+  "smak": "",
+  "passar_till": [],
+  "servering": "",
   "sockerhalt": "",
   "syra": "",
-  "detekterat_språk": "",
-  "originaltext": ""
+  "källa": "",
+  "meters": {
+    "sötma": null,
+    "fyllighet": null,
+    "fruktighet": null,
+    "fruktsyra": null
+  },
+  "evidence": {
+    "etiketttext": "",
+    "webbträffar": []
+  }
 }
 
 Regler:
-- "passar_till" ska vara en kommaseparerad sträng (t.ex. "Aperitif, förrätter, skaldjur, sallader")
-- Använd alltid "–" för saknad information
-- Lägg alltid "originaltext" (OCR-råtext) och "detekterat_språk" (BCP-47 kod)`;
+- Hitta aldrig på fakta.
+- Läs etikettens text (namn, producent, druvor, region, årgång, alkoholhalt).
+- Sök sedan på internet efter exakt det vinet och fyll bara i fakta som hittas i källorna.
+- Om något saknas, skriv "-".
+- Ange alltid vilken webbadress (källa) informationen kommer från.
+- För meters: om du hittar verifierad info om sötma/fyllighet/fruktighet/fruktsyra, sätt värde 0-5, annars null.
+- Svara endast med JSON, inga kommentarer eller extra text.`;
 
     // Build user message
     function buildUserMessage(ocrText: string): string {
@@ -138,7 +146,7 @@ Analysera enligt systemet och returnera JSON.`;
       },
       body: JSON.stringify({
         model: MODEL,
-        temperature: 0,
+        max_completion_tokens: 4000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
@@ -209,17 +217,21 @@ Analysera enligt systemet och returnera JSON.`;
       land_region: safe.land_region ?? "–",
       producent: safe.producent ?? "–",
       druvor: safe.druvor ?? "–",
+      årgång: safe.årgång ?? "–",
+      typ: safe.typ ?? "–",
+      färgtyp: safe.färgtyp ?? "–",
+      klassificering: safe.klassificering ?? "–",
+      alkoholhalt: safe.alkoholhalt ?? "–",
+      volym: safe.volym ?? "–",
       karaktär: safe.karaktär ?? "–",
       smak: safe.smak ?? "–",
       passar_till: passarTillArray,
       servering: safe.servering ?? "–",
-      årgång: safe.årgång ?? "–",
-      alkoholhalt: safe.alkoholhalt ?? "–",
-      volym: safe.volym ?? "–",
       sockerhalt: safe.sockerhalt ?? "–",
       syra: safe.syra ?? "–",
-      detekterat_språk: safe.detekterat_språk ?? "–",
-      originaltext: safe.originaltext ?? ocrText ?? "–",
+      källa: safe.källa ?? "–",
+      meters: safe.meters ?? { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
+      evidence: safe.evidence ?? { etiketttext: "", webbträffar: [] },
       _telemetry: telemetry
     };
 
