@@ -92,6 +92,7 @@ Deno.serve(async (req) => {
     // Step 1: Web search with Perplexity using OCR text only
     let webText = "";
     let webSources: string[] = [];
+    let perplexityFailed = false;
     
     if (PERPLEXITY_API_KEY && ocrText && ocrText.length > 5) {
       console.log("Searching web with Perplexity (OCR text only)...");
@@ -141,28 +142,61 @@ Deno.serve(async (req) => {
             // Post-process: Extract and prioritize sources
             if (citations.length > 0) {
               const systembolagetSources = citations.filter((url: string) => url.includes("systembolaget.se"));
-              const otherSources = citations.filter((url: string) => !url.includes("systembolaget.se"));
+              const producerSources = citations.filter((url: string) => 
+                !url.includes("systembolaget.se") && 
+                (url.includes("winery") || url.includes("bodega") || url.includes("vineyard"))
+              );
+              const otherSources = citations.filter((url: string) => 
+                !url.includes("systembolaget.se") && 
+                !url.includes("winery") && 
+                !url.includes("bodega") && 
+                !url.includes("vineyard")
+              );
               
-              // Take top 1-2 sources, prioritizing Systembolaget
-              webSources = [...systembolagetSources.slice(0, 2), ...otherSources.slice(0, 2 - systembolagetSources.length)];
+              // Prioritize: Systembolaget > Producer > Others (max 2 sources)
+              webSources = [
+                ...systembolagetSources.slice(0, 1),
+                ...producerSources.slice(0, systembolagetSources.length > 0 ? 1 : 2),
+                ...otherSources.slice(0, 2 - systembolagetSources.length - producerSources.length)
+              ].slice(0, 2);
+              
               console.log("Web sources prioritized:", webSources);
             }
             
-            // Deduplicate and condense the text
-            webText = rawText.trim();
-            console.log("Web search successful, length:", webText.length);
-            break; // Success, exit retry loop
+            // Check if empty response
+            if (rawText.trim().length > 0) {
+              webText = rawText.trim();
+              console.log("Web search successful, length:", webText.length);
+              break; // Success, exit retry loop
+            } else {
+              console.log("Empty Perplexity response");
+              perplexityFailed = true;
+              break;
+            }
           } else {
             const errText = await perplexityResponse.text();
             console.error(`Perplexity attempt ${attempt + 1} failed:`, perplexityResponse.status, errText);
             if (attempt < maxRetries - 1) {
-              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
+              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+            } else {
+              perplexityFailed = true;
             }
           }
         } catch (e) {
-          console.error(`Perplexity attempt ${attempt + 1} error:`, e instanceof Error ? e.message : String(e));
+          const errorMsg = e instanceof Error ? e.message : String(e);
+          console.error(`Perplexity attempt ${attempt + 1} error:`, errorMsg);
+          
+          // Check if timeout
+          if (errorMsg.includes("abort") || errorMsg.includes("timeout")) {
+            console.log("Perplexity timeout - will use OCR-only mode");
+            perplexityFailed = true;
+            break;
+          }
+          
           if (attempt < maxRetries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+          } else {
+            perplexityFailed = true;
           }
         }
         attempt++;
@@ -217,22 +251,39 @@ REGLER:
 - "källa": välj den viktigaste URL:en från WEB_JSON.källor (helst Systembolaget). 
 - "evidence": etiketttext (kortad) = OCR_TEXT (max 200 tecken). "webbträffar" = upp till tre URL:er från WEB_JSON.källor.`;
 
-    // Build WEB_JSON from Perplexity results
-    const webJson = {
-      text: webText || "",
-      källor: webSources
-    };
+    // Build WEB_JSON from Perplexity results or fallback mode
+    const webJson = perplexityFailed 
+      ? { 
+          text: "(Ingen verifierad källa hittades. Baserat endast på etikett.)", 
+          källor: [],
+          fallback_mode: true 
+        }
+      : {
+          text: webText || "",
+          källor: webSources,
+          fallback_mode: false
+        };
+
+    console.log("Web JSON mode:", webJson.fallback_mode ? "OCR-only fallback" : "Web-enhanced");
 
     // Build user message with OCR and WEB_JSON
     function buildUserMessage(ocrText: string, webJson: any, imageBase64?: string): any {
-      const context = `DATA:
+      const context = webJson.fallback_mode
+        ? `DATA:
+OCR_TEXT:
+${ocrText || "(ingen text)"}
+
+ETIKETT-LÄGE: Webbsökning misslyckades. Använd endast OCR-text från etiketten. Sätt källa: "-". För fält som inte syns på etiketten, använd "-".
+
+Analysera vinet baserat endast på OCR_TEXT och returnera JSON enligt schemat.`
+        : `DATA:
 OCR_TEXT:
 ${ocrText || "(ingen text)"}
 
 WEB_JSON:
 ${JSON.stringify(webJson, null, 2)}
 
-Analysera vinet baserat på OCR_TEXT och WEB_JSON ovan och returnera ENDAST JSON enligt schemat.`;
+Vid konflikt mellan källor: prioritera Systembolaget > producent > konsensus. Analysera vinet och returnera ENDAST JSON enligt schemat.`;
       
       if (imageBase64) {
         return [
