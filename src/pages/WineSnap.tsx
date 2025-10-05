@@ -119,120 +119,58 @@ const WineSnap = () => {
     setProcessingStep(null);
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-2xl mx-auto px-4 py-8 space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Wine className="h-8 w-8 text-primary" />
-            <h1 className="text-4xl font-bold text-foreground">WineSnap</h1>
-          </div>
-          <p className="text-muted-foreground">Analysera din vinflaska med AI</p>
-          
-          {/* PWA Install Button */}
-          {isInstallable && !isInstalled && (
-            <Button 
-              onClick={handleInstall}
-              variant="outline"
-              size="sm"
-              className="mt-2"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Installera app
-            </Button>
-          )}
-        </div>
-
-        {/* Hidden file input */}
-        <input
-          id="wineImageUpload"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-
-        {/* Image Preview with Processing Overlay */}
-        {previewImage && (
-          <Card className="relative overflow-hidden animate-fade-in">
-            <CardContent className="p-4">
-              <div className="relative">
-                <img 
-                  src={previewImage} 
-                  alt="Wine bottle" 
-                  className="w-full rounded-lg shadow-md max-h-96 object-contain bg-muted"
-                />
-                
-                {/* Processing Overlay */}
-                {isProcessing && (
-                  <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg animate-fade-in">
-                    <div className="text-center space-y-3">
-                      <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-                      <p className="text-lg font-medium">
-                        {processingStep === "ocr" && "Läser etikett..."}
-                        {processingStep === "ai" && "Analyserar vinet..."}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Results Section */}
-        {results && !isProcessing && (
-          <div className="space-y-4 animate-fade-in">
-            <h2 className="text-2xl font-semibold text-center">Analys</h2>
-            
-            <Card className="hover-scale">
+  // Show results view if we have results
+  if (results && !isProcessing) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white to-[#F6F3F9] flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6 animate-fade-in pb-24">
+          <div className="space-y-4">
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Grape className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <Grape className="h-5 w-5" />
                   Druva
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-foreground font-medium">
+                <p className="text-foreground font-semibold text-lg">
                   {results.grape}
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="hover-scale">
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Wind className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <Wind className="h-5 w-5" />
                   Stil & smak
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground leading-relaxed">
                   {results.style}
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="hover-scale">
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Thermometer className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <Thermometer className="h-5 w-5" />
                   Servering
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground font-medium">
                   {results.serve_temp_c}
                 </p>
               </CardContent>
             </Card>
 
-            <Card className="hover-scale">
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <UtensilsCrossed className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <UtensilsCrossed className="h-5 w-5" />
                   Ät till
                 </CardTitle>
               </CardHeader>
@@ -252,38 +190,130 @@ const WineSnap = () => {
               </CardContent>
             </Card>
           </div>
-        )}
 
-        {/* Main CTA Button */}
-        <div className="fixed bottom-8 left-0 right-0 px-4 max-w-2xl mx-auto">
-          <Button 
-            onClick={results ? handleReset : handleTakePhoto}
-            className="w-full"
-            size="lg"
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Bearbetar...
-              </>
-            ) : results ? (
-              <>
+          {/* Fixed Bottom Button */}
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent">
+            <div className="max-w-md mx-auto">
+              <Button 
+                onClick={handleReset}
+                className="w-full max-w-[320px] mx-auto block h-14 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+                size="lg"
+              >
                 <Camera className="mr-2 h-5 w-5" />
                 Fota ny flaska
-              </>
-            ) : (
-              <>
-                <Camera className="mr-2 h-5 w-5" />
-                Fota vinflaska
-              </>
-            )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main landing page
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white to-[#F6F3F9] flex flex-col">
+      {/* Hidden file input */}
+      <input
+        id="wineImageUpload"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      {/* PWA Install Button - Top Right */}
+      {isInstallable && !isInstalled && (
+        <div className="absolute top-4 right-4 z-10">
+          <Button 
+            onClick={handleInstall}
+            variant="outline"
+            size="sm"
+            className="shadow-md"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Installera app
           </Button>
         </div>
+      )}
 
-        {/* Spacer for fixed button */}
-        <div className="h-20" />
+      {/* Main Content - Centered */}
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-8 text-center">
+          {/* Logo & Header */}
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex justify-center">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
+                <Wine className="h-10 w-10 text-white" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h1 className="text-5xl font-bold text-accent tracking-wide" style={{ letterSpacing: '0.5px' }}>
+                WineSnap
+              </h1>
+              <h3 className="text-muted-foreground text-base max-w-[280px] mx-auto leading-relaxed">
+                Fota vinflaskan – få druva, smakprofil och matparning.
+              </h3>
+            </div>
+          </div>
+
+          {/* Image Preview with Processing Overlay */}
+          {previewImage && (
+            <Card className="relative overflow-hidden shadow-xl animate-fade-in">
+              <CardContent className="p-4">
+                <div className="relative">
+                  <img 
+                    src={previewImage} 
+                    alt="Wine bottle" 
+                    className="w-full rounded-lg max-h-80 object-contain bg-muted"
+                  />
+                  
+                  {/* Processing Overlay */}
+                  {isProcessing && (
+                    <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center rounded-lg">
+                      <div className="text-center space-y-3">
+                        <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+                        <p className="text-lg font-semibold text-foreground">
+                          {processingStep === "ocr" && "Läser etikett..."}
+                          {processingStep === "ai" && "Analyserar vinet..."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Main CTA Button */}
+          {!previewImage && (
+            <div className="space-y-3 animate-fade-in" style={{ animationDelay: '150ms' }}>
+              <Button 
+                id="takePhotoBtn"
+                onClick={handleTakePhoto}
+                className="w-full max-w-[320px] h-14 text-lg font-semibold shadow-[0_4px_12px_rgba(123,31,162,0.3)] hover:shadow-[0_6px_20px_rgba(123,31,162,0.4)] transition-all duration-300 hover:scale-[1.02]"
+                size="lg"
+                disabled={isProcessing}
+              >
+                <Camera className="mr-2 h-5 w-5" />
+                Fota vinflaska
+              </Button>
+              
+              <p className="text-xs text-muted-foreground max-w-[280px] mx-auto">
+                Bäst resultat i bra ljus och rak etikett.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Footer */}
+      <footer className="py-4 text-center">
+        <p className="text-xs text-muted-foreground">
+          Powered by AI • WineSnap 2025
+        </p>
+      </footer>
     </div>
   );
 };
