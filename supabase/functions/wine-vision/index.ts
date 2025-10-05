@@ -85,8 +85,8 @@ Deno.serve(async (req) => {
 
     const { ocrText, imageBase64, noTextFound = false, uiLang = "sv-SE" } = await req.json();
 
-
-    console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
+    const startTime = Date.now();
+    console.log(`[${new Date().toISOString()}] Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
     // Step 1: Web search with Perplexity using OCR text only
@@ -95,16 +95,17 @@ Deno.serve(async (req) => {
     let perplexityFailed = false;
     
     if (PERPLEXITY_API_KEY && ocrText && ocrText.length > 5) {
-      console.log("Searching web with Perplexity (OCR text only)...");
+      const perplexityStart = Date.now();
+      console.log(`[${new Date().toISOString()}] Starting Perplexity search (OCR text only)...`);
       
-      // Retry logic with exponential backoff
-      const maxRetries = 2;
+      // Single attempt with 8s timeout
+      const maxRetries = 1;
       let attempt = 0;
       
       while (attempt < maxRetries) {
         try {
           const controller = new AbortController();
-          const timeoutMs = 12000 + (attempt * 3000); // 12s, then 15s
+          const timeoutMs = 8000; // 8s timeout (single attempt)
           const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
           
           const perplexityResponse = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -166,38 +167,33 @@ Deno.serve(async (req) => {
             // Check if empty response
             if (rawText.trim().length > 0) {
               webText = rawText.trim();
-              console.log("Web search successful, length:", webText.length);
+              const perplexityTime = Date.now() - perplexityStart;
+              console.log(`[${new Date().toISOString()}] Perplexity success (${perplexityTime}ms), text length: ${webText.length}`);
               break; // Success, exit retry loop
             } else {
-              console.log("Empty Perplexity response");
+              console.log(`[${new Date().toISOString()}] Empty Perplexity response`);
               perplexityFailed = true;
               break;
             }
           } else {
             const errText = await perplexityResponse.text();
-            console.error(`Perplexity attempt ${attempt + 1} failed:`, perplexityResponse.status, errText);
-            if (attempt < maxRetries - 1) {
-              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
-            } else {
-              perplexityFailed = true;
-            }
+            const perplexityTime = Date.now() - perplexityStart;
+            console.error(`[${new Date().toISOString()}] Perplexity failed (${perplexityTime}ms):`, perplexityResponse.status, errText);
+            perplexityFailed = true;
           }
         } catch (e) {
           const errorMsg = e instanceof Error ? e.message : String(e);
-          console.error(`Perplexity attempt ${attempt + 1} error:`, errorMsg);
+          const perplexityTime = Date.now() - perplexityStart;
+          console.error(`[${new Date().toISOString()}] Perplexity error (${perplexityTime}ms):`, errorMsg);
           
           // Check if timeout
           if (errorMsg.includes("abort") || errorMsg.includes("timeout")) {
-            console.log("Perplexity timeout - will use OCR-only mode");
+            console.log(`[${new Date().toISOString()}] Perplexity timeout - using OCR-only mode`);
             perplexityFailed = true;
             break;
           }
           
-          if (attempt < maxRetries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
-          } else {
-            perplexityFailed = true;
-          }
+          perplexityFailed = true;
         }
         attempt++;
       }
@@ -305,15 +301,18 @@ Vid konflikt mellan källor: prioritera Systembolaget > producent > konsensus. A
 
     const userMessage = buildUserMessage(ocrText || "", webJson, imageBase64);
 
-    // Gemini API call with retry logic
-    const maxRetries = 2;
+    // Gemini API call with single retry
+    const geminiStart = Date.now();
+    console.log(`[${new Date().toISOString()}] Starting Gemini analysis...`);
+    
+    const maxRetries = 1; // Reduced to 1 retry
     let attempt = 0;
     let ai: Response | null = null;
     
     while (attempt < maxRetries) {
       try {
         const controller = new AbortController();
-        const timeoutMs = 30000 + (attempt * 15000); // 30s, then 45s
+        const timeoutMs = 25000; // 25s timeout (down from 30s)
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -340,6 +339,8 @@ Vid konflikt mellan källor: prioritera Systembolaget > producent > konsensus. A
         clearTimeout(timeoutId);
 
         if (ai.ok) {
+          const geminiTime = Date.now() - geminiStart;
+          console.log(`[${new Date().toISOString()}] Gemini success (${geminiTime}ms)`);
           break; // Success, exit retry loop
         } else {
           const errText = await ai.text();
@@ -357,18 +358,17 @@ Vid konflikt mellan källor: prioritera Systembolaget > producent > konsensus. A
             );
           }
           
-          if (attempt < maxRetries - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
-          }
+          perplexityFailed = true;
         }
-      } catch (e) {
-        console.error(`AI Gateway attempt ${attempt + 1} error:`, e instanceof Error ? e.message : String(e));
-        if (attempt < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt))); // Exponential backoff
-        }
+        } catch (e) {
+        console.error(`AI Gateway error:`, e instanceof Error ? e.message : String(e));
+        perplexityFailed = true;
       }
       attempt++;
     }
+
+    const totalTime = Date.now() - startTime;
+    console.log(`[${new Date().toISOString()}] Total processing time: ${totalTime}ms`);
 
     if (!ai || !ai.ok) {
       return new Response(
