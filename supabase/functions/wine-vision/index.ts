@@ -1,4 +1,5 @@
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
 const MODEL = "google/gemini-2.5-flash";
 
 const cors = {
@@ -75,11 +76,83 @@ Deno.serve(async (req) => {
         headers: { ...cors, "content-type": "application/json" },
       });
     }
+    if (!PERPLEXITY_API_KEY) {
+      return new Response(JSON.stringify({ error: "Missing PERPLEXITY_API_KEY" }), {
+        status: 500,
+        headers: { ...cors, "content-type": "application/json" },
+      });
+    }
 
     const { ocrText, imageBase64, noTextFound = false, uiLang = "sv-SE" } = await req.json();
 
+
     console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
+
+    // Step 1: Search web for verified wine facts using Perplexity
+    let webText = "(ingen webbinformation hittades)";
+    if (ocrText && ocrText.length > 5) {
+      console.log("Searching web with Perplexity...");
+      try {
+        const perplexityResponse = await fetch("https://api.perplexity.ai/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${PERPLEXITY_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "llama-3.1-sonar-large-128k-online",
+            messages: [
+              {
+                role: "system",
+                content: "Du är en faktabaserad vinexpert. Returnera endast korta faktautdrag från officiella källor."
+              },
+              {
+                role: "user",
+                content: `Sök efter verifierad fakta om vinet "${ocrText}".
+Prioritera officiella och pålitliga källor i denna ordning:
+1. Systembolaget.se
+2. Producentens egen webbplats
+3. Vivino.com
+4. Wine-Searcher.com
+5. Decanter.com
+
+Ignorera bloggar, Reddit, Amazon, Pinterest, AI-genererade texter och andra opålitliga källor.
+
+Hämta endast korta och faktabaserade textutdrag (max ca 300 ord totalt) som beskriver:
+- vinets producent
+- druvsort(er)
+- land och region
+- klassificering (t.ex. DOC/DOCG, Brut, Extra Dry)
+- årgång
+- alkoholhalt och volym
+- eventuell officiell stiltyp (t.ex. "Friskt & fruktigt", "Kryddigt & mustigt")
+- eventuella serveringsrekommendationer eller matförslag, om uttryckligen angivet.
+
+Returnera endast textutdragen, inga länkar eller förklaringar.`
+              }
+            ],
+            temperature: 0.2,
+            top_p: 0.9,
+            max_tokens: 800,
+            return_images: false,
+            return_related_questions: false,
+            search_recency_filter: "year"
+          })
+        });
+
+        if (perplexityResponse.ok) {
+          const perplexityData = await perplexityResponse.json();
+          webText = perplexityData?.choices?.[0]?.message?.content || "(ingen webbinformation hittades)";
+          console.log("Web search result length:", webText.length);
+        } else {
+          console.error("Perplexity search failed:", perplexityResponse.status);
+        }
+      } catch (e) {
+        console.error("Perplexity search error:", e);
+      }
+    }
+
 
     // System prompt - fact-checking AI sommelier
     const systemPrompt = `DU ÄR: En faktagranskande AI-sommelier. Du läser etikettbilden (vision), använder den OCR-lästa texten och sammanfattar endast verifierad fakta från webbkällor. Du hittar aldrig på.
@@ -126,9 +199,9 @@ REGLER:
   Brut Nature/Pas Dosé/Dosage Zéro=0; Extra Brut=0.5; Brut=1; Extra Dry=1.5; Dry/Sec=2.2; Demi-Sec/Semi-Seco=3.4; Dolce/Sweet=4.5.
 - Evidence: inkludera etikettens OCR-text (kortad) och de använda webbadresserna.`;
 
-    // Build user message with OCR context and image
-    function buildUserMessage(ocrText: string, imageBase64?: string): any {
-      const ocrContext = `OCR_TEXT:\n${ocrText || "(ingen text hittades)"}\n\nWEB_TEXT:\n(AI söker automatiskt på webben för att hitta verifierad information om detta vin)\n\nAnalysera vinet baserat på OCR_TEXT och WEB_TEXT ovan och returnera ENDAST JSON enligt schemat.`;
+    // Build user message with OCR context, web search results, and image
+    function buildUserMessage(ocrText: string, webText: string, imageBase64?: string): any {
+      const context = `OCR_TEXT:\n${ocrText || "(ingen text hittades)"}\n\nWEB_TEXT:\n${webText}\n\nAnalysera vinet baserat på OCR_TEXT och WEB_TEXT ovan och returnera ENDAST JSON enligt schemat.`;
       
       if (imageBase64) {
         return [
@@ -140,15 +213,15 @@ REGLER:
           },
           {
             type: "text",
-            text: ocrContext
+            text: context
           }
         ];
       } else {
-        return ocrContext;
+        return context;
       }
     }
 
-    const userMessage = buildUserMessage(ocrText || "", imageBase64);
+    const userMessage = buildUserMessage(ocrText || "", webText, imageBase64);
 
     const ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
