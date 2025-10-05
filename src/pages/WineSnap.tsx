@@ -33,6 +33,7 @@ const WineSnap = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | null>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
+  const [banner, setBanner] = useState<{type:"info"|"error"|"success"; text:string}|null>(null);
 
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
@@ -56,6 +57,7 @@ const WineSnap = () => {
     
     setIsProcessing(true);
     setProcessingStep("prep");
+    setBanner(null);
     
     try {
       // Check cache first (using image data as key)
@@ -127,7 +129,18 @@ const WineSnap = () => {
 
       // Handle new response format: { ok, data, note }
       if (!responseData.ok) {
-        throw new Error(responseData.error || "Analysis failed");
+        setBanner({ type:"error", text: "Tyvärr, ingen data tillgänglig för denna flaska – prova en annan bild eller kontrollera uppkopplingen." });
+        setResults(responseData.data || {
+          vin: "–", land_region: "–", producent: "–", druvor: "–", årgång: "–",
+          typ: "–", färgtyp: "–", klassificering: "–", alkoholhalt: "–", volym: "–",
+          karaktär: "–", smak: "–", passar_till: [], servering: "–", sockerhalt: "–",
+          syra: "–", källa: "–",
+          meters: { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
+          evidence: { etiketttext: "", webbträffar: [] }
+        });
+        setIsProcessing(false);
+        setProcessingStep(null);
+        return;
       }
 
       const data = responseData.data;
@@ -161,27 +174,18 @@ const WineSnap = () => {
         setResults(result);
         setCachedAnalysis(imageData, result);
         
-        // Show appropriate toast based on note
-        const toastMessages = {
-          "hit_memory": "Klart! (från cache)",
-          "hit_supabase": "Klart! (från databas)",
-          "perplexity_timeout": "Klart! (baserat på etikett)",
-          "success": "Klart!"
-        };
-        
-        toast({
-          title: toastMessages[note as keyof typeof toastMessages] || "Klart!",
-          description: note === "perplexity_timeout" 
-            ? "Webbsökning tog för lång tid – analys baserad endast på etikett."
-            : "Vinanalys slutförd."
-        });
+        // Show banner based on note
+        if (note === "hit_memory" || note === "hit_supabase") {
+          setBanner({ type:"info", text: "Hämtade sparad profil för snabbare upplevelse." });
+        } else {
+          setBanner({ type:"success", text: "Klart! Din vinprofil är uppdaterad." });
+        }
       }
     } catch (error) {
       console.error("Processing error:", error);
-      toast({
-        title: "Fel",
-        description: error instanceof Error ? error.message : "Kunde inte analysera bilden – försök fota rakare och i bra ljus.",
-        variant: "destructive"
+      setBanner({ 
+        type:"error", 
+        text: error instanceof Error ? error.message : "Kunde inte analysera bilden – försök fota rakare och i bra ljus."
       });
       setPreviewImage(null);
     } finally {
@@ -216,13 +220,27 @@ const WineSnap = () => {
     setResults(null);
     setIsProcessing(false);
     setProcessingStep(null);
+    setBanner(null);
   };
 
   // Show results view if we have results
   if (results && !isProcessing) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-white to-[#F6F3F9] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-b from-white to-secondary flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6 animate-fade-in pb-24">
+          {/* Banner */}
+          {banner && (
+            <div className={`rounded-xl px-4 py-3 text-sm border ${
+              banner.type === "error" 
+                ? "bg-destructive/10 text-destructive border-destructive/20" 
+                : banner.type === "success" 
+                ? "bg-primary/10 text-primary border-primary/20" 
+                : "bg-accent/10 text-accent border-accent/20"
+            }`}>
+              {banner.text}
+            </div>
+          )}
+          
           <WineCardSBFull data={results} />
 
           {/* Fixed Bottom Button */}
