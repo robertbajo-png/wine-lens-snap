@@ -276,7 +276,9 @@ Analysera vinet baserat på OCR_TEXT och WEB_JSON ovan och returnera ENDAST JSON
             model: MODEL,
             temperature: 0.1,
             max_tokens: 1000,
-            response_format: { type: "json_object" },
+            response_format: { 
+              type: "json_object"
+            },
             messages: [
               { role: "system", content: systemPrompt },
               { role: "user", content: userMessage }
