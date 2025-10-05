@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, Wine, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
@@ -26,6 +27,7 @@ const OLANGS = [
 
 const WineSnap = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -34,11 +36,14 @@ const WineSnap = () => {
 
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
+  const cameraOpenedRef = useRef(false);
+  
   useEffect(() => {
     if (results || previewImage) return;
     if (autoOpenedRef.current) return;
     autoOpenedRef.current = true;
     const t = setTimeout(() => {
+      cameraOpenedRef.current = true;
       document.getElementById("wineImageUpload")?.click();
     }, 0);
     return () => clearTimeout(t);
@@ -170,6 +175,7 @@ const WineSnap = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      cameraOpenedRef.current = false;
       const reader = new FileReader();
       reader.onloadend = async () => {
         const imageData = reader.result as string;
@@ -177,6 +183,9 @@ const WineSnap = () => {
         await processWineImage(imageData);
       };
       reader.readAsDataURL(file);
+    } else if (cameraOpenedRef.current) {
+      // User cancelled camera - go back to Index
+      navigate("/");
     }
   };
 
