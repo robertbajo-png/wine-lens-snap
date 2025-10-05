@@ -128,7 +128,7 @@ REGLER:
 
     // Build user message with OCR context and image
     function buildUserMessage(ocrText: string, imageBase64?: string): any {
-      const ocrContext = `OCR_TEXT:\n${ocrText || "(ingen text hittades)"}\n\nWEB_TEXT:\n(AI söker automatiskt på webben för att hitta verifierad information om detta vin)`;
+      const ocrContext = `OCR_TEXT:\n${ocrText || "(ingen text hittades)"}\n\nWEB_TEXT:\n(AI söker automatiskt på webben för att hitta verifierad information om detta vin)\n\nAnalysera vinet baserat på OCR_TEXT och WEB_TEXT ovan och returnera ENDAST JSON enligt schemat.`;
       
       if (imageBase64) {
         return [
