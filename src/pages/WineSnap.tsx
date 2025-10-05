@@ -7,6 +7,7 @@ import { Camera, Upload, Wine, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Tesseract from "tesseract.js";
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
 
 const WineSnap = () => {
   const { toast } = useToast();
@@ -89,7 +90,7 @@ const WineSnap = () => {
     document.getElementById("wineImageUpload")?.click();
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (forceRefresh = false) => {
     if (!ocrText) {
       toast({
         title: "Ingen text",
@@ -97,6 +98,19 @@ const WineSnap = () => {
         variant: "destructive"
       });
       return;
+    }
+
+    // Check cache first (unless forcing refresh)
+    if (!forceRefresh) {
+      const cached = getCachedAnalysis(ocrText);
+      if (cached) {
+        setResults(cached);
+        toast({
+          title: "Från cache",
+          description: "Visar tidigare analys (klicka 'Uppdatera analys' för ny)."
+        });
+        return;
+      }
     }
 
     setIsAnalyzing(true);
@@ -112,12 +126,17 @@ const WineSnap = () => {
       if (error) throw error;
 
       if (data) {
-        setResults({
+        const result: WineAnalysisResult = {
           grape: data.grape || "",
           style: data.style || "",
           serve_temp_c: data.serve_temp_c || "",
           pairing: data.pairing || []
-        });
+        };
+        
+        setResults(result);
+        
+        // Store in cache
+        setCachedAnalysis(ocrText, result);
         
         toast({
           title: "Analys klar!",
@@ -295,22 +314,34 @@ const WineSnap = () => {
         </div>
 
         {/* Analyze Button */}
-        <Button 
-          id="analyzeBtn"
-          onClick={handleAnalyze}
-          className="w-full"
-          size="lg"
-          disabled={!ocrText || isAnalyzing}
-        >
-          {isAnalyzing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Analyserar...
-            </>
-          ) : (
-            "Analysera vin"
+        <div className="space-y-2">
+          <Button 
+            id="analyzeBtn"
+            onClick={() => handleAnalyze(false)}
+            className="w-full"
+            size="lg"
+            disabled={!ocrText || isAnalyzing}
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Analyserar...
+              </>
+            ) : (
+              "Analysera vin"
+            )}
+          </Button>
+          
+          {results.grape && (
+            <button
+              onClick={() => handleAnalyze(true)}
+              disabled={isAnalyzing}
+              className="w-full text-sm text-muted-foreground hover:text-foreground underline"
+            >
+              Uppdatera analys
+            </button>
           )}
-        </Button>
+        </div>
       </div>
     </div>
   );
