@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Camera, Upload, Wine, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Tesseract from "tesseract.js";
+import { supabase } from "@/integrations/supabase/client";
 
 const WineSnap = () => {
   const { toast } = useToast();
@@ -12,11 +13,12 @@ const WineSnap = () => {
   const [ocrText, setOcrText] = useState("");
   const [isOcrRunning, setIsOcrRunning] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState({
     grape: "",
     style: "",
-    serve: "",
-    pairing: ""
+    serve_temp_c: "",
+    pairing: [] as string[]
   });
 
   const runOCR = async (imageData: string) => {
@@ -85,15 +87,51 @@ const WineSnap = () => {
     document.getElementById("wineImageUpload")?.click();
   };
 
-  const handleAnalyze = () => {
-    // Placeholder for analysis logic
-    setOcrText("Mock OCR text extracted from wine label...");
-    setResults({
-      grape: "Cabernet Sauvignon",
-      style: "Full-bodied, dry red wine with notes of blackcurrant and oak",
-      serve: "Serve at 16-18°C in a large bordeaux glass",
-      pairing: "Perfect with grilled meats, aged cheeses, or hearty stews"
-    });
+  const handleAnalyze = async () => {
+    if (!ocrText) {
+      toast({
+        title: "Ingen text",
+        description: "Vänligen fota eller ladda upp en vinflaska först.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('analyzeWineAI', {
+        body: { 
+          ocrText,
+          lang: 'sv'
+        }
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        setResults({
+          grape: data.grape || "",
+          style: data.style || "",
+          serve_temp_c: data.serve_temp_c || "",
+          pairing: data.pairing || []
+        });
+        
+        toast({
+          title: "Analys klar!",
+          description: "Vinets egenskaper har analyserats."
+        });
+      }
+    } catch (error) {
+      console.error('Analysis error:', error);
+      toast({
+        title: "Analys misslyckades",
+        description: "Kunde inte analysera vinet. Försök igen.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -211,7 +249,7 @@ const WineSnap = () => {
             </CardHeader>
             <CardContent>
               <p id="resServe" className="text-muted-foreground">
-                {results.serve || "Väntar på analys..."}
+                {results.serve_temp_c || "Väntar på analys..."}
               </p>
             </CardContent>
           </Card>
@@ -221,9 +259,17 @@ const WineSnap = () => {
               <CardTitle className="text-lg">Matparning</CardTitle>
             </CardHeader>
             <CardContent>
-              <p id="resPairing" className="text-muted-foreground">
-                {results.pairing || "Väntar på analys..."}
-              </p>
+              <div id="resPairing" className="text-muted-foreground">
+                {results.pairing.length > 0 ? (
+                  <ul className="list-disc list-inside space-y-1">
+                    {results.pairing.map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  "Väntar på analys..."
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -234,9 +280,16 @@ const WineSnap = () => {
           onClick={handleAnalyze}
           className="w-full"
           size="lg"
-          disabled={!previewImage}
+          disabled={!ocrText || isAnalyzing}
         >
-          Analysera vin
+          {isAnalyzing ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Analyserar...
+            </>
+          ) : (
+            "Analysera vin"
+          )}
         </Button>
       </div>
     </div>
