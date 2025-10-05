@@ -33,15 +33,27 @@ const WineSnap = () => {
         return;
       }
 
-      // Call Vision API directly
-      const { data, error } = await supabase.functions.invoke('wine-vision', {
-        body: { 
+      // Call Vision API with direct fetch
+      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wine-vision`;
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+        },
+        body: JSON.stringify({ 
           imageDataUrl: imageData,
           lang: "sv"
-        }
+        })
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
 
       if (data) {
         const result: WineAnalysisResult = {
@@ -66,7 +78,7 @@ const WineSnap = () => {
       console.error("Processing error:", error);
       toast({
         title: "Fel",
-        description: "Kunde inte analysera bilden – försök fota rakare och i bra ljus.",
+        description: error instanceof Error ? error.message : "Kunde inte analysera bilden – försök fota rakare och i bra ljus.",
         variant: "destructive"
       });
       setPreviewImage(null);
