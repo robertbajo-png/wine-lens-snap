@@ -206,7 +206,7 @@ const WineSnap = () => {
 
   // Main landing page
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white to-[#F6F3F9] flex flex-col">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-[#FBF8FF] to-white">
       {/* Hidden file input */}
       <input
         id="wineImageUpload"
@@ -232,81 +232,73 @@ const WineSnap = () => {
         </div>
       )}
 
-      {/* Main Content - Centered */}
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md space-y-8 text-center">
-          {/* Logo & Header */}
-          <div className="space-y-4 animate-fade-in">
-            <div className="flex justify-center">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
-                <Wine className="h-10 w-10 text-white" />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <h1 className="text-5xl font-bold text-accent tracking-wide" style={{ letterSpacing: '0.5px' }}>
-                WineSnap
-              </h1>
-              <h3 className="text-muted-foreground text-base max-w-[280px] mx-auto leading-relaxed">
-                Fota vinflaskan – få druva, smakprofil och matparning.
-              </h3>
-            </div>
-          </div>
-
-          {/* Image Preview with Processing Overlay */}
-          {previewImage && (
-            <Card className="relative overflow-hidden shadow-xl animate-fade-in">
-              <CardContent className="p-4">
-                <div className="relative">
-                  <img 
-                    src={previewImage} 
-                    alt="Wine bottle" 
-                    className="w-full rounded-lg max-h-80 object-contain bg-muted"
-                  />
-                  
-                  {/* Processing Overlay */}
-                  {isProcessing && (
-                    <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center rounded-lg">
-                      <div className="text-center space-y-3">
-                        <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-                        <p className="text-lg font-semibold text-foreground">
-                          {processingStep === "prep" && "Förbereder bild..."}
-                          {processingStep === "ocr" && "Läser etikett..."}
-                          {processingStep === "analysis" && "Analyserar vin..."}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Main CTA Button */}
-          {!previewImage && (
-            <div className="space-y-3 animate-fade-in" style={{ animationDelay: '150ms' }}>
-              <Button 
-                id="takePhotoBtn"
-                onClick={handleTakePhoto}
-                className="w-full max-w-[320px] h-14 text-lg font-semibold shadow-[0_4px_12px_rgba(123,31,162,0.3)] hover:shadow-[0_6px_20px_rgba(123,31,162,0.4)] transition-all duration-300 hover:scale-[1.02]"
-                size="lg"
-                disabled={isProcessing}
-              >
-                <Camera className="mr-2 h-5 w-5" />
-                Fota vinflaska
-              </Button>
-              
-              <p className="text-xs text-muted-foreground max-w-[280px] mx-auto">
-                Bäst resultat i bra ljus och rak etikett.
-              </p>
-            </div>
-          )}
+      <div className="flex flex-col items-center justify-center space-y-6 max-w-[480px] w-full px-4">
+        {/* Icon in circle */}
+        <div className="w-12 h-12 rounded-full bg-[#7B3FE4] flex items-center justify-center">
+          <Wine className="h-6 w-6 text-white" />
         </div>
+
+        {/* Title and description */}
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-bold text-[#333]">WineSnap</h1>
+          <p className="text-base text-gray-600 leading-relaxed">
+            Fota vinflaskan – få druva, smakprofil och matparning.
+          </p>
+        </div>
+
+        {/* Image Preview with Processing Overlay */}
+        {previewImage && (
+          <Card className="relative overflow-hidden shadow-xl animate-fade-in w-full">
+            <CardContent className="p-4">
+              <div className="relative">
+                <img 
+                  src={previewImage} 
+                  alt="Wine bottle" 
+                  className="w-full rounded-lg max-h-80 object-contain bg-muted"
+                />
+                
+                {/* Processing Overlay */}
+                {isProcessing && (
+                  <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex items-center justify-center rounded-lg">
+                    <div className="text-center space-y-3">
+                      <Loader2 className="h-12 w-12 animate-spin text-[#7B3FE4] mx-auto" />
+                      <p className="text-lg font-semibold text-[#333]">
+                        {processingStep === "prep" && "Förbereder bild..."}
+                        {processingStep === "ocr" && "Läser etikett..."}
+                        {processingStep === "analysis" && "Analyserar vin..."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Primary button */}
+        {!previewImage && (
+          <div className="space-y-3 w-full flex flex-col items-center">
+            <Button
+              onClick={handleTakePhoto}
+              className="w-full max-w-[320px] bg-[#7B3FE4] hover:bg-[#6A32D9] text-white rounded-2xl py-3 shadow-lg transition-all duration-300"
+              size="lg"
+              disabled={isProcessing}
+            >
+              <Camera className="mr-2 h-5 w-5" />
+              📷 Fota vinflaska
+            </Button>
+
+            {/* Help text */}
+            <p className="text-sm text-gray-500 text-center mt-3">
+              Bäst resultat i bra ljus och rak etikett.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Footer */}
-      <footer className="py-4 text-center">
-        <p className="text-xs text-muted-foreground">
+      <footer className="absolute bottom-4 w-full text-center">
+        <p className="text-xs text-gray-400">
           Powered by AI • WineSnap 2025
         </p>
       </footer>
