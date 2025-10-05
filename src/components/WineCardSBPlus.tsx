@@ -64,6 +64,7 @@ type WineSB = {
   volym: string;
   sockerhalt: string;
   syra: string;
+  källa?: string;
 };
 
 export default function WineCardSBPlus({
@@ -124,6 +125,10 @@ export default function WineCardSBPlus({
           <Row label="Volym" value={data.volym} />
           <Row label="Sockerhalt" value={data.sockerhalt} />
           <Row label="Syra" value={data.syra} />
+
+          <p className="text-sm text-gray-400 mt-2">
+            Källa: {data.källa || "–"}
+          </p>
         </div>
       </div>
     </div>
