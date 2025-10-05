@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
-import WineCardSBPlus from "@/components/WineCardSBPlus";
+import WineCardSBFull from "@/components/WineCardSBFull";
 import { inferMetrics } from "@/lib/inferMetrics";
 import { preprocessImage } from "@/lib/imagePrep";
 import { createWorker } from "tesseract.js";
@@ -175,12 +175,10 @@ const WineSnap = () => {
 
   // Show results view if we have results
   if (results && !isProcessing) {
-    const metrics = inferMetrics(results);
-    
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-[#F6F3F9] flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6 animate-fade-in pb-24">
-          <WineCardSBPlus data={results} metrics={metrics} />
+          <WineCardSBFull data={results} />
 
           {/* Fixed Bottom Button */}
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent">
