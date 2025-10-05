@@ -66,13 +66,14 @@ const WineSnap = () => {
 
       if (data) {
         const result: WineAnalysisResult = {
-          vin: data.vin || "Okänt",
-          typ: data.typ || "Okänt",
-          druva: data.druva || "Okänt",
-          region: data.region || "Okänt",
-          stil_smak: data.stil_smak || "Okänt",
-          servering: data.servering || "Okänt",
-          att_till: data.att_till || []
+          vin: data.vin || "–",
+          land_region: data.land_region || "–",
+          producent: data.producent || "–",
+          druvor: data.druvor || "–",
+          karaktar: data.karaktar || "–",
+          smak: data.smak || "–",
+          passar_till: data.passar_till || [],
+          servering: data.servering || "–"
         };
         
         setResults(result);
@@ -138,8 +139,33 @@ const WineSnap = () => {
                 <p className="text-foreground font-semibold text-lg">
                   {results.vin}
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {results.typ} • {results.region}
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <Grape className="h-5 w-5" />
+                  Land/Region
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground font-semibold text-lg">
+                  {results.land_region}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <Wine className="h-5 w-5" />
+                  Producent
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground font-semibold text-lg">
+                  {results.producent}
                 </p>
               </CardContent>
             </Card>
@@ -148,12 +174,12 @@ const WineSnap = () => {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 text-primary">
                   <Grape className="h-5 w-5" />
-                  Druva
+                  Druvor
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-foreground font-semibold text-lg">
-                  {results.druva}
+                  {results.druvor}
                 </p>
               </CardContent>
             </Card>
@@ -162,13 +188,50 @@ const WineSnap = () => {
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 text-primary">
                   <Wind className="h-5 w-5" />
-                  Stil & smak
+                  Karaktär
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground leading-relaxed">
-                  {results.stil_smak}
+                  {results.karaktar}
                 </p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <Wind className="h-5 w-5" />
+                  Smak
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground leading-relaxed">
+                  {results.smak}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <UtensilsCrossed className="h-5 w-5" />
+                  Passar till
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {results.passar_till.length > 0 ? (
+                  <ul className="space-y-2">
+                    {results.passar_till.map((item, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-primary mt-1">•</span>
+                        <span className="text-muted-foreground">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-muted-foreground">Inga förslag tillgängliga</p>
+                )}
               </CardContent>
             </Card>
 
@@ -183,29 +246,6 @@ const WineSnap = () => {
                 <p className="text-muted-foreground font-medium">
                   {results.servering}
                 </p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <UtensilsCrossed className="h-5 w-5" />
-                  Ät till
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {results.att_till.length > 0 ? (
-                  <ul className="space-y-2">
-                    {results.att_till.map((item, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span className="text-muted-foreground">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground">Inga förslag tillgängliga</p>
-                )}
               </CardContent>
             </Card>
           </div>

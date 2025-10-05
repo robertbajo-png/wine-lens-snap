@@ -36,26 +36,31 @@ Deno.serve(async (req) => {
 
     console.log(`Analyzing wine image with vision API, language: ${lang}`);
 
-    const system = `Du är en strikt vinexpert. Du får en BILD av en vinetikett.
+    const system = `Du är en vinexpert. Du får en bild av en vinflaska. Läs av etikettens text (OCR) och analysera vinet enligt följande modell. 
+Format och ton ska efterlikna Systembolaget.se. Svara alltid på svenska.
 
-Regler:
-- Läs texten direkt från bilden. Gissa ALDRIG från färger/design om text finns.
-- Returnera ENDAST JSON enligt schema. Skriv "Okänt" vid saknad info.
-- Om du ser "Tokaji" och "Furmint": Typ=Vitt, Druva=Furmint, Region=Tokaj, Ungern.
-- Ge 3–5 rimliga matparningar för stilen.
+Följ dessa steg:
+1️⃣ Identifiera vinets namn, typ (vitt/rött/rosé/mousserande/sött), land, region, producent, årgång om den finns.  
+2️⃣ Ange druvsort eller druvblandning.  
+3️⃣ Beskriv kortfattat smaktyp, t.ex. "Friskt & fruktigt" eller "Fylligt & smakrikt".  
+4️⃣ Beskriv smaken mer detaljerat med 1–2 meningar.  
+5️⃣ Ange passande mat (3–4 rätter).  
+6️⃣ Ange serveringstemperatur i °C.  
+7️⃣ Om någon uppgift saknas, skriv "–".
 
-JSON-schema:
+Returnera ENDAST JSON enligt detta schema:
 {
-  "vin": "string|Okänt",
-  "typ": "Vitt|Rött|Rosé|Mousserande|Okänt",
-  "druva": "string|Okänt",
-  "region": "string|Okänt",
-  "stil_smak": "string",
-  "servering": "t.ex. 8–10 °C",
-  "att_till": ["rätt 1", "rätt 2", "rätt 3"]
+  "vin": "vinets namn",
+  "land_region": "land/region",
+  "producent": "producentens namn",
+  "druvor": "druvsort eller druvblandning",
+  "karaktar": "kort smaktyp (t.ex. Friskt & fruktigt)",
+  "smak": "detaljerad smakbeskrivning 1-2 meningar",
+  "passar_till": ["rätt 1", "rätt 2", "rätt 3", "rätt 4"],
+  "servering": "temperatur i °C"
 }
 
-Språk: ${lang === "sv" ? "Svenska" : "Engelska"}
+Var konkret, använd Systembolagets ton: informativ, neutral, tydlig, inga värdeomdömen.
 Returnera ENDAST JSON utan markdown eller kommentarer.`;
 
     const userInstruction = "Analysera vinet på bilden och returnera strikt JSON enligt schema.";
@@ -123,13 +128,14 @@ Returnera ENDAST JSON utan markdown eller kommentarer.`;
     }
 
     const data = {
-      vin: parsed.vin ?? "Okänt",
-      typ: parsed.typ ?? "Okänt",
-      druva: parsed.druva ?? "Okänt",
-      region: parsed.region ?? "Okänt",
-      stil_smak: parsed.stil_smak ?? "Okänt",
-      servering: parsed.servering ?? "Okänt",
-      att_till: Array.isArray(parsed.att_till) ? parsed.att_till.slice(0, 5) : [],
+      vin: parsed.vin ?? "–",
+      land_region: parsed.land_region ?? "–",
+      producent: parsed.producent ?? "–",
+      druvor: parsed.druvor ?? "–",
+      karaktar: parsed.karaktar ?? "–",
+      smak: parsed.smak ?? "–",
+      passar_till: Array.isArray(parsed.passar_till) ? parsed.passar_till : [],
+      servering: parsed.servering ?? "–",
     };
 
     return new Response(JSON.stringify(data), {
