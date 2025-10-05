@@ -76,7 +76,11 @@ Domänkunskap (safe defaults när nyckelord matchar):
   smak="Friskt och fruktigt med inslag av citrus, gröna äpplen och lätt honung/mineral.",
   servering="8–10 °C", passar_till=["fisk","kyckling","milda ostar"].`;
 
-    const userInstruction = "Analysera vinet på bilden och returnera strikt JSON enligt schema.";
+    const userInstruction = `Här är etikettens text (tom sträng om OCR misslyckades):
+---
+(Se bilden nedan)
+---
+Identifiera och returnera JSON enligt systemet. Använd domänkunskapen om Tokaji/Furmint upptäcks.`;
 
     const ai = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
