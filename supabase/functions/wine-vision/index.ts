@@ -44,11 +44,11 @@ JSON-schema:
   "land_region": "string",
   "producent": "string",
   "druvor": "string",
-  "karaktar": "string",           // t.ex. "Friskt & fruktigt"
+  "karaktär": "string",           // t.ex. "Friskt & fruktigt"
   "smak": "string",               // 1–2 meningar
   "passar_till": ["string", "string", "string"],
   "servering": "string",          // t.ex. "8–10 °C"
-  "argang": "string",
+  "årgång": "string",
   "alkoholhalt": "string",        // t.ex. "13 %"
   "volym": "string",              // t.ex. "750 ml"
   "sockerhalt": "string",         // t.ex. "6 g/l" eller "–"
@@ -59,7 +59,7 @@ Regler:
 - Använd en neutral, informativ ton (Systembolaget-stil).
 - Inga emojis, inga värdeomdömen.
 - Svara alltid på svenska.
-- Om OCR inte hittar text: returnera {"vin":"–","land_region":"–","producent":"–","druvor":"–","karaktar":"–","smak":"Ingen läsbar text på etiketten.","passar_till":[],"servering":"–","argang":"–","alkoholhalt":"–","volym":"–","sockerhalt":"–","syra":"–"}.
+- Om OCR inte hittar text: returnera {"vin":"–","land_region":"–","producent":"–","druvor":"–","karaktär":"–","smak":"Ingen läsbar text på etiketten.","passar_till":[],"servering":"–","årgång":"–","alkoholhalt":"–","volym":"–","sockerhalt":"–","syra":"–"}.
 
 Returnera ENDAST JSON utan markdown eller kommentarer.`;
 
@@ -132,11 +132,11 @@ Returnera ENDAST JSON utan markdown eller kommentarer.`;
       land_region: parsed.land_region ?? "–",
       producent: parsed.producent ?? "–",
       druvor: parsed.druvor ?? "–",
-      karaktar: parsed.karaktar ?? "–",
+      karaktär: parsed.karaktär ?? "–",
       smak: parsed.smak ?? "–",
       passar_till: Array.isArray(parsed.passar_till) ? parsed.passar_till : [],
       servering: parsed.servering ?? "–",
-      argang: parsed.argang ?? "–",
+      årgång: parsed.årgång ?? "–",
       alkoholhalt: parsed.alkoholhalt ?? "–",
       volym: parsed.volym ?? "–",
       sockerhalt: parsed.sockerhalt ?? "–",

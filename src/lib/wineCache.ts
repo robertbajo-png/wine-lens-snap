@@ -32,11 +32,11 @@ export interface WineAnalysisResult {
   land_region: string;
   producent: string;
   druvor: string;
-  karaktar: string;
+  karaktär: string;
   smak: string;
   passar_till: string[];
   servering: string;
-  argang: string;
+  årgång: string;
   alkoholhalt: string;
   volym: string;
   sockerhalt: string;

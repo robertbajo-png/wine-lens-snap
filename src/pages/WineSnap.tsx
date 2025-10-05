@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Camera, Wine, Loader2, Download, Grape, Wind, Thermometer, UtensilsCrossed } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Camera, Wine, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
+import WineCardSB from "@/components/WineCardSB";
 
 const WineSnap = () => {
   const { toast } = useToast();
@@ -70,11 +71,11 @@ const WineSnap = () => {
           land_region: data.land_region || "–",
           producent: data.producent || "–",
           druvor: data.druvor || "–",
-          karaktar: data.karaktar || "–",
+          karaktär: data.karaktär || "–",
           smak: data.smak || "–",
           passar_till: data.passar_till || [],
           servering: data.servering || "–",
-          argang: data.argang || "–",
+          årgång: data.årgång || "–",
           alkoholhalt: data.alkoholhalt || "–",
           volym: data.volym || "–",
           sockerhalt: data.sockerhalt || "–",
@@ -132,174 +133,7 @@ const WineSnap = () => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-[#F6F3F9] flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6 animate-fade-in pb-24">
-          <div className="space-y-4">
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <Wine className="h-5 w-5" />
-                  Vin
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-foreground font-semibold text-lg">
-                  {results.vin}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <Grape className="h-5 w-5" />
-                  Land/Region
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-foreground font-semibold text-lg">
-                  {results.land_region}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <Wine className="h-5 w-5" />
-                  Producent
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-foreground font-semibold text-lg">
-                  {results.producent}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <Grape className="h-5 w-5" />
-                  Druvor
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-foreground font-semibold text-lg">
-                  {results.druvor}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <Wind className="h-5 w-5" />
-                  Karaktär
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground leading-relaxed">
-                  {results.karaktar}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <Wind className="h-5 w-5" />
-                  Smak
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground leading-relaxed">
-                  {results.smak}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <UtensilsCrossed className="h-5 w-5" />
-                  Passar till
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {results.passar_till.length > 0 ? (
-                  <ul className="space-y-2">
-                    {results.passar_till.map((item, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span className="text-muted-foreground">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-muted-foreground">Inga förslag tillgängliga</p>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <Thermometer className="h-5 w-5" />
-                  Servering
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground font-medium">
-                  {results.servering}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2 text-primary">
-                  <Wine className="h-5 w-5" />
-                  Produktinformation
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  {results.argang !== "–" && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Årgång:</span>
-                      <span className="font-medium">{results.argang}</span>
-                    </div>
-                  )}
-                  {results.alkoholhalt !== "–" && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Alkoholhalt:</span>
-                      <span className="font-medium">{results.alkoholhalt}</span>
-                    </div>
-                  )}
-                  {results.volym !== "–" && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Volym:</span>
-                      <span className="font-medium">{results.volym}</span>
-                    </div>
-                  )}
-                  {results.sockerhalt !== "–" && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Sockerhalt:</span>
-                      <span className="font-medium">{results.sockerhalt}</span>
-                    </div>
-                  )}
-                  {results.syra !== "–" && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Syra:</span>
-                      <span className="font-medium">{results.syra}</span>
-                    </div>
-                  )}
-                  {results.argang === "–" && results.alkoholhalt === "–" && results.volym === "–" && results.sockerhalt === "–" && results.syra === "–" && (
-                    <p className="text-muted-foreground text-center">Ingen produktinformation tillgänglig</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <WineCardSB data={results} />
 
           {/* Fixed Bottom Button */}
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent">
