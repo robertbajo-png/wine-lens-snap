@@ -100,18 +100,32 @@ Language: ${lang}`;
 
     console.log('Analysis response:', analysisText);
 
-    // Parse the JSON response
+    // Parse the JSON response robustly (handle code fences or extra text)
     let analysis;
     try {
-      analysis = JSON.parse(analysisText);
+      let jsonText = analysisText.trim();
+
+      // Strip ```json ... ``` fences if present
+      const fenced = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+      if (fenced && fenced[1]) {
+        jsonText = fenced[1].trim();
+      }
+
+      // If still not pure JSON, try extracting between first { and last }
+      if (!(jsonText.startsWith('{') && jsonText.endsWith('}'))) {
+        const first = jsonText.indexOf('{');
+        const last = jsonText.lastIndexOf('}');
+        if (first !== -1 && last !== -1 && last > first) {
+          jsonText = jsonText.slice(first, last + 1);
+        }
+      }
+
+      analysis = JSON.parse(jsonText);
     } catch (parseError) {
       console.error('Failed to parse JSON:', parseError, analysisText);
       return new Response(
-        JSON.stringify({ error: 'Failed to parse AI response' }), 
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        JSON.stringify({ error: 'Failed to parse AI response' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
