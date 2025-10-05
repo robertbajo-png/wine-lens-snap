@@ -36,31 +36,31 @@ Deno.serve(async (req) => {
 
     console.log(`Analyzing wine image with vision API, language: ${lang}`);
 
-    const system = `Du är en vinexpert. Du får en bild av en vinflaska. Läs av etikettens text (OCR) och analysera vinet enligt följande modell. 
-Format och ton ska efterlikna Systembolaget.se. Svara alltid på svenska.
+    const system = `Du är en vinexpert. Läs etikettens text (OCR först) och returnera ENDAST giltig JSON enligt schemat nedan. Gissa inte; om data saknas, använd "–".
 
-Följ dessa steg:
-1️⃣ Identifiera vinets namn, typ (vitt/rött/rosé/mousserande/sött), land, region, producent, årgång om den finns.  
-2️⃣ Ange druvsort eller druvblandning.  
-3️⃣ Beskriv kortfattat smaktyp, t.ex. "Friskt & fruktigt" eller "Fylligt & smakrikt".  
-4️⃣ Beskriv smaken mer detaljerat med 1–2 meningar.  
-5️⃣ Ange passande mat (3–4 rätter).  
-6️⃣ Ange serveringstemperatur i °C.  
-7️⃣ Om någon uppgift saknas, skriv "–".
-
-Returnera ENDAST JSON enligt detta schema:
+JSON-schema:
 {
-  "vin": "vinets namn",
-  "land_region": "land/region",
-  "producent": "producentens namn",
-  "druvor": "druvsort eller druvblandning",
-  "karaktar": "kort smaktyp (t.ex. Friskt & fruktigt)",
-  "smak": "detaljerad smakbeskrivning 1-2 meningar",
-  "passar_till": ["rätt 1", "rätt 2", "rätt 3", "rätt 4"],
-  "servering": "temperatur i °C"
+  "vin": "string",
+  "land_region": "string",
+  "producent": "string",
+  "druvor": "string",
+  "karaktar": "string",           // t.ex. "Friskt & fruktigt"
+  "smak": "string",               // 1–2 meningar
+  "passar_till": ["string", "string", "string"],
+  "servering": "string",          // t.ex. "8–10 °C"
+  "argang": "string",
+  "alkoholhalt": "string",        // t.ex. "13 %"
+  "volym": "string",              // t.ex. "750 ml"
+  "sockerhalt": "string",         // t.ex. "6 g/l" eller "–"
+  "syra": "string"                // t.ex. "6,2 g/l" eller "–"
 }
 
-Var konkret, använd Systembolagets ton: informativ, neutral, tydlig, inga värdeomdömen.
+Regler:
+- Använd en neutral, informativ ton (Systembolaget-stil).
+- Inga emojis, inga värdeomdömen.
+- Svara alltid på svenska.
+- Om OCR inte hittar text: returnera {"vin":"–","land_region":"–","producent":"–","druvor":"–","karaktar":"–","smak":"Ingen läsbar text på etiketten.","passar_till":[],"servering":"–","argang":"–","alkoholhalt":"–","volym":"–","sockerhalt":"–","syra":"–"}.
+
 Returnera ENDAST JSON utan markdown eller kommentarer.`;
 
     const userInstruction = "Analysera vinet på bilden och returnera strikt JSON enligt schema.";
@@ -136,6 +136,11 @@ Returnera ENDAST JSON utan markdown eller kommentarer.`;
       smak: parsed.smak ?? "–",
       passar_till: Array.isArray(parsed.passar_till) ? parsed.passar_till : [],
       servering: parsed.servering ?? "–",
+      argang: parsed.argang ?? "–",
+      alkoholhalt: parsed.alkoholhalt ?? "–",
+      volym: parsed.volym ?? "–",
+      sockerhalt: parsed.sockerhalt ?? "–",
+      syra: parsed.syra ?? "–",
     };
 
     return new Response(JSON.stringify(data), {

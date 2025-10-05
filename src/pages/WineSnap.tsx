@@ -73,7 +73,12 @@ const WineSnap = () => {
           karaktar: data.karaktar || "–",
           smak: data.smak || "–",
           passar_till: data.passar_till || [],
-          servering: data.servering || "–"
+          servering: data.servering || "–",
+          argang: data.argang || "–",
+          alkoholhalt: data.alkoholhalt || "–",
+          volym: data.volym || "–",
+          sockerhalt: data.sockerhalt || "–",
+          syra: data.syra || "–"
         };
         
         setResults(result);
@@ -246,6 +251,52 @@ const WineSnap = () => {
                 <p className="text-muted-foreground font-medium">
                   {results.servering}
                 </p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <Wine className="h-5 w-5" />
+                  Produktinformation
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  {results.argang !== "–" && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Årgång:</span>
+                      <span className="font-medium">{results.argang}</span>
+                    </div>
+                  )}
+                  {results.alkoholhalt !== "–" && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Alkoholhalt:</span>
+                      <span className="font-medium">{results.alkoholhalt}</span>
+                    </div>
+                  )}
+                  {results.volym !== "–" && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Volym:</span>
+                      <span className="font-medium">{results.volym}</span>
+                    </div>
+                  )}
+                  {results.sockerhalt !== "–" && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Sockerhalt:</span>
+                      <span className="font-medium">{results.sockerhalt}</span>
+                    </div>
+                  )}
+                  {results.syra !== "–" && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Syra:</span>
+                      <span className="font-medium">{results.syra}</span>
+                    </div>
+                  )}
+                  {results.argang === "–" && results.alkoholhalt === "–" && results.volym === "–" && results.sockerhalt === "–" && results.syra === "–" && (
+                    <p className="text-muted-foreground text-center">Ingen produktinformation tillgänglig</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

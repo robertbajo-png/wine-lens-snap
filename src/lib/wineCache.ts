@@ -36,6 +36,11 @@ export interface WineAnalysisResult {
   smak: string;
   passar_till: string[];
   servering: string;
+  argang: string;
+  alkoholhalt: string;
+  volym: string;
+  sockerhalt: string;
+  syra: string;
 }
 
 export function getCachedAnalysis(ocrText: string): WineAnalysisResult | null {
