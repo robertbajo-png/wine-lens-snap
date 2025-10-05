@@ -8,6 +8,54 @@ const cors = {
   "Access-Control-Allow-Headers": "content-type, authorization",
 };
 
+// Server-side cache (Map med TTL, fungerar per function instance)
+const CACHE_TTL_MS = 1000 * 60 * 60; // 60 min
+const analysisCache = new Map<string, { ts: number; data: any }>();
+
+function normalizeOCR(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[^a-z0-9\s]/g, "");
+}
+
+function hashString(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+function getCacheKey(ocrText: string): string {
+  const normalized = normalizeOCR(ocrText);
+  return hashString(normalized.slice(0, 150));
+}
+
+function getFromCache(key: string): any | null {
+  const hit = analysisCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.ts > CACHE_TTL_MS) {
+    analysisCache.delete(key);
+    return null;
+  }
+  return hit.data;
+}
+
+function setCache(key: string, data: any): void {
+  analysisCache.set(key, { ts: Date.now(), data });
+  // Begränsa cache-storlek (max 100 entries)
+  if (analysisCache.size > 100) {
+    const oldestKey = analysisCache.keys().next().value;
+    if (oldestKey) {
+      analysisCache.delete(oldestKey);
+    }
+  }
+}
+
 function parseWine(jsonText: string): any {
   try {
     // Trimma av ev. markdown-kodblock
@@ -89,6 +137,20 @@ Deno.serve(async (req) => {
     console.log(`[${new Date().toISOString()}] Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
+    // Check cache first
+    if (ocrText && ocrText.length > 10) {
+      const cacheKey = getCacheKey(ocrText);
+      const cached = getFromCache(cacheKey);
+      if (cached) {
+        const cacheTime = Date.now() - startTime;
+        console.log(`[${new Date().toISOString()}] Cache hit! Returned in ${cacheTime}ms`);
+        return new Response(JSON.stringify(cached), {
+          headers: { ...cors, "content-type": "application/json" },
+        });
+      }
+      console.log(`[${new Date().toISOString()}] Cache miss, proceeding with analysis...`);
+    }
+
     // Step 1: Web search with Perplexity using OCR text only
     let webText = "";
     let webSources: string[] = [];
@@ -105,7 +167,7 @@ Deno.serve(async (req) => {
       while (attempt < maxRetries) {
         try {
           const controller = new AbortController();
-          const timeoutMs = 8000; // 8s timeout (single attempt)
+          const timeoutMs = 6000; // 6s timeout (reduced for faster fallback)
           const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
           
           const perplexityResponse = await fetch("https://api.perplexity.ai/chat/completions", {
@@ -305,14 +367,14 @@ Vid konflikt mellan källor: prioritera Systembolaget > producent > konsensus. A
     const geminiStart = Date.now();
     console.log(`[${new Date().toISOString()}] Starting Gemini analysis...`);
     
-    const maxRetries = 1; // Reduced to 1 retry
+    const maxRetries = 1;
     let attempt = 0;
     let ai: Response | null = null;
     
     while (attempt < maxRetries) {
       try {
         const controller = new AbortController();
-        const timeoutMs = 25000; // 25s timeout (down from 30s)
+        const timeoutMs = 20000; // 20s timeout (reduced from 25s)
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -436,6 +498,13 @@ Vid konflikt mellan källor: prioritera Systembolaget > producent > konsensus. A
       },
       _telemetry: telemetry
     };
+
+    // Save to cache before returning
+    if (ocrText && ocrText.length > 10) {
+      const cacheKey = getCacheKey(ocrText);
+      setCache(cacheKey, responseData);
+      console.log(`[${new Date().toISOString()}] Result cached for future requests`);
+    }
 
     return new Response(JSON.stringify(responseData), {
       headers: { ...cors, "content-type": "application/json" },
