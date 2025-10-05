@@ -10,6 +10,19 @@ import WineCardSB from "@/components/WineCardSB";
 import { preprocessImage } from "@/lib/imagePrep";
 import { createWorker } from "tesseract.js";
 
+// OCR language support - comprehensive wine label coverage
+const OLANGS = [
+  // Europa (latinskt)
+  "eng","swe","hun","deu","fra","spa","ita","por","nld","nor","dan","fin",
+  "pol","ces","slk","slv","ron","hrv","srp_latn",
+  // Central/öst
+  "tur","ell","bul","ukr","rus","mkd","lav","lit","est",
+  // RTL/CJK/SEA
+  "heb","ara","fas","urd",
+  "chi_sim","chi_tra","jpn","kor",
+  "tha","vie","ind","msa"
+].join("+");
+
 const WineSnap = () => {
   const { toast } = useToast();
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
@@ -41,16 +54,17 @@ const WineSnap = () => {
       const processedImage = await preprocessImage(imageData);
       console.log("Image preprocessed, size:", processedImage.length);
 
-      // Step 2: OCR with Tesseract.js
+      // Step 2: OCR with Tesseract.js (multi-language support)
       setProcessingStep("ocr");
       console.log("Step 2: Running OCR with Tesseract.js...");
+      console.log("OCR languages:", OLANGS);
       
-      const worker = await createWorker(['eng', 'hun', 'swe']);
+      const worker = await createWorker(OLANGS);
       const { data: { text } } = await worker.recognize(processedImage);
       await worker.terminate();
       
-      // Clean OCR text
-      const ocrText = text.trim().replace(/\s+/g, ' ');
+      // Normalize text: NFC normalization + whitespace cleanup
+      const ocrText = text.normalize("NFC").replace(/\s{2,}/g, " ").trim();
       console.log("OCR text length:", ocrText.length);
       console.log("OCR text preview:", ocrText.substring(0, 200));
       
