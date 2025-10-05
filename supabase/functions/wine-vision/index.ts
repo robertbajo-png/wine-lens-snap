@@ -81,13 +81,16 @@ Deno.serve(async (req) => {
     console.log(`Analyzing wine with OCR text, UI language: ${uiLang}`);
     console.log(`OCR text length: ${(ocrText || "").length}, no_text_found: ${noTextFound}`);
 
-    // System prompt with web search requirement
-    const systemPrompt = `Läs etiketten på bilden och sök på internet efter verifierad fakta om vinet.
-Använd bara tillförlitliga källor som Systembolaget, producentens hemsida, Vivino eller Wine-Searcher.
-Returnera enbart bekräftad information – inget påhitt.
+    // System prompt - fact-checking AI sommelier
+    const systemPrompt = `DU ÄR: En faktagranskande AI-sommelier. Du läser etikettbilden (vision), använder den OCR-lästa texten och sammanfattar endast verifierad fakta från webbkällor. Du hittar aldrig på.
 
-Svara alltid i detta format (på svenska, som giltig JSON):
+ARBETSGÅNG:
+1) ETIKETT (OCR): Läs texten på etiketten: namn, producent, druvor, land/region, klassificering (DOC/DOCG/Brut/Extra Dry), årgång, alkoholhalt, volym.
+2) WEBBFAKTA: Använd sammanfattningen från webbsök-steget (WEB_TEXT). Lita i första hand på Systembolaget, därefter producentens sida, därefter Vivino/Wine-Searcher. Ignorera bloggar/oinställda källor.
+3) FILTRERA: Ta endast med fakta som finns på etiketten eller bekräftas i WEB_TEXT. Om uppgift saknas: "-".
+4) JSON ENDAST: Svara alltid med EN (1) giltig JSON enligt schemat nedan. Ingen extra text.
 
+SCHEMA (SVENSKA):
 {
   "vin": "",
   "land_region": "",
@@ -103,8 +106,6 @@ Svara alltid i detta format (på svenska, som giltig JSON):
   "smak": "",
   "passar_till": [],
   "servering": "",
-  "sockerhalt": "",
-  "syra": "",
   "källa": "",
   "meters": {
     "sötma": null,
@@ -118,17 +119,17 @@ Svara alltid i detta format (på svenska, som giltig JSON):
   }
 }
 
-Regler:
-- Hitta aldrig på fakta.
-- Läs etikettens text (namn, producent, druvor, region, årgång, alkoholhalt).
-- Sök sedan på internet efter exakt det vinet och fyll bara i fakta som hittas i källorna.
-- Om något saknas, skriv "-".
-- Ange alltid vilken webbadress (källa) informationen kommer från.
-- För meters: om du hittar verifierad info om sötma/fyllighet/fruktighet/fruktsyra, sätt värde 0-5, annars null.
-- Svara endast med JSON, inga kommentarer eller extra text.`;
+REGLER:
+- Ingen fantasi. Skriv "-" när fakta saknas.
+- Fyll endast "karaktär/smak/passar_till/servering/meters" om webbkällan uttryckligen anger det.
+- För mousserande: sötma-mappning får användas deterministiskt om klassificering finns:
+  Brut Nature/Pas Dosé/Dosage Zéro=0; Extra Brut=0.5; Brut=1; Extra Dry=1.5; Dry/Sec=2.2; Demi-Sec/Semi-Seco=3.4; Dolce/Sweet=4.5.
+- Evidence: inkludera etikettens OCR-text (kortad) och de använda webbadresserna.`;
 
-    // Build user message with image
+    // Build user message with OCR context and image
     function buildUserMessage(ocrText: string, imageBase64?: string): any {
+      const ocrContext = `OCR_TEXT:\n${ocrText || "(ingen text hittades)"}\n\nWEB_TEXT:\n(AI söker automatiskt på webben för att hitta verifierad information om detta vin)`;
+      
       if (imageBase64) {
         return [
           {
@@ -139,15 +140,11 @@ Regler:
           },
           {
             type: "text",
-            text: `Analysera denna vinflaske-etikett. OCR-text (som backup): ${ocrText || "(ingen text)"}\n\nSök på webben efter verifierad information om detta vin och returnera JSON enligt formatet.`
+            text: ocrContext
           }
         ];
       } else {
-        return `OCR-text från vinflaska-etikett:
----
-${ocrText || "(ingen text hittades)"}
----
-Analysera enligt systemet och returnera JSON.`;
+        return ocrContext;
       }
     }
 
