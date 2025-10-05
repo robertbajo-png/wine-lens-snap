@@ -183,12 +183,34 @@ Deno.serve(async (req) => {
               focus: "internet",
               messages: [
                 {
+                  role: "system",
+                  content: "Du är en vin-expert. Svara ENDAST med välformulerat JSON. Ingen löptext före eller efter JSON."
+                },
+                {
                   role: "user",
-                  content: `Vin: "${ocrText.slice(0, 200)}"\n\nHitta kort fakta från Systembolaget, Vivino eller Wine-Searcher. Max 150 ord.`
+                  content: `Vin från etikett: "${ocrText.slice(0, 200)}"
+
+Hitta fakta från Systembolaget, Vivino eller Wine-Searcher. Returnera ENDAST JSON:
+{
+  "vin": "vinets namn",
+  "producent": "producentens namn",
+  "druvor": "druvsort(er)",
+  "land_region": "land, region",
+  "årgång": "årgång",
+  "alkoholhalt": "X%",
+  "volym": "Xml",
+  "klassificering": "t.ex. DOC, Reserva",
+  "karaktär": "kort beskrivning",
+  "smak": "smaker och dofter",
+  "servering": "temperatur",
+  "passar_till": ["maträtt1", "maträtt2"]
+}
+
+Om ett fält saknas: använd "-". Max 3 passar_till-maträtter.`
                 }
               ],
-              max_tokens: 300,
-              temperature: 0.1,
+              max_tokens: 400,
+              temperature: 0.0,
               return_images: false,
               return_related_questions: false,
               search_domain_filter: ["systembolaget.se", "vivino.com", "wine-searcher.com"]
@@ -201,6 +223,16 @@ Deno.serve(async (req) => {
             const perplexityData = await perplexityResponse.json();
             const rawText = perplexityData?.choices?.[0]?.message?.content || "";
             const citations = perplexityData?.citations || [];
+            
+            // Try to parse JSON response from Perplexity
+            let parsedWebData: any = null;
+            try {
+              // Remove markdown code blocks if present
+              const cleanJson = rawText.trim().replace(/^```json\s*|```$/g, "");
+              parsedWebData = JSON.parse(cleanJson);
+            } catch (parseError) {
+              console.log(`[${new Date().toISOString()}] Perplexity returned non-JSON, using as text`);
+            }
             
             // Post-process: Extract and prioritize sources
             if (citations.length > 0) {
@@ -226,11 +258,11 @@ Deno.serve(async (req) => {
               console.log("Web sources prioritized:", webSources);
             }
             
-            // Check if empty response
-            if (rawText.trim().length > 0) {
-              webText = rawText.trim();
+            // Check if we got useful data (either structured JSON or text)
+            if (parsedWebData || rawText.trim().length > 0) {
+              webText = parsedWebData ? JSON.stringify(parsedWebData) : rawText.trim();
               const perplexityTime = Date.now() - perplexityStart;
-              console.log(`[${new Date().toISOString()}] Perplexity success (${perplexityTime}ms), text length: ${webText.length}`);
+              console.log(`[${new Date().toISOString()}] Perplexity success (${perplexityTime}ms), structured: ${!!parsedWebData}, text length: ${webText.length}`);
               break; // Success, exit retry loop
             } else {
               console.log(`[${new Date().toISOString()}] Empty Perplexity response`);
