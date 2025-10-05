@@ -1,54 +1,6 @@
 import React from "react";
+import { WineMetersSB } from "./WineMetersSB";
 
-/** value: 0–5 i halva steg funkar också (t.ex. 2.5).  */
-function GaugeCircle({
-  label,
-  value
-}: {
-  label: string;
-  value: number; // 0..5
-}) {
-  // donut med 75% fylld sektor som i SB? Vi fyller proportionellt av hela cirkeln.
-  const size = 52;
-  const stroke = 6;
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(5, value)) / 5; // 0..1
-  const dash = c * pct;
-  const gap = c - dash;
-
-  return (
-    <div className="flex flex-col items-center">
-      <svg width={size} height={size}>
-        {/* bakgrund */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          stroke="currentColor"
-          strokeWidth={stroke}
-          className="text-gray-300"
-          fill="none"
-        />
-        {/* fylld del */}
-        <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={r}
-            stroke="currentColor"
-            strokeWidth={stroke}
-            className="text-gray-900"
-            fill="none"
-            strokeDasharray={`${dash} ${gap}`}
-            strokeLinecap="butt"
-          />
-        </g>
-      </svg>
-      <div className="text-xs tracking-wide mt-1 text-gray-700">{label.toUpperCase()}</div>
-    </div>
-  );
-}
 
 type WineSB = {
   vin: string;
@@ -112,14 +64,10 @@ export default function WineCardSBPlus({
           <div className="h-px bg-gray-200 my-3" />
 
           {/* Mätare – som Systembolaget */}
-          <div className="grid grid-cols-4 gap-4 py-2">
-            <GaugeCircle label="Sötma" value={metrics.sötma} />
-            <GaugeCircle label="Fyllighet" value={metrics.fyllighet} />
-            <GaugeCircle label="Fruktighet" value={metrics.fruktighet} />
-            <GaugeCircle label="Fruktsyra" value={metrics.fruktsyra} />
-          </div>
+          <WineMetersSB meters={metrics} />
 
           <div className="h-px bg-gray-200 my-3" />
+
 
           <Row label="Alkoholhalt" value={data.alkoholhalt} />
           <Row label="Volym" value={data.volym} />
