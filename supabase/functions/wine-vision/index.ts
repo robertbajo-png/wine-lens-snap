@@ -102,11 +102,12 @@ Regler:
   - Om texten innehåller "Tokaji" och "Furmint" → typ=vitt, druvor=Furmint, land_region="Ungern, Tokaj", servering="8–10 °C", karaktär="Friskt & fruktigt".
 Svara på ${uiLang}.`;
 
-    const userMessage = `Här är etikettens text från OCR:
+    const userMessage = `<UI_LANG> = ${uiLang}
+OCR_TEXT:
 ---
 ${ocrText || "(ingen text hittades)"}
 ---
-Identifiera och returnera JSON enligt systemet. Använd domänkunskapen om Tokaji/Furmint upptäcks.`;
+Analysera enligt systemet och returnera JSON.`;
 
     const ai = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
