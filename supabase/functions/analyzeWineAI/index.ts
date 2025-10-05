@@ -5,6 +5,7 @@ const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -56,35 +57,32 @@ serve(async (req) => {
 
     const heuristics = quickHeuristics(ocrText);
 
-    const systemPrompt = `Du är vinexpert och datadisciplinerat verktyg. 
-Du gör ALDRIG visuella gissningar. Du baserar ALLA slutsatser ENBART på OCR-texten.
-Om texten inte räcker: skriv "Okänt" och ge inga fantasier.
+    const systemPrompt = `Du är en strikt vinexpert. Du får OCR-text från en vinetikett.
 
-Svara ENBART som giltig JSON enligt detta schema:
+Regler:
+- Använd ENDAST OCR-texten (inget gissande från färg/design).
+- Om något saknas: skriv "Okänt".
+- Returnera ENDAST JSON enligt schema nedan.
+- Om texten innehåller "Tokaji" och "Furmint": sätt typ=Vitt, druva=Furmint, region=Tokaj, Ungern.
+- Ge 3–5 rimliga matparningar för stilen.
+
+JSON-schema:
 {
-  "grape": "string",
-  "style": "string",
-  "serve_temp_c": "string",
-  "pairing": ["string", "string", "string", "string"]
+  "vin": "string|Okänt",
+  "typ": "Vitt|Rött|Rosé|Mousserande|Okänt",
+  "druva": "string|Okänt",
+  "region": "string|Okänt",
+  "stil_smak": "string",
+  "servering": "t.ex. 8–10 °C",
+  "att_till": ["rätt 1", "rätt 2", "rätt 3"]
 }
-
-ABSOLUTA REGLER:
-- Använd ENDAST information som finns bokstavligen i OCR-texten
-- Om druvsort/vinnamn (t.ex. "Tokaji", "Furmint", "Riesling", "Pinot", "Merlot") finns i texten: använd det exakt
-- Om OCR-texten saknar tydlig information: skriv "Okänt" för grape
-- FÖRBJUDET att gissa baserat på: färg, design, flaskutseende, region
-- FÖRBJUDET att hitta på druvsort från region eller annat
-- style: kort beskrivning (≤ 180 tecken), använd endast fakta från texten
-- serve_temp_c: temperaturintervall (t.ex. "14–16")
-- pairing: 3–5 korta svenska rätter (engelska om lang='en')
 
 ${heuristics.preset ? `VIKTIGT: OCR-texten innehåller "${heuristics.druva}" från ${heuristics.region}. Använd denna information.` : ''}
 
 Språk: Svenska om lang='sv', engelska om lang='en'.
+Returnera ENDAST JSON utan markdown eller kommentarer.`;
 
-Svara ENDAST med JSON. Ingen markdown, inga kommentarer.`;
-
-    const userPrompt = `OCR-text från vinflaska:
+    const userPrompt = `OCR-text från vinetikett:
 """
 ${ocrText}
 """
@@ -93,8 +91,7 @@ ${Object.keys(heuristics).length > 0 ? `Detekterade ledtrådar:
 ${JSON.stringify(heuristics, null, 2)}` : ''}
 
 Språk: ${lang}
-
-Analysera och returnera JSON enligt schemat.`;
+Returnera strikt JSON enligt schema.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -103,7 +100,8 @@ Analysera och returnera JSON enligt schemat.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-2025-08-07',
+        model: 'gpt-4o-mini',
+        temperature: 0.2,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -135,20 +133,18 @@ Analysera och returnera JSON enligt schemat.`;
     }
 
     const data = await response.json();
-    const analysisText = data.choices[0].message.content;
+    let analysisText = data.choices[0].message.content;
 
     console.log('Analysis response:', analysisText);
+
 
     // Parse the JSON response robustly (handle code fences or extra text)
     let analysis;
     try {
-      let jsonText = analysisText.trim();
+      let jsonText = (analysisText || "").trim();
 
       // Strip ```json ... ``` fences if present
-      const fenced = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-      if (fenced && fenced[1]) {
-        jsonText = fenced[1].trim();
-      }
+      jsonText = jsonText.replace(/^```json/i, "").replace(/```$/i, "").trim();
 
       // If still not pure JSON, try extracting between first { and last }
       if (!(jsonText.startsWith('{') && jsonText.endsWith('}'))) {
@@ -168,14 +164,26 @@ Analysera och returnera JSON enligt schemat.`;
       );
     }
 
-
     // Apply heuristics if we have preset values
     if (heuristics.preset) {
-      if (!analysis.grape || analysis.grape === "Okänt") analysis.grape = heuristics.druva;
-      if (!analysis.serve_temp_c) analysis.serve_temp_c = heuristics.servering;
+      if (!analysis.druva || analysis.druva === "Okänt") analysis.druva = heuristics.druva;
+      if (!analysis.servering) analysis.servering = heuristics.servering;
+      if (!analysis.region || analysis.region === "Okänt") analysis.region = heuristics.region;
+      if (!analysis.typ || analysis.typ === "Okänt") analysis.typ = heuristics.typ;
     }
 
-    return new Response(JSON.stringify(analysis), {
+    // Map to final response format
+    const result = {
+      vin: analysis.vin ?? "Okänt",
+      typ: analysis.typ ?? "Okänt",
+      druva: analysis.druva ?? "Okänt",
+      region: analysis.region ?? "Okänt",
+      stil_smak: analysis.stil_smak ?? "Okänt",
+      servering: analysis.servering ?? "Okänt",
+      att_till: Array.isArray(analysis.att_till) ? analysis.att_till.slice(0, 5) : []
+    };
+
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

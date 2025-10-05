@@ -67,10 +67,13 @@ const WineSnap = () => {
 
       if (data) {
         const result: WineAnalysisResult = {
-          grape: data.grape || "",
-          style: data.style || "",
-          serve_temp_c: data.serve_temp_c || "",
-          pairing: data.pairing || []
+          vin: data.vin || "Okänt",
+          typ: data.typ || "Okänt",
+          druva: data.druva || "Okänt",
+          region: data.region || "Okänt",
+          stil_smak: data.stil_smak || "Okänt",
+          servering: data.servering || "Okänt",
+          att_till: data.att_till || []
         };
         
         setResults(result);
@@ -128,13 +131,30 @@ const WineSnap = () => {
             <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <Wine className="h-5 w-5" />
+                  Vin
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-foreground font-semibold text-lg">
+                  {results.vin}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {results.typ} • {results.region}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
                   <Grape className="h-5 w-5" />
                   Druva
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-foreground font-semibold text-lg">
-                  {results.grape}
+                  {results.druva}
                 </p>
               </CardContent>
             </Card>
@@ -148,7 +168,7 @@ const WineSnap = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground leading-relaxed">
-                  {results.style}
+                  {results.stil_smak}
                 </p>
               </CardContent>
             </Card>
@@ -162,7 +182,7 @@ const WineSnap = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground font-medium">
-                  {results.serve_temp_c}
+                  {results.servering}
                 </p>
               </CardContent>
             </Card>
@@ -175,9 +195,9 @@ const WineSnap = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {results.pairing.length > 0 ? (
+                {results.att_till.length > 0 ? (
                   <ul className="space-y-2">
-                    {results.pairing.map((item, index) => (
+                    {results.att_till.map((item, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <span className="text-primary mt-1">•</span>
                         <span className="text-muted-foreground">{item}</span>

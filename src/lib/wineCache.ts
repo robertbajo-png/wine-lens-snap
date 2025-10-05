@@ -28,10 +28,13 @@ export function getCacheKey(ocrText: string): string {
 }
 
 export interface WineAnalysisResult {
-  grape: string;
-  style: string;
-  serve_temp_c: string;
-  pairing: string[];
+  vin: string;
+  typ: string;
+  druva: string;
+  region: string;
+  stil_smak: string;
+  servering: string;
+  att_till: string[];
 }
 
 export function getCachedAnalysis(ocrText: string): WineAnalysisResult | null {
