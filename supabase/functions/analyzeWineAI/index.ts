@@ -29,9 +29,11 @@ serve(async (req) => {
 
     console.log(`Analyzing wine with language: ${lang}`);
 
-    const systemPrompt = `You are a sommelier. Analyze ONLY the OCR text provided. NEVER guess based on color, design, or bottle appearance.
+    const systemPrompt = `Du är vinexpert och datadisciplinerat verktyg. 
+Du gör ALDRIG visuella gissningar. Du baserar ALLA slutsatser ENBART på OCR-texten.
+Om texten inte räcker: skriv "Okänt" och ge inga fantasier.
 
-Return JSON only:
+Svara ENBART som giltig JSON enligt detta schema:
 {
   "grape": "string",
   "style": "string",
@@ -39,19 +41,19 @@ Return JSON only:
   "pairing": ["string", "string", "string", "string"]
 }
 
-CRITICAL RULES:
-- If grape/wine name appears explicitly in OCR text (e.g., "Tokaji", "Furmint", "Riesling", "Pinot", "Merlot"), use it exactly.
-- If OCR text is missing, unclear, or contains no wine-related words, set grape to "Ingen text kunde avläsas" and provide generic style/pairing.
-- NEVER invent grape varieties based on region alone.
-- NEVER guess based on bottle color, label design, or visual appearance.
-- Only use information that is literally present in the OCR text.
-- Keep 'style' vivid but concise (≤ 180 chars), avoid jargon.
-- 'serve_temp_c' as a range (e.g., "14–16").
-- Pairings: 3–4 short Swedish (or English if lang='en') dish names.
+ABSOLUTA REGLER:
+- Använd ENDAST information som finns bokstavligen i OCR-texten
+- Om druvsort/vinnamn (t.ex. "Tokaji", "Furmint", "Riesling", "Pinot", "Merlot") finns i texten: använd det exakt
+- Om OCR-texten saknar tydlig information: skriv "Okänt" för grape
+- FÖRBJUDET att gissa baserat på: färg, design, flaskutseende, region
+- FÖRBJUDET att hitta på druvsort från region eller annat
+- style: kort beskrivning (≤ 180 tecken), använd endast fakta från texten
+- serve_temp_c: temperaturintervall (t.ex. "14–16")
+- pairing: 3–4 korta svenska rätter (engelska om lang='en')
 
-Language: Swedish if lang='sv', English if lang='en'.
+Språk: Svenska om lang='sv', engelska om lang='en'.
 
-Output JSON only. No markdown, no comments.`;
+Svara ENDAST med JSON. Ingen markdown, inga kommentarer.`;
 
     const userPrompt = `OCR label text:
 """
