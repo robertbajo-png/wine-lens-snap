@@ -31,6 +31,25 @@ function parseWine(jsonText: string): any {
   }
 }
 
+function enrichFallback(ocrText: string, data: any) {
+  const t = (ocrText || "").toLowerCase();
+  const hasTokaji = /tokaji/.test(t);
+  const hasFurmint = /furmint/.test(t);
+
+  // Om Tokaji Furmint: fyll standard om saknas
+  if (hasTokaji && hasFurmint) {
+    data.vin = data.vin && data.vin !== "–" ? data.vin : "Tokaji Furmint";
+    data.land_region = data.land_region && data.land_region !== "–" ? data.land_region : "Ungern, Tokaj";
+    data.druvor = data.druvor && data.druvor !== "–" ? data.druvor : "Furmint";
+    data.karaktär = data.karaktär && data.karaktär !== "–" ? data.karaktär : "Friskt & fruktigt";
+    data.smak = data.smak && !/Ingen läsbar text/i.test(data.smak) ? data.smak :
+      "Friskt och fruktigt med inslag av citrus, gröna äpplen och lätt honung/mineral.";
+    data.servering = data.servering && data.servering !== "–" ? data.servering : "8–10 °C";
+    data.passar_till = Array.isArray(data.passar_till) && data.passar_till.length ? data.passar_till : ["fisk","kyckling","milda ostar"];
+  }
+  return data;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   if (req.method !== "POST")
@@ -133,21 +152,24 @@ Identifiera och returnera JSON enligt systemet. Använd domänkunskapen om Tokaj
     console.log("Vision API response:", content);
 
     const parsed = parseWine(content);
+    
+    // Kör enrichFallback baserat på AI:ns raw response (content innehåller ev. Tokaji/Furmint)
+    const enriched = enrichFallback(content, parsed);
 
     const data = {
-      vin: parsed.vin ?? "–",
-      land_region: parsed.land_region ?? "–",
-      producent: parsed.producent ?? "–",
-      druvor: parsed.druvor ?? "–",
-      karaktär: parsed.karaktär ?? "–",
-      smak: parsed.smak ?? "–",
-      passar_till: Array.isArray(parsed.passar_till) ? parsed.passar_till : [],
-      servering: parsed.servering ?? "–",
-      årgång: parsed.årgång ?? "–",
-      alkoholhalt: parsed.alkoholhalt ?? "–",
-      volym: parsed.volym ?? "–",
-      sockerhalt: parsed.sockerhalt ?? "–",
-      syra: parsed.syra ?? "–",
+      vin: enriched.vin ?? "–",
+      land_region: enriched.land_region ?? "–",
+      producent: enriched.producent ?? "–",
+      druvor: enriched.druvor ?? "–",
+      karaktär: enriched.karaktär ?? "–",
+      smak: enriched.smak ?? "–",
+      passar_till: Array.isArray(enriched.passar_till) ? enriched.passar_till : [],
+      servering: enriched.servering ?? "–",
+      årgång: enriched.årgång ?? "–",
+      alkoholhalt: enriched.alkoholhalt ?? "–",
+      volym: enriched.volym ?? "–",
+      sockerhalt: enriched.sockerhalt ?? "–",
+      syra: enriched.syra ?? "–",
     };
 
     return new Response(JSON.stringify(data), {
