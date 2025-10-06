@@ -220,6 +220,8 @@ ${schemaJSON}
           schemaHint: schemaJSON,
         });
 
+        console.log(`[${new Date().toISOString()}] Perplexity WEB_JSON:`, JSON.stringify(WEB_JSON, null, 2));
+
         // Clean and sort sources
         const sources = (WEB_JSON.källor || []) as unknown[];
         WEB_JSON.källor = Array.from(new Set(sources))
@@ -292,6 +294,8 @@ WEB_JSON:
         json: true,
         timeoutMs: CFG.GEMINI_TIMEOUT_MS,
       });
+
+      console.log(`[${new Date().toISOString()}] Gemini finalData:`, JSON.stringify(finalData, null, 2));
 
       // Ensure proper structure
       if (!finalData.källa || finalData.källa === "-") {
