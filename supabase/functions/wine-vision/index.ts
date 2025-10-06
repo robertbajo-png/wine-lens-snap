@@ -189,30 +189,35 @@ Deno.serve(async (req) => {
 
       try {
         const queries = buildSearchVariants(ocrText);
-        const pplxPrompt = `
-Du ska returnera ENDAST ett kort JSON-objekt (ingen löptext) med verifierad fakta om detta vin.
-
-Använd dessa sökfraser i turordning (max 12):
-${queries.map((q, i) => `${i + 1}) ${q}`).join("\n")}
-
-Prioritera: 1) systembolaget.se 2) producentens sajt
-3) vinmonopolet.no/alko.fi/saq.com/lcbo.com
-4) wine-searcher/wine.com/totalwine/waitrose/tesco/majestic
-5) decanter/winemag/jancisrobinson/falstaff
-6) vivino/cellartracker (endast om inget annat finns)
-
-Returnera ENDAST giltig JSON exakt enligt:
+        
+        const schemaJSON = `
 {
   "vin": "", "producent": "", "druvor": "", "land_region": "",
   "årgång": "", "alkoholhalt": "", "volym": "", "klassificering": "",
   "karaktär": "", "smak": "", "servering": "", "passar_till": [], "källor": []
 }
-Om uppgift saknas: "-".
+`.trim();
+
+        const systemPrompt = `Du är en extraktor som MÅSTE returnera ENBART ett giltigt, minifierat JSON-objekt enligt schema. Ingen markdown, inga backticks, ingen kommentar före eller efter. Dubbelcitat på alla nycklar/strängar.`;
+
+        const pplxPrompt = `
+VIN-LEDTRÅD (OCR):
+"${ocrText.slice(0, 300)}"
+
+Sök i denna prioritering med site:-filter:
+${queries.slice(0, 8).map((q, i) => `${i + 1}) ${q}`).join("\n")}
+
+Normalisera sökningen (ta bort diakritiska tecken; "Egri" ≈ "Eger").
+
+Returnera ENBART ett JSON-objekt exakt enligt detta schema (saknas uppgift → "-"):
+${schemaJSON}
         `.trim();
 
         WEB_JSON = await aiClient.perplexity(pplxPrompt, {
           model: CFG.PPLX_MODEL,
           timeoutMs: CFG.PPLX_TIMEOUT_MS,
+          systemPrompt,
+          schemaHint: schemaJSON,
         });
 
         // Clean and sort sources

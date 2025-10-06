@@ -16,6 +16,8 @@ interface PerplexityOptions {
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
+  systemPrompt?: string;
+  schemaHint?: string;
 }
 
 const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -43,6 +45,60 @@ async function fetchWithTimeout(
     }
     throw error;
   }
+}
+
+// JSON repair function using Gemini
+async function forceJson(raw: string, schemaHint: string, apiKey: string): Promise<any> {
+  // 1) Direct parse
+  try { 
+    return JSON.parse(raw); 
+  } catch {}
+
+  // 2) Extract first JSON object
+  const match = raw.match(/\{[\s\S]*\}$/m) || raw.match(/\{[\s\S]*?\}/m);
+  if (match) {
+    try { 
+      return JSON.parse(match[0]); 
+    } catch {}
+  }
+
+  // 3) Ask Gemini to repair to valid JSON according to schema
+  console.log("Attempting JSON repair with Gemini...");
+  const fixPrompt = `
+Du får text som påstår sig vara JSON men inte är giltig.
+Returnera ENDAST ett giltigt, minifierat JSON-objekt som följer detta schema:
+${schemaHint}
+
+Text att reparera:
+<<<${raw}>>>
+`;
+
+  const response = await fetch(LOVABLE_GATEWAY, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [{ role: "user", content: fixPrompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini repair failed: HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data?.choices?.[0]?.message?.content;
+  
+  if (!content) {
+    throw new Error("Gemini repair returned empty content");
+  }
+
+  return JSON.parse(content);
 }
 
 export const aiClient = {
@@ -139,10 +195,12 @@ export const aiClient = {
   },
 
   /**
-   * Call Perplexity API with optional site whitelist
+   * Call Perplexity API with optional site whitelist and robust JSON parsing
    * @example
    * const result = await aiClient.perplexity("Find wine info", {
-   *   siteWhitelist: ["systembolaget.se", "vivino.com"]
+   *   siteWhitelist: ["systembolaget.se", "vivino.com"],
+   *   systemPrompt: "You are a JSON extractor",
+   *   schemaHint: '{"vin": "", "producent": ""}'
    * });
    */
   async perplexity(prompt: string, options: PerplexityOptions = {}): Promise<any> {
@@ -152,11 +210,22 @@ export const aiClient = {
       temperature = 0.0,
       maxTokens = 600,
       timeoutMs = 12000,
+      systemPrompt,
+      schemaHint,
     } = options;
 
     const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    
     if (!perplexityApiKey) {
       throw new Error("PERPLEXITY_API_KEY not configured");
+    }
+
+    const messages: any[] = [];
+    
+    // Add system message if provided
+    if (systemPrompt) {
+      messages.push({ role: "system", content: systemPrompt });
     }
 
     let finalPrompt = prompt;
@@ -164,6 +233,8 @@ export const aiClient = {
       const siteQueries = siteWhitelist.map((domain) => `site:${domain}`).join(" OR ");
       finalPrompt = `${prompt}\n\nSearch only in: ${siteQueries}`;
     }
+    
+    messages.push({ role: "user", content: finalPrompt });
 
     try {
       const response = await fetchWithTimeout(
@@ -178,7 +249,7 @@ export const aiClient = {
             model,
             temperature,
             max_tokens: maxTokens,
-            messages: [{ role: "user", content: finalPrompt }],
+            messages,
           }),
         },
         timeoutMs
@@ -191,11 +262,23 @@ export const aiClient = {
       }
 
       const data = await response.json();
-      const content = data?.choices?.[0]?.message?.content || "{}";
+      const rawContent = data?.choices?.[0]?.message?.content || "{}";
 
+      // Clean markdown code blocks if present
+      const cleaned = rawContent.trim().replace(/^```json\s*|```$/g, "");
+
+      // Use forceJson if schema hint is provided
+      if (schemaHint && lovableApiKey) {
+        console.log("Using forceJson for Perplexity response...");
+        return await forceJson(cleaned, schemaHint, lovableApiKey);
+      }
+
+      // Otherwise try direct parse
       try {
-        return JSON.parse(content);
-      } catch {
+        return JSON.parse(cleaned);
+      } catch (parseError) {
+        console.error("Perplexity JSON parse error:", parseError);
+        console.error("Raw content (first 500 chars):", cleaned.substring(0, 500));
         throw new Error("Perplexity did not return valid JSON");
       }
     } catch (error) {
