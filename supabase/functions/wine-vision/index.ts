@@ -241,6 +241,8 @@ Om uppgift saknas: "-".
           cacheNote = "perplexity_timeout";
         } else {
           console.error(`[${new Date().toISOString()}] Perplexity error (${perplexityTime}ms):`, errorMsg);
+          console.error("Perplexity full error details:", error);
+          cacheNote = "perplexity_failed";
         }
       }
     }

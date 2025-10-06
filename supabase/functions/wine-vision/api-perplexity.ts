@@ -118,8 +118,11 @@ Om ett fält saknas: använd "-". Max 3 passar_till-maträtter.`
     try {
       const cleanJson = rawText.trim().replace(/^```json\s*|```$/g, "");
       parsedData = JSON.parse(cleanJson);
-    } catch {
-      console.log("Perplexity returned non-JSON, using as text");
+    } catch (parseError) {
+      console.error("Perplexity JSON parse error:", parseError);
+      console.error("Raw Perplexity response (first 500 chars):", rawText.substring(0, 500));
+      console.error("Full response length:", rawText.length);
+      throw new Error("Perplexity did not return valid JSON");
     }
 
     // Prioritize sources: Systembolaget > Nordic monopolies > Producer > Retailers > Professional magazines

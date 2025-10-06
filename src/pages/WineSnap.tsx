@@ -177,6 +177,10 @@ const WineSnap = () => {
         // Show banner based on note
         if (note === "hit_memory" || note === "hit_supabase") {
           setBanner({ type:"info", text: "Hämtade sparad profil för snabbare upplevelse." });
+        } else if (note === "perplexity_timeout") {
+          setBanner({ type:"info", text: "Webbsökning tog för lång tid – använder endast etikett-info." });
+        } else if (note === "perplexity_failed") {
+          setBanner({ type:"info", text: "Kunde ej söka på webben – använder endast etikett-info. Kolla loggarna för detaljer." });
         } else {
           setBanner({ type:"success", text: "Klart! Din vinprofil är uppdaterad." });
         }
