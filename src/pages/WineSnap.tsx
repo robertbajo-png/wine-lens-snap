@@ -64,6 +64,7 @@ const WineSnap = () => {
       const cached = getCachedAnalysis(imageData);
       if (cached) {
         setResults(cached);
+        setBanner({ type: "info", text: "Hämtade sparad analys från din enhet." });
         toast({
           title: "Klart!",
           description: "Analys hämtad från cache."
@@ -172,7 +173,7 @@ const WineSnap = () => {
         };
         
         setResults(result);
-        setCachedAnalysis(imageData, result);
+        setCachedAnalysis(imageData, result, imageData);
         
         // Show banner based on note
         if (note === "hit_memory" || note === "hit_supabase") {
@@ -232,11 +233,21 @@ const WineSnap = () => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-secondary flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6 animate-fade-in pb-24">
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/historik")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Historik
+            </Button>
+          </div>
           {/* Banner */}
           {banner && (
             <div className={`rounded-xl px-4 py-3 text-sm border ${
-              banner.type === "error" 
-                ? "bg-destructive/10 text-destructive border-destructive/20" 
+              banner.type === "error"
+                ? "bg-destructive/10 text-destructive border-destructive/20"
                 : banner.type === "success" 
                 ? "bg-primary/10 text-primary border-primary/20" 
                 : "bg-accent/10 text-accent border-accent/20"

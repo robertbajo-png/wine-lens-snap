@@ -71,3 +71,43 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Hur kan jag testa appen?
+
+Följ stegen nedan för att köra och testa WineSnap lokalt:
+
+1. **Installera beroenden**
+   ```sh
+   npm install
+   ```
+
+2. **Starta utvecklingsservern** för att testa funktioner interaktivt. Servern körs på `http://localhost:5173/` som standard.
+   ```sh
+   npm run dev
+   ```
+
+3. **Kör byggsteget** om du vill säkerställa att projektet kompilerar utan fel.
+   ```sh
+   npm run build
+   ```
+
+4. **Förhandsgranska produktionsbuilden** med en lokal server.
+   ```sh
+   npm run preview
+   ```
+
+5. **Kvalitetssäkra koden** genom att köra ESLint (observera att det kan finnas befintliga varningar/fel som behöver åtgärdas).
+   ```sh
+   npm run lint
+   ```
+
+### Miljövariabler
+
+Supabase-klienten använder följande variabler i en `.env`-fil (skapa filen i projektroten vid behov):
+
+```
+VITE_SUPABASE_URL=<din-supabase-url>
+VITE_SUPABASE_PUBLISHABLE_KEY=<din-supabase-nyckel>
+```
+
+När variablerna är satta kommer autentisering och datahämtning att fungera som förväntat i utvecklingsmiljön.

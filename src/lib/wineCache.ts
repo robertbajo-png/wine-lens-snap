@@ -2,6 +2,22 @@
 
 const CACHE_KEY_PREFIX = 'wine_analysis_';
 
+interface StoredWineAnalysisV1 {
+  version: 1;
+  timestamp: string;
+  result: WineAnalysisResult;
+  imageData?: string;
+}
+
+type StoredWineAnalysis = WineAnalysisResult | StoredWineAnalysisV1;
+
+export interface CachedWineAnalysisEntry {
+  key: string;
+  timestamp: string;
+  result: WineAnalysisResult;
+  imageData?: string;
+}
+
 // Normalize OCR text: trim, lowercase, remove non-alphanumeric
 function normalizeText(text: string): string {
   return text
@@ -59,12 +75,44 @@ export interface WineAnalysisResult {
   originaltext?: string;
 }
 
+function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEntry | null {
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as StoredWineAnalysis;
+
+    if (parsed && typeof parsed === 'object' && 'version' in parsed) {
+      const v1 = parsed as StoredWineAnalysisV1;
+      return {
+        key,
+        timestamp: v1.timestamp,
+        result: v1.result,
+        imageData: v1.imageData,
+      };
+    }
+
+    if (parsed && typeof parsed === 'object') {
+      // Legacy entries were just the result object without metadata
+      return {
+        key,
+        timestamp: new Date().toISOString(),
+        result: parsed as WineAnalysisResult,
+      };
+    }
+  } catch (error) {
+    console.error('Error parsing cached wine analysis:', error);
+  }
+
+  return null;
+}
+
 export function getCachedAnalysis(ocrText: string): WineAnalysisResult | null {
+  if (typeof window === 'undefined') return null;
   try {
     const key = getCacheKey(ocrText);
-    const cached = localStorage.getItem(key);
+    const cached = parseStoredValue(key, localStorage.getItem(key));
     if (cached) {
-      return JSON.parse(cached) as WineAnalysisResult;
+      return cached.result;
     }
   } catch (error) {
     console.error('Error reading from cache:', error);
@@ -72,16 +120,24 @@ export function getCachedAnalysis(ocrText: string): WineAnalysisResult | null {
   return null;
 }
 
-export function setCachedAnalysis(ocrText: string, result: WineAnalysisResult): void {
+export function setCachedAnalysis(ocrText: string, result: WineAnalysisResult, imageData?: string): void {
+  if (typeof window === 'undefined') return;
   try {
     const key = getCacheKey(ocrText);
-    localStorage.setItem(key, JSON.stringify(result));
+    const payload: StoredWineAnalysisV1 = {
+      version: 1,
+      timestamp: new Date().toISOString(),
+      result,
+      imageData,
+    };
+    localStorage.setItem(key, JSON.stringify(payload));
   } catch (error) {
     console.error('Error writing to cache:', error);
   }
 }
 
 export function clearCache(): void {
+  if (typeof window === 'undefined') return;
   try {
     const keys = Object.keys(localStorage);
     keys.forEach(key => {
@@ -91,5 +147,36 @@ export function clearCache(): void {
     });
   } catch (error) {
     console.error('Error clearing cache:', error);
+  }
+}
+
+export function getAllCachedAnalyses(): CachedWineAnalysisEntry[] {
+  if (typeof window === 'undefined') return [];
+
+  const entries: CachedWineAnalysisEntry[] = [];
+
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(CACHE_KEY_PREFIX)) continue;
+
+      const parsed = parseStoredValue(key, localStorage.getItem(key));
+      if (parsed) {
+        entries.push(parsed);
+      }
+    }
+  } catch (error) {
+    console.error('Error getting cached analyses:', error);
+  }
+
+  return entries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+export function removeCachedAnalysis(key: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.error('Error removing cached analysis:', error);
   }
 }

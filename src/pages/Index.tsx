@@ -6,7 +6,12 @@ const Index = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#FBF8FF] to-white px-4">
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#FBF8FF] to-white px-4">
+      <div className="absolute top-4 right-4">
+        <Button variant="outline" size="sm" onClick={() => navigate("/historik")}>
+          Historik
+        </Button>
+      </div>
       <div className="flex flex-col items-center justify-center space-y-12 max-w-2xl w-full">
         {/* Header section */}
         <div className="text-center space-y-4">
