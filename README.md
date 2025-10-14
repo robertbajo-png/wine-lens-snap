@@ -107,13 +107,16 @@ När utvecklingsservern körs kan du följa checklistan nedan för att verifiera
 
 1. **Landningssidan** – Besök `http://localhost:5173/` och kontrollera att hero-sektionen, call-to-action och bakgrundsgradienterna renderas korrekt i både mobil- och desktop-bredd (justera med devtools).
 2. **Starta en skanning** – Klicka på knapparna "Starta WineSnap" eller "Ny skanning" och säkerställ att du hamnar på `/winesnap`. Där kan du ladda upp en bild (t.ex. valfri JPEG) och bekräfta att resultatkortet renderas när analysen är klar.
-3. **Historikvy** – Navigera till `/history` via länken "Sparade analyser" i sidhuvudet. Kontrollera att statistik-korten, listan med sparade analyser och tomt-läge ser korrekta ut.
+3. **Historikvy** – Navigera till `/historik` via länken "Sparade analyser" i sidhuvudet. Kontrollera att statistik-korten, listan med sparade analyser och tomt-läge ser korrekta ut.
 4. **Interaktioner** – Öppna dialogen "Visa detaljer" på en sparad analys, testa knappen "Ta bort" samt "Ny skanning" för att säkerställa att alla knappar och länkar svarar.
 5. **Responsivitet** – Använd webbläsarens verktyg för att testa i flera brytpunkter (320px, 768px, 1024px) och verifiera att layouten anpassas utan visuella buggar.
 
 #### Snabbt fylla historiken med testdata
 
-Om du behöver exempeldata för att testa historikvyn utan att göra riktiga skanningar kan du använda webbläsarkonsolen medan sidan är öppen:
+Det finns två enkla sätt att fylla historiken inför manuella tester:
+
+1. **Använd det inbyggda testverktyget** – Öppna sidan `Sparade analyser` och klicka på knappen **"Testverktyg"** uppe till höger. Där kan du fylla listan med tre demoposter eller rensa bort sparade analyser med ett klick.
+2. **Via webbläsarkonsolen** – Om du föredrar att styra exakt vad som sparas kan du köra skriptet nedan medan historiksidan är öppen:
 
 ```js
 localStorage.setItem(
@@ -157,7 +160,7 @@ localStorage.setItem(
 );
 ```
 
-Uppdatera sedan historiksidan (F5) för att se posterna. Ta bort testdatan genom att klicka på "Ta bort" i historikvyn eller rensa `localStorage`.
+Uppdatera sedan historiksidan (F5) för att se posterna. Ta bort testdatan via **Testverktyg → Rensa historiken**, genom att klicka på "Ta bort" vid respektive post eller genom att rensa `localStorage` manuellt.
 
 ### Miljövariabler
 

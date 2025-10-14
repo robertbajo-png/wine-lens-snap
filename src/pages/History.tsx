@@ -11,15 +11,22 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getAllCachedAnalyses, removeCachedAnalysis, type CachedWineAnalysisEntry } from "@/lib/wineCache";
+import {
+  clearCache,
+  getAllCachedAnalyses,
+  removeCachedAnalysis,
+  seedDemoAnalyses,
+  type CachedWineAnalysisEntry,
+} from "@/lib/wineCache";
 import WineCardSBFull from "@/components/WineCardSBFull";
-import { ArrowLeft, Camera, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Camera, Eraser, Sparkles, Trash2, Wand2 } from "lucide-react";
 
 const formatDate = (iso: string) => {
   const date = new Date(iso);
@@ -63,10 +70,18 @@ const formatRelativeTime = (iso: string) => {
 const History = () => {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<CachedWineAnalysisEntry[]>([]);
+  const [devDialogOpen, setDevDialogOpen] = useState(false);
+  const [devStatus, setDevStatus] = useState<string | null>(null);
 
   useEffect(() => {
     setEntries(getAllCachedAnalyses());
   }, []);
+
+  useEffect(() => {
+    if (!devDialogOpen) {
+      setDevStatus(null);
+    }
+  }, [devDialogOpen]);
 
   const { regionsCount, lastTimestamp } = useMemo(() => {
     const regions = new Set<string>();
@@ -96,6 +111,23 @@ const History = () => {
     setEntries(getAllCachedAnalyses());
   };
 
+  const handleSeedDemo = () => {
+    const seeded = seedDemoAnalyses();
+    setEntries(getAllCachedAnalyses());
+    setDevStatus(
+      seeded.length > 0
+        ? `Lade till ${seeded.length} demoposter. Uppdatera historiken vid behov.`
+        : "Kunde inte lägga till demodata. Försök igen."
+    );
+  };
+
+  const handleClearAll = () => {
+    clearCache();
+    const updated = getAllCachedAnalyses();
+    setEntries(updated);
+    setDevStatus(updated.length === 0 ? "Historiken rensades." : "Vissa poster kunde inte tas bort.");
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#F9F5FF] via-white to-[#F2F9FF]">
       <div className="pointer-events-none absolute inset-0">
@@ -120,6 +152,50 @@ const History = () => {
             <Button variant="outline" onClick={handleRefresh} className="rounded-full border-slate-200 bg-white/70 backdrop-blur">
               Uppdatera
             </Button>
+            <Dialog open={devDialogOpen} onOpenChange={setDevDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="gap-2 rounded-full border-dashed border-purple-200 bg-white/70 text-purple-600 shadow-sm backdrop-blur transition hover:border-purple-300 hover:bg-purple-50"
+                >
+                  <Wand2 className="h-4 w-4" />
+                  Testverktyg
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Testverktyg för historiken</DialogTitle>
+                  <DialogDescription>
+                    Fyll listan med färdiga demoposter eller rensa lagrade analyser när du förbereder manuell testning.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-purple-100 bg-purple-50/60 p-4 text-sm text-slate-600">
+                    <p className="font-medium text-purple-700">Tips</p>
+                    <p>
+                      Demoposterna sparas lokalt i din webbläsare. De påverkar inte riktiga analyser och kan tas bort när som helst.
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button onClick={handleSeedDemo} className="gap-2 rounded-full shadow-md shadow-purple-400/30 sm:flex-1">
+                      <Wand2 className="h-4 w-4" />
+                      Fyll med demodata
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleClearAll}
+                      className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10 sm:flex-1"
+                    >
+                      <Eraser className="h-4 w-4" />
+                      Rensa historiken
+                    </Button>
+                  </div>
+                  {devStatus && (
+                    <p className="text-sm text-slate-500">{devStatus}</p>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
             <Button onClick={() => navigate("/winesnap")} className="gap-2 rounded-full shadow-lg shadow-purple-500/20">
               <Camera className="h-4 w-4" />
               Ny skanning
@@ -178,6 +254,14 @@ const History = () => {
               <Button onClick={() => navigate("/winesnap")} className="gap-2 rounded-full shadow-md shadow-purple-400/30">
                 <Camera className="h-4 w-4" />
                 Starta första skanningen
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setDevDialogOpen(true)}
+                className="gap-2 rounded-full border-dashed border-purple-200 text-purple-600 hover:border-purple-300 hover:bg-purple-50"
+              >
+                <Wand2 className="h-4 w-4" />
+                Visa testverktyg
               </Button>
             </CardContent>
           </Card>
