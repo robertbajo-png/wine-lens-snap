@@ -64,6 +64,7 @@ const WineSnap = () => {
       const cached = getCachedAnalysis(imageData);
       if (cached) {
         setResults(cached);
+        setBanner({ type: "info", text: "Hämtade sparad analys från din enhet." });
         toast({
           title: "Klart!",
           description: "Analys hämtad från cache."
@@ -172,7 +173,7 @@ const WineSnap = () => {
         };
         
         setResults(result);
-        setCachedAnalysis(imageData, result);
+        setCachedAnalysis(imageData, result, imageData);
         
         // Show banner based on note
         if (note === "hit_memory" || note === "hit_supabase") {
@@ -225,6 +226,13 @@ const WineSnap = () => {
     setIsProcessing(false);
     setProcessingStep(null);
     setBanner(null);
+    autoOpenedRef.current = false;
+    cameraOpenedRef.current = false;
+
+    // Re-open the camera/input on the next tick so användaren slipper tom skärm
+    setTimeout(() => {
+      document.getElementById("wineImageUpload")?.click();
+    }, 0);
   };
 
   // Show results view if we have results
@@ -232,11 +240,21 @@ const WineSnap = () => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white to-secondary flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6 animate-fade-in pb-24">
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/historik")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Historik
+            </Button>
+          </div>
           {/* Banner */}
           {banner && (
             <div className={`rounded-xl px-4 py-3 text-sm border ${
-              banner.type === "error" 
-                ? "bg-destructive/10 text-destructive border-destructive/20" 
+              banner.type === "error"
+                ? "bg-destructive/10 text-destructive border-destructive/20"
                 : banner.type === "success" 
                 ? "bg-primary/10 text-primary border-primary/20" 
                 : "bg-accent/10 text-accent border-accent/20"
@@ -248,14 +266,14 @@ const WineSnap = () => {
           <WineCardSBFull data={results} />
 
           {/* Fixed Bottom Button */}
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent">
+          <div className="fixed inset-x-0 bottom-0 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 bg-gradient-to-t from-white via-white to-transparent backdrop-blur">
             <div className="max-w-md mx-auto">
-              <Button 
+              <Button
                 onClick={handleReset}
-                className="w-full max-w-[320px] mx-auto block h-14 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
                 size="lg"
+                className="w-full flex items-center justify-center gap-2 h-14 text-base font-semibold rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-white shadow-[0_12px_30px_-12px_rgba(123,63,228,0.8)] hover:shadow-[0_18px_36px_-14px_rgba(123,63,228,0.9)] transition-all duration-300 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7B3FE4]/60"
               >
-                <Camera className="mr-2 h-5 w-5" />
+                <Camera className="h-5 w-5" />
                 Fota ny flaska
               </Button>
             </div>
