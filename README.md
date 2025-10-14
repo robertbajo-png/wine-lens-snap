@@ -101,6 +101,64 @@ Följ stegen nedan för att köra och testa WineSnap lokalt:
    npm run lint
    ```
 
+### Testa användargränssnittet steg-för-steg
+
+När utvecklingsservern körs kan du följa checklistan nedan för att verifiera gränssnittet och de viktigaste flödena:
+
+1. **Landningssidan** – Besök `http://localhost:5173/` och kontrollera att hero-sektionen, call-to-action och bakgrundsgradienterna renderas korrekt i både mobil- och desktop-bredd (justera med devtools).
+2. **Starta en skanning** – Klicka på knapparna "Starta WineSnap" eller "Ny skanning" och säkerställ att du hamnar på `/winesnap`. Där kan du ladda upp en bild (t.ex. valfri JPEG) och bekräfta att resultatkortet renderas när analysen är klar.
+3. **Historikvy** – Navigera till `/history` via länken "Sparade analyser" i sidhuvudet. Kontrollera att statistik-korten, listan med sparade analyser och tomt-läge ser korrekta ut.
+4. **Interaktioner** – Öppna dialogen "Visa detaljer" på en sparad analys, testa knappen "Ta bort" samt "Ny skanning" för att säkerställa att alla knappar och länkar svarar.
+5. **Responsivitet** – Använd webbläsarens verktyg för att testa i flera brytpunkter (320px, 768px, 1024px) och verifiera att layouten anpassas utan visuella buggar.
+
+#### Snabbt fylla historiken med testdata
+
+Om du behöver exempeldata för att testa historikvyn utan att göra riktiga skanningar kan du använda webbläsarkonsolen medan sidan är öppen:
+
+```js
+localStorage.setItem(
+  "wine_analysis_manualtest",
+  JSON.stringify({
+    version: 1,
+    timestamp: new Date().toISOString(),
+    imageData: "",
+    result: {
+      vin: "Testvin Rosso",
+      land_region: "Italien, Toscana",
+      producent: "Cantina Demo",
+      druvor: "Sangiovese",
+      årgång: "2020",
+      typ: "Rött vin",
+      färgtyp: "Rött",
+      klassificering: "DOCG",
+      alkoholhalt: "13%",
+      volym: "750 ml",
+      karaktär: "Fruktigt och balanserat",
+      smak: "Körsbär, plommon och mjuka tanniner",
+      passar_till: ["Pasta", "Grillat", "Ost"],
+      servering: "16-18°C",
+      sockerhalt: "Torr",
+      syra: "Medel",
+      källa: "Manuellt test",
+      meters: {
+        sötma: 2,
+        fyllighet: 4,
+        fruktighet: 3,
+        fruktsyra: 3,
+      },
+      evidence: {
+        etiketttext: "WineSnap demoetikett",
+        webbträffar: ["https://example.com"],
+      },
+      detekterat_språk: "sv",
+      originaltext: "Testetikett för WineSnap",
+    },
+  })
+);
+```
+
+Uppdatera sedan historiksidan (F5) för att se posterna. Ta bort testdatan genom att klicka på "Ta bort" i historikvyn eller rensa `localStorage`.
+
 ### Miljövariabler
 
 Supabase-klienten använder följande variabler i en `.env`-fil (skapa filen i projektroten vid behov):
