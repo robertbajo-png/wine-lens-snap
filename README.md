@@ -117,6 +117,53 @@ Starta en ny codespace från GitHub → Code → Codespaces för att jobba molnb
 
 ---
 
+## 🔀 Lösa mergekonflikter
+
+Om GitHub varnar för mergekonflikter när du öppnar en PR betyder det att någon annan har uppdaterat samma filer som du. Så här löser du det lokalt:
+
+1. **Se till att du har en ren arbetsyta**
+   ```sh
+   git status
+   ```
+   Om filer är modifierade – committa dem eller stash:a innan du fortsätter.
+
+2. **Hämta senaste ändringarna från `main`**
+   ```sh
+   git fetch origin
+   git checkout <din-branch>
+   git merge origin/main
+   ```
+   Git stoppar vid varje konflikt och markerar dem med `<<<<<<<`, `=======` och `>>>>>>>` i filerna.
+
+3. **Öppna de markerade filerna och bestäm vad som ska behållas**
+   - Läs igenom både din version och `main`-versionen.
+   - Kombinera innehållet manuellt eller ta den variant som passar.
+   - Ta bort konfliktmarkörerna när du är nöjd.
+
+4. **Verifiera att du inte missade någon konflikt**
+   ```sh
+   rg '<<<<<<<'
+   ```
+   Kommandot ska inte hitta något när alla konflikter är lösta.
+
+5. **Kör testerna och bygg projektet**
+   ```sh
+   npm run build
+   ```
+   Säkerställ att allt fortfarande fungerar efter hopslagningen.
+
+6. **Commit:a de lösta konflikterna och fortsätt arbetet**
+   ```sh
+   git add <fil1> <fil2>
+   git commit --no-edit
+   git push
+   ```
+   Använd `--no-edit` om du vill behålla den automatiska merge-committexten.
+
+> 💡 Tips: Om du ofta får konflikter i `README.md` eller i sidfiler som `src/pages/Index.tsx`, fundera på att bryta ut gemensamma komponenter. Då blir överlappen mindre och framtida merge:ar enklare.
+
+---
+
 ## 🧪 Manuell testning av gränssnittet
 
 När utvecklingsservern körs kan du följa checklistan nedan för att verifiera gränssnittet och de viktigaste flödena:
