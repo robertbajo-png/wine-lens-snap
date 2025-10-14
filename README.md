@@ -36,6 +36,39 @@ npm i
 npm run dev
 ```
 
+## Hur pushar jag ändringar till GitHub?
+
+När du har gjort dina uppdateringar lokalt kan du följa stegen nedan för att få upp koden i ditt GitHub-repo:
+
+1. **Kontrollera vilka filer som är ändrade**
+   ```sh
+   git status
+   ```
+
+2. **Lägg till filerna du vill committa**
+   ```sh
+   git add <fil1> <fil2>
+   # eller för att inkludera alla ändringar
+   git add .
+   ```
+
+3. **Skapa en commit med en tydlig beskrivning**
+   ```sh
+   git commit -m "Beskriv vad som ändrats"
+   ```
+
+4. **Skicka upp ändringarna till GitHub**
+   ```sh
+   git push origin <din-branch>
+   ```
+
+5. **Öppna en Pull Request (om du arbetar på en feature-branch)**
+   - Gå till GitHub-repot i webbläsaren.
+   - Klicka på bannern "Compare & pull request" eller skapa en ny PR manuellt.
+   - Beskriv ändringarna och skicka in PR:en för granskning.
+
+> 💡 Om du arbetar direkt på `main` och har rättigheter att pusha dit kan du hoppa över PR-steget, men det rekommenderas att använda feature-brancher och PR:er för bättre spårbarhet.
+
 **Open the repository in a Dev Container**
 
 If you are using VS Code (or any editor that supports the [Dev Containers specification](https://containers.dev/)), you can open this project inside the provided `.devcontainer` setup. It uses the official TypeScript + Node base image so Node.js **and npm** are preinstalled in the container environment. After the container finishes building it will automatically run `npm install`, leaving you ready to start developing immediately.
