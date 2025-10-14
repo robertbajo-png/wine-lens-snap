@@ -36,6 +36,10 @@ npm i
 npm run dev
 ```
 
+**Open the repository in a Dev Container**
+
+If you are using VS Code (or any editor that supports the [Dev Containers specification](https://containers.dev/)), you can open this project inside the provided `.devcontainer` setup. It uses the official TypeScript + Node base image so Node.js **and npm** are preinstalled in the container environment. After the container finishes building it will automatically run `npm install`, leaving you ready to start developing immediately.
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).
