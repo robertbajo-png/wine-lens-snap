@@ -226,6 +226,13 @@ const WineSnap = () => {
     setIsProcessing(false);
     setProcessingStep(null);
     setBanner(null);
+    autoOpenedRef.current = false;
+    cameraOpenedRef.current = false;
+
+    // Re-open the camera/input on the next tick so användaren slipper tom skärm
+    setTimeout(() => {
+      document.getElementById("wineImageUpload")?.click();
+    }, 0);
   };
 
   // Show results view if we have results
