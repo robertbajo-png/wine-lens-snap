@@ -268,12 +268,12 @@ const WineSnap = () => {
           {/* Fixed Bottom Button */}
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent">
             <div className="max-w-md mx-auto">
-              <Button 
+              <Button
                 onClick={handleReset}
-                className="w-full max-w-[320px] mx-auto block h-14 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
                 size="lg"
+                className="w-full max-w-[320px] mx-auto flex items-center justify-center gap-2 h-14 text-lg font-semibold rounded-2xl bg-[#7B3FE4] text-white shadow-xl hover:bg-[#6A32D9] hover:shadow-2xl transition-all duration-300 focus-visible:ring-offset-2 focus-visible:ring-[#7B3FE4]/60"
               >
-                <Camera className="mr-2 h-5 w-5" />
+                <Camera className="h-5 w-5" />
                 Fota ny flaska
               </Button>
             </div>
