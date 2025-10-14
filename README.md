@@ -85,6 +85,8 @@ Följ stegen nedan för att köra och testa WineSnap lokalt:
    npm install
    ```
 
+   > ℹ️ Om du använder en miljö där `npm` har en proxy-konfiguration i `.npmrc` kan du se varningen `Unknown env config "http-proxy"` under installationen. Det är en känd avisering i npm v10 och påverkar inte installationen av beroenden.
+
 2. **Starta utvecklingsservern** för att testa funktioner interaktivt. Servern körs på `http://localhost:5173/` som standard.
    ```sh
    npm run dev
