@@ -349,6 +349,13 @@ const WineSnap = () => {
                   ))}
                 </div>
 
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200/85">
+                  <p className="font-medium text-white">Snabbguide för nästa skanning</p>
+                  <p>
+                    Den här lilla rutan återger råden från den tidigare enklare resultatsidan: fota i bra ljus, håll etiketten rak och använd knappen nedan för att starta en ny skanning utan att behöva lämna sidan.
+                  </p>
+                </div>
+
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-slate-200/85">
                   <p className="font-medium text-white">Anteckning</p>
                   <p>{results.karaktär || "AI:n kunde inte hitta någon tydlig karaktärsbeskrivning."}</p>

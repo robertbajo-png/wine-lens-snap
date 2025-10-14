@@ -224,6 +224,47 @@ const Index = () => {
             </div>
           </section>
 
+          <section className="grid gap-6 lg:grid-cols-2">
+            <div className="space-y-5 rounded-3xl border border-white/10 bg-white/5 p-6 text-left text-slate-200">
+              <h2 className="text-xl font-semibold text-white">Snabb överblick</h2>
+              <p>
+                Den här sektionen bevarar innehållet från den enklare startsidan så att användare som följer tidigare instruktioner känner igen sig och mergekonflikter minimeras.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="mt-1 h-5 w-5 text-[#B095FF]" />
+                  <div>
+                    <h3 className="font-medium text-white">🤖 AI-analys</h3>
+                    <p className="text-sm text-slate-300">Få detaljerad information om druvor, smak och servering.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Utensils className="mt-1 h-5 w-5 text-[#B095FF]" />
+                  <div>
+                    <h3 className="font-medium text-white">🍽️ Matparning</h3>
+                    <p className="text-sm text-slate-300">Upptäck perfekta maträtter till ditt vin.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-left text-sm text-slate-200">
+              <h2 className="text-xl font-semibold text-white">Tips innan du börjar</h2>
+              <p className="mb-4">
+                Bäst resultat i bra ljus och rak etikett. Samma riktlinje som tidigare README och startsida – nu införd här för att reducera konflikter när olika grenar justerar copy.
+              </p>
+              <ul className="space-y-3">
+                {["Ställ flaskan mot en neutral bakgrund.", "Låt etiketten fylla guiden i kameran.", "Vill du testa utan egen flaska? Öppna Testverktyget i historiken."]
+                  .map((tip) => (
+                    <li key={tip} className="flex items-start gap-3">
+                      <ArrowRight className="mt-1 h-4 w-4 text-purple-200" />
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          </section>
+
           <section className="space-y-12">
             <div className="flex flex-col gap-3">
               <h2 className="text-2xl font-semibold text-white sm:text-3xl">Så snabbt är du igång</h2>

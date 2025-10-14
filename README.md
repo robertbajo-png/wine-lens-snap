@@ -1,6 +1,8 @@
 # 🍷 WineSnap – Självlärande vinanalys med Supabase + AI
 
-Detta projekt använder Supabase som långsiktig lagring av vinanalyser, vilket gör att appen **lär sig av tidigare sökningar** och blir snabbare och smartare över tid.
+WineSnap kombinerar Supabase, Tesseract OCR och GPT för att identifiera vinflaskor på sekunder. Den lokala cachen gör att appen **lär sig av tidigare sökningar** och blir snabbare och smartare över tid – perfekt både för den som bygger vidare och den som bara vill ta en bild och få svar.
+
+Nedan hittar du en **svensk steg-för-steg-guide** för utveckling, test och Supabase-konfiguration samt ett **engelskt quickstart-avsnitt** från Lovable-projektet. Informationen är sammanfogad för att undvika framtida mergekonflikter mellan dokumentationen i reposet och innehållet som publiceras via Lovable.
 
 ---
 
@@ -158,6 +160,46 @@ Om GitHub varnar för mergekonflikter när du öppnar en PR betyder det att någ
    git commit --no-edit
    git push
    ```
+
+---
+
+## 🌍 English quickstart (Lovable)
+
+The following section mirrors the Lovable project README so att team som följer den engelska dokumentationen slipper konflikter när filer uppdateras automatiskt från plattformen.
+
+### Project info
+
+**URL**: https://lovable.dev/projects/7c997ef9-6c8c-47c3-93ab-2c2355eb827e
+
+### How can I edit this code?
+
+There are several ways of editing your application.
+
+**Use Lovable** – simply visit the [Lovable Project](https://lovable.dev/projects/7c997ef9-6c8c-47c3-93ab-2c2355eb827e) and start prompting. Changes made via Lovable will be committed automatically to this repo.
+
+**Use your preferred IDE** – clone the repo locally, install Node.js & npm (for example via [nvm](https://github.com/nvm-sh/nvm#installing-and-updating)), install dependencies with `npm i` and start the dev server with `npm run dev`.
+
+**Edit directly on GitHub** – open the file, click the pencil icon, make your edits and commit.
+
+**Use GitHub Codespaces** – launch a codespace from the **Code → Codespaces** menu on GitHub, edit the files online and push your commits when you're done.
+
+### What technologies are used for this project?
+
+This project is built with:
+
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
+
+### How can I deploy this project?
+
+Open the [Lovable project](https://lovable.dev/projects/7c997ef9-6c8c-47c3-93ab-2c2355eb827e) and click **Share → Publish**.
+
+### Custom domain support
+
+You can connect a domain under **Project → Settings → Domains** in Lovable. Read more in the [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain) guide.
    Använd `--no-edit` om du vill behålla den automatiska merge-committexten.
 
 > 💡 Tips: Om du ofta får konflikter i `README.md` eller i sidfiler som `src/pages/Index.tsx`, fundera på att bryta ut gemensamma komponenter. Då blir överlappen mindre och framtida merge:ar enklare.
