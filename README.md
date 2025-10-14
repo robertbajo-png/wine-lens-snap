@@ -1,44 +1,90 @@
-# Welcome to your Lovable project
+# 🍷 WineSnap – Självlärande vinanalys med Supabase + AI
 
-## Project info
+Detta projekt använder Supabase som långsiktig lagring av vinanalyser, vilket gör att appen **lär sig av tidigare sökningar** och blir snabbare och smartare över tid.
 
-**URL**: https://lovable.dev/projects/7c997ef9-6c8c-47c3-93ab-2c2355eb827e
+---
 
-## How can I edit this code?
+## 🧩 1️⃣ Databasstruktur (Supabase)
 
-There are several ways of editing your application.
+Kör följande SQL i din Supabase SQL Editor för att skapa den cache-tabell som WineSnap använder vid analyser:
 
-**Use Lovable**
+```sql
+create table if not exists winesnap_cache (
+  key text primary key,
+  ocr_text text,
+  data jsonb,
+  hits integer default 0,
+  embedding vector(1536),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/7c997ef9-6c8c-47c3-93ab-2c2355eb827e) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+create index if not exists idx_winesnap_embedding
+  on winesnap_cache using ivfflat (embedding vector_cosine_ops);
 ```
 
-## Hur pushar jag ändringar till GitHub?
+> 💡 Kom ihåg att aktivera den vektorbaserade funktionen i Supabase-projektet (under **Database > Extensions**) om den inte redan är påslagen.
 
-När du har gjort dina uppdateringar lokalt kan du följa stegen nedan för att få upp koden i ditt GitHub-repo:
+---
+
+## 🛠️ Lokal utveckling
+
+Följ stegen nedan för att köra och testa WineSnap lokalt:
+
+1. **Installera beroenden**
+   ```sh
+   npm install
+   ```
+
+   > ℹ️ Om du använder en miljö där `npm` har en proxy-konfiguration i `.npmrc` kan du se varningen `Unknown env config "http-proxy"`. Det är en känd avisering i npm v10 och påverkar inte installationen av beroenden.
+
+2. **Starta utvecklingsservern** för att testa funktioner interaktivt. Servern körs på `http://localhost:5173/` som standard.
+   ```sh
+   npm run dev
+   ```
+
+3. **Kör byggsteget** om du vill säkerställa att projektet kompilerar utan fel.
+   ```sh
+   npm run build
+   ```
+
+4. **Förhandsgranska produktionsbuilden** med en lokal server.
+   ```sh
+   npm run preview
+   ```
+
+5. **Kvalitetssäkra koden** genom att köra ESLint (observera att det kan finnas befintliga varningar/fel som behöver åtgärdas).
+   ```sh
+   npm run lint
+   ```
+
+### 📦 Dev Container (rekommenderat)
+
+Om du använder VS Code – eller en editor som stödjer [Dev Containers-specifikationen](https://containers.dev/) – finns en färdig `.devcontainer`-konfiguration.
+
+- Node.js **och npm** är förinstallerade.
+- `npm install` körs automatiskt när containern startar första gången.
+- Miljön matchar projektets versionskrav så att du slipper lokala avvikelser.
+
+Öppna projektet i Dev Container genom att välja **“Reopen in Container”** när prompten visas.
+
+### 💻 Andra sätt att arbeta
+
+**Använd Lovable**  
+Besök [Lovable-projektet](https://lovable.dev/projects/7c997ef9-6c8c-47c3-93ab-2c2355eb827e) för att fortsätta iterera via promptar – ändringar som görs där commit:as automatiskt hit.
+
+**Arbeta i din egen IDE**  
+Klona repot, öppna det i valfri editor och följ stegen ovan för att installera beroenden och starta dev-servern.
+
+**Redigera direkt på GitHub**  
+Navigera till filen, klicka på pennikonen, gör dina ändringar och skapa en commit.
+
+**Använd GitHub Codespaces**  
+Starta en ny codespace från GitHub → Code → Codespaces för att jobba molnbaserat utan lokal setup.
+
+---
+
+## ⬆️ Så pushar du ändringar
 
 1. **Kontrollera vilka filer som är ändrade**
    ```sh
@@ -62,85 +108,16 @@ När du har gjort dina uppdateringar lokalt kan du följa stegen nedan för att 
    git push origin <din-branch>
    ```
 
-5. **Öppna en Pull Request (om du arbetar på en feature-branch)**
+5. **Öppna en Pull Request** (om du arbetar på en feature-branch)
    - Gå till GitHub-repot i webbläsaren.
    - Klicka på bannern "Compare & pull request" eller skapa en ny PR manuellt.
    - Beskriv ändringarna och skicka in PR:en för granskning.
 
 > 💡 Om du arbetar direkt på `main` och har rättigheter att pusha dit kan du hoppa över PR-steget, men det rekommenderas att använda feature-brancher och PR:er för bättre spårbarhet.
 
-**Open the repository in a Dev Container**
+---
 
-If you are using VS Code (or any editor that supports the [Dev Containers specification](https://containers.dev/)), you can open this project inside the provided `.devcontainer` setup. It uses the official TypeScript + Node base image so Node.js **and npm** are preinstalled in the container environment. After the container finishes building it will automatically run `npm install`, leaving you ready to start developing immediately.
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/7c997ef9-6c8c-47c3-93ab-2c2355eb827e) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
-
-## Hur kan jag testa appen?
-
-Följ stegen nedan för att köra och testa WineSnap lokalt:
-
-1. **Installera beroenden**
-   ```sh
-   npm install
-   ```
-
-   > ℹ️ Om du använder en miljö där `npm` har en proxy-konfiguration i `.npmrc` kan du se varningen `Unknown env config "http-proxy"` under installationen. Det är en känd avisering i npm v10 och påverkar inte installationen av beroenden.
-
-2. **Starta utvecklingsservern** för att testa funktioner interaktivt. Servern körs på `http://localhost:5173/` som standard.
-   ```sh
-   npm run dev
-   ```
-
-3. **Kör byggsteget** om du vill säkerställa att projektet kompilerar utan fel.
-   ```sh
-   npm run build
-   ```
-
-4. **Förhandsgranska produktionsbuilden** med en lokal server.
-   ```sh
-   npm run preview
-   ```
-
-5. **Kvalitetssäkra koden** genom att köra ESLint (observera att det kan finnas befintliga varningar/fel som behöver åtgärdas).
-   ```sh
-   npm run lint
-   ```
-
-### Testa användargränssnittet steg-för-steg
+## 🧪 Manuell testning av gränssnittet
 
 När utvecklingsservern körs kan du följa checklistan nedan för att verifiera gränssnittet och de viktigaste flödena:
 
@@ -150,7 +127,7 @@ När utvecklingsservern körs kan du följa checklistan nedan för att verifiera
 4. **Interaktioner** – Öppna dialogen "Visa detaljer" på en sparad analys, testa knappen "Ta bort" samt "Ny skanning" för att säkerställa att alla knappar och länkar svarar.
 5. **Responsivitet** – Använd webbläsarens verktyg för att testa i flera brytpunkter (320px, 768px, 1024px) och verifiera att layouten anpassas utan visuella buggar.
 
-#### Snabbt fylla historiken med testdata
+### ⚙️ Snabbt fylla historiken med testdata
 
 Det finns två enkla sätt att fylla historiken inför manuella tester:
 
@@ -201,7 +178,9 @@ localStorage.setItem(
 
 Uppdatera sedan historiksidan (F5) för att se posterna. Ta bort testdatan via **Testverktyg → Rensa historiken**, genom att klicka på "Ta bort" vid respektive post eller genom att rensa `localStorage` manuellt.
 
-### Miljövariabler
+---
+
+## 🌐 Miljövariabler
 
 Supabase-klienten använder följande variabler i en `.env`-fil (skapa filen i projektroten vid behov):
 
@@ -211,3 +190,12 @@ VITE_SUPABASE_PUBLISHABLE_KEY=<din-supabase-nyckel>
 ```
 
 När variablerna är satta kommer autentisering och datahämtning att fungera som förväntat i utvecklingsmiljön.
+
+---
+
+## 🚀 Publicering & nästa steg
+
+- Publicera via [Lovable](https://lovable.dev/projects/7c997ef9-6c8c-47c3-93ab-2c2355eb827e) genom att klicka på **Share → Publish**.
+- För att koppla en egen domän: gå till **Project > Settings > Domains** och följ guiden [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain).
+- Fortsätt iterera på UI:t, förbättra AI-modellen och lägg gärna till fler Supabase-tabeller (t.ex. användarprofiler eller smaknoteringar) efter behov.
+
