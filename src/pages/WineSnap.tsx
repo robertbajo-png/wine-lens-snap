@@ -266,12 +266,12 @@ const WineSnap = () => {
           <WineCardSBFull data={results} />
 
           {/* Fixed Bottom Button */}
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-white via-white to-transparent">
+          <div className="fixed inset-x-0 bottom-0 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 bg-gradient-to-t from-white via-white to-transparent backdrop-blur">
             <div className="max-w-md mx-auto">
               <Button
                 onClick={handleReset}
                 size="lg"
-                className="w-full max-w-[320px] mx-auto flex items-center justify-center gap-2 h-14 text-lg font-semibold rounded-2xl bg-[#7B3FE4] text-white shadow-xl hover:bg-[#6A32D9] hover:shadow-2xl transition-all duration-300 focus-visible:ring-offset-2 focus-visible:ring-[#7B3FE4]/60"
+                className="w-full flex items-center justify-center gap-2 h-14 text-base font-semibold rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-white shadow-[0_12px_30px_-12px_rgba(123,63,228,0.8)] hover:shadow-[0_18px_36px_-14px_rgba(123,63,228,0.9)] transition-all duration-300 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7B3FE4]/60"
               >
                 <Camera className="h-5 w-5" />
                 Fota ny flaska
