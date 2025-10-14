@@ -198,7 +198,7 @@ Deno.serve(async (req) => {
 }
 `.trim();
 
-        const systemPrompt = `Du är en extraktor som MÅSTE returnera ENBART ett giltigt, minifierat JSON-objekt enligt schema. Ingen markdown, inga backticks, ingen kommentar före eller efter. Dubbelcitat på alla nycklar/strängar.`;
+        const systemPrompt = `Du är en extraktor som MÅSTE returnera ENBART ett giltigt, minifierat JSON-objekt enligt schema. Ingen markdown, inga backticks, ingen kommentar före eller efter. Dubbelcitat på alla nycklar/strängar. KRITISKT: ALL text i ditt svar MÅSTE vara på SVENSKA. Översätt alla beskrivningar till svenska.`;
 
         const pplxPrompt = `
 VIN-LEDTRÅD (OCR):
@@ -273,6 +273,7 @@ REGLER:
 - Saknas uppgift: "-".
 - "källa": välj viktigaste URL från WEB_JSON.källor (Systembolaget om finns).
 - "evidence": etiketttext = första ~200 tecken av OCR_TEXT; webbträffar = upp till 3 URL:er.
+- KRITISKT KRAV: ALL text i JSON-outputen MÅSTE vara på SVENSKA. Om WEB_JSON innehåller ungerska, engelska eller andra språk i fält som "karaktär", "smak", "klassificering", "servering" - ÖVERSÄTT dem till svenska. Ord som "Savhangsúlyos", "Fajtajellegges", "száraz" måste översättas (t.ex. "syrabetonad", "sortkaraktäristisk", "torr").
 
 SCHEMA:
 {

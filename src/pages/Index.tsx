@@ -72,6 +72,7 @@ const Index = () => {
   const navigate = useNavigate();
 
   return (
+codex/continue-development-on-winesnap-app
     <div className="relative min-h-screen overflow-hidden bg-[#070311] text-slate-100">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-36 top-24 h-72 w-72 rounded-full bg-[#8B5CF6]/30 blur-[140px]" />
@@ -112,6 +113,36 @@ const Index = () => {
               >
                 Starta skanning
               </Button>
+=======
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[#FBF8FF] to-white px-4">
+      <div className="absolute top-4 right-4">
+        <Button variant="outline" size="sm" onClick={() => navigate("/historik")}>
+          Historik
+        </Button>
+      </div>
+      <div className="flex flex-col items-center justify-center space-y-12 max-w-2xl w-full">
+        {/* Header section */}
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 rounded-full bg-[#7B3FE4] flex items-center justify-center mx-auto">
+            <Wine className="h-6 w-6 text-white" />
+          </div>
+          
+          <h1 className="text-4xl font-bold text-[#333]">WineSnap</h1>
+          
+          <p className="text-lg text-gray-600 leading-relaxed max-w-lg">
+            Upptäck allt om ditt vin med AI-driven bildanalys.
+          </p>
+        </div>
+
+        {/* Main CTA - Photo button */}
+        <button
+          onClick={() => navigate("/winesnap")}
+          className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 p-8 w-full max-w-sm text-center space-y-4 hover:scale-105 border-2 border-[#7B3FE4]"
+        >
+          <div className="flex justify-center">
+            <div className="w-16 h-16 rounded-full bg-[#7B3FE4] flex items-center justify-center">
+              <Camera className="h-8 w-8 text-white" />
+ main
             </div>
           </div>
         </header>

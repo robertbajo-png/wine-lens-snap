@@ -182,7 +182,11 @@ const WineSnap = () => {
 
         setResults(result);
         setCachedAnalysis(imageData, result, imageData);
+ codex/continue-development-on-winesnap-app
 
+=======
+        
+ main
         // Show banner based on note
         if (note === "hit_memory" || note === "hit_supabase") {
           setBanner({ type: "info", text: "Hämtade sparad profil för snabbare upplevelse." });
@@ -237,7 +241,11 @@ const WineSnap = () => {
     autoOpenedRef.current = false;
     cameraOpenedRef.current = false;
 
+ codex/continue-development-on-winesnap-app
     // Re-open the camera/input on the next tick så användaren slipper tom skärm
+=======
+    // Re-open the camera/input on the next tick so användaren slipper tom skärm
+ main
     setTimeout(() => {
       document.getElementById("wineImageUpload")?.click();
     }, 0);
@@ -268,6 +276,7 @@ const WineSnap = () => {
     ];
 
     return (
+ codex/continue-development-on-winesnap-app
       <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#070311] via-[#12082A] to-[#0F172A] text-slate-100">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-10 top-24 h-72 w-72 rounded-full bg-[#8B5CF6]/20 blur-[140px]" />
@@ -316,10 +325,34 @@ const WineSnap = () => {
                   : "border-sky-400/30 bg-sky-400/10 text-sky-100"
               }`}
             >
+=======
+      <div className="min-h-screen bg-gradient-to-b from-white to-secondary flex items-center justify-center p-4">
+        <div className="w-full max-w-md space-y-6 animate-fade-in pb-24">
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/historik")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Historik
+            </Button>
+          </div>
+          {/* Banner */}
+          {banner && (
+            <div className={`rounded-xl px-4 py-3 text-sm border ${
+              banner.type === "error"
+                ? "bg-destructive/10 text-destructive border-destructive/20"
+                : banner.type === "success" 
+                ? "bg-primary/10 text-primary border-primary/20" 
+                : "bg-accent/10 text-accent border-accent/20"
+            }`}>
+ main
               {banner.text}
             </div>
           )}
 
+codex/continue-development-on-winesnap-app
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-white/10 p-8 backdrop-blur">
               <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
@@ -435,6 +468,15 @@ const WineSnap = () => {
                 onClick={handleReset}
                 size="lg"
                 className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold text-white shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] transition-all duration-300 focus-visible:ring-2 focus-visible:ring-[#9C5CFF]/70"
+=======
+          {/* Fixed Bottom Button */}
+          <div className="fixed inset-x-0 bottom-0 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 bg-gradient-to-t from-white via-white to-transparent backdrop-blur">
+            <div className="max-w-md mx-auto">
+              <Button
+                onClick={handleReset}
+                size="lg"
+                className="w-full flex items-center justify-center gap-2 h-14 text-base font-semibold rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-white shadow-[0_12px_30px_-12px_rgba(123,63,228,0.8)] hover:shadow-[0_18px_36px_-14px_rgba(123,63,228,0.9)] transition-all duration-300 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7B3FE4]/60"
+ main
               >
                 <Camera className="h-5 w-5" />
                 Fota ny flaska
