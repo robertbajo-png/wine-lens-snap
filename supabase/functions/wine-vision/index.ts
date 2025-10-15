@@ -267,10 +267,19 @@ Hitta inte på. Svara ENDAST med giltig JSON enligt schema.
 REGLER:
 - "Egri" = region "Eger" (översätt).
 - Typ/färg: härled endast från tydliga ord (Prosecco/Cava/Champagne/Spumante/Frizzante => "mousserande"; Rosé/Rosato/Rosado => "rosé"; Bianco/Blanc/White => "vitt"; Rosso/Rouge/Red => "rött").
-- karaktär/smak/passar_till/servering/meters: fyll bara om uttryckligen i källan; undantag: för mousserande får "sötma" mappas deterministiskt:
+- karaktär/smak/servering/meters: fyll bara om uttryckligen i källan; undantag: för mousserande får "sötma" mappas deterministiskt:
   Brut Nature/Pas Dosé/Dosage Zéro=0; Extra Brut=0.5; Brut=1; Extra Dry=1.5; Dry/Sec=2.2; Demi-Sec/Semi-Seco=3.4; Dolce/Sweet=4.5.
+- MATPARNINGAR (passar_till): GENERERA ALLTID 3-5 lämpliga maträtter baserat på vinets druva, region, stil och karaktär. Använd klassiska sommelierregler:
+  * Vitt vin (lätt & friskt): skaldjur, vitfisk, kyckling, sallader, milda ostar
+  * Vitt vin (fylligt): grillad fisk, fläskkött, krämiga pastarätter, svamprätter
+  * Rött vin (lätt): pasta, pizza, kyckling, lättare kötträtter
+  * Rött vin (medelfylligt): nötkött, lamm, lasagne, hårdostar
+  * Rött vin (kraftfullt): grillat kött, vilt, BBQ, kraftfulla ostar
+  * Rosé: sallader, grillat, kyckling, pizza, asiatiskt
+  * Mousserande: aperitif, skaldjur, sushi, friterad mat
+  Om WEB_JSON.passar_till har värden, använd dem som utgångspunkt och komplettera.
 - Vid konflikt: Systembolaget > producent > nordiska monopol > Vivino/Wine-Searcher.
-- Saknas uppgift: "-".
+- Saknas uppgift: "-" (men passar_till ska ALDRIG vara tom!).
 - "källa": välj viktigaste URL från WEB_JSON.källor (Systembolaget om finns).
 - "evidence": etiketttext = första ~200 tecken av OCR_TEXT; webbträffar = upp till 3 URL:er.
 - KRITISKT KRAV: ALL text i JSON-outputen MÅSTE vara på SVENSKA. Om WEB_JSON innehåller ungerska, engelska eller andra språk i fält som "karaktär", "smak", "klassificering", "servering" - ÖVERSÄTT dem till svenska. Ord som "Savhangsúlyos", "Fajtajellegges", "száraz" måste översättas (t.ex. "syrabetonad", "sortkaraktäristisk", "torr").
