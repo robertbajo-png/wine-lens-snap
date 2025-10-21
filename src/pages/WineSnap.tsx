@@ -292,16 +292,10 @@ const WineSnap = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-slate-200 hover:text-white"
- codex/continue-development-on-winesnap-app-huq318
-                onClick={() => navigate(INTRO_ROUTE)}
-              >
-                Till introduktionen
-=======
+              className="text-slate-200 hover:text-white"
                 onClick={() => navigate("/")}
               >
                 Till startsidan
- main
               </Button>
               <Button
                 variant="outline"
@@ -502,15 +496,9 @@ const WineSnap = () => {
               variant="ghost"
               size="sm"
               className="text-slate-200 hover:text-white"
- codex/continue-development-on-winesnap-app-huq318
-              onClick={() => navigate(INTRO_ROUTE)}
-            >
-              Till introduktionen
-=======
               onClick={() => navigate("/")}
             >
               Till startsidan
- main
             </Button>
             <Button
               variant="outline"
