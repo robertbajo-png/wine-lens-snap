@@ -28,7 +28,7 @@
       "name": "Fota vinflaska",
       "short_name": "Fota",
       "description": "Ta ett foto av en vinflaska",
-      "url": "/winesnap",
+      "url": "/",
       "icons": [
         {
           "src": "/placeholder.svg",
