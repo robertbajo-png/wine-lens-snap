@@ -2,3 +2,6 @@ project_id = "qlktcwtcutqpqnssvnzb"
 
 [functions.analyzeWineAI]
 verify_jwt = false
+
+[functions.wine-vision]
+verify_jwt = false

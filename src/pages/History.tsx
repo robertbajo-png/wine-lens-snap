@@ -196,7 +196,11 @@ const History = () => {
                 </div>
               </DialogContent>
             </Dialog>
+codex/continue-development-on-winesnap-app-huq318
             <Button onClick={() => navigate("/")} className="gap-2 rounded-full shadow-lg shadow-purple-500/20">
+=======
+            <Button onClick={() => navigate("/winesnap")} className="gap-2 rounded-full shadow-lg shadow-purple-500/20">
+ main
               <Camera className="h-4 w-4" />
               Ny skanning
             </Button>
@@ -251,7 +255,11 @@ const History = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4 pb-10">
+ codex/continue-development-on-winesnap-app-huq318
               <Button onClick={() => navigate("/")} className="gap-2 rounded-full shadow-md shadow-purple-400/30">
+=======
+              <Button onClick={() => navigate("/winesnap")} className="gap-2 rounded-full shadow-md shadow-purple-400/30">
+ main
                 <Camera className="h-4 w-4" />
                 Starta första skanningen
               </Button>
