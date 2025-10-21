@@ -293,9 +293,9 @@ const WineSnap = () => {
                 variant="ghost"
                 size="sm"
               className="text-slate-200 hover:text-white"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/om")}
               >
-                Till startsidan
+                Om WineSnap
               </Button>
               <Button
                 variant="outline"
@@ -496,9 +496,9 @@ const WineSnap = () => {
               variant="ghost"
               size="sm"
               className="text-slate-200 hover:text-white"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/om")}
             >
-              Till startsidan
+              Om WineSnap
             </Button>
             <Button
               variant="outline"
