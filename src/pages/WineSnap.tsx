@@ -20,6 +20,8 @@ import WineCardSBFull from "@/components/WineCardSBFull";
 import { preprocessImage } from "@/lib/imagePrep";
 import { createWorker } from "tesseract.js";
 
+const INTRO_ROUTE = "/";
+
 // OCR language support - comprehensive wine label coverage
 const OLANGS = [
   // Europa (latinskt)
@@ -219,8 +221,8 @@ const WineSnap = () => {
       };
       reader.readAsDataURL(file);
     } else if (cameraOpenedRef.current) {
-      // User cancelled camera - go back to Index
-      navigate("/");
+      // User cancelled camera - go back to the introduction page
+      navigate(INTRO_ROUTE);
     }
   };
 
@@ -291,9 +293,15 @@ const WineSnap = () => {
                 variant="ghost"
                 size="sm"
                 className="text-slate-200 hover:text-white"
+ codex/continue-development-on-winesnap-app-huq318
+                onClick={() => navigate(INTRO_ROUTE)}
+              >
+                Till introduktionen
+=======
                 onClick={() => navigate("/")}
               >
                 Till startsidan
+ main
               </Button>
               <Button
                 variant="outline"
@@ -494,9 +502,15 @@ const WineSnap = () => {
               variant="ghost"
               size="sm"
               className="text-slate-200 hover:text-white"
+ codex/continue-development-on-winesnap-app-huq318
+              onClick={() => navigate(INTRO_ROUTE)}
+            >
+              Till introduktionen
+=======
               onClick={() => navigate("/")}
             >
               Till startsidan
+ main
             </Button>
             <Button
               variant="outline"
