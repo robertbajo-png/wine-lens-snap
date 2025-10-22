@@ -1,17 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Camera,
-  Wine,
-  Loader2,
-  Download,
-  Sparkles,
-  Droplet,
-  ChefHat,
-  Flame,
-  MapPin,
-} from "lucide-react";
+import { Camera, Wine, Loader2, Download, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
@@ -247,28 +237,6 @@ const WineSnap = () => {
 
   // Show results view if we have results
   if (results && !isProcessing) {
-    const pairings = Array.isArray(results.passar_till)
-      ? results.passar_till.filter(Boolean)
-      : [];
-
-    const quickFacts = [
-      {
-        label: "Region",
-        value: results.land_region || "–",
-        icon: MapPin,
-      },
-      {
-        label: "Druvor",
-        value: results.druvor || "–",
-        icon: Droplet,
-      },
-      {
-        label: "Servering",
-        value: results.servering || "–",
-        icon: ChefHat,
-      },
-    ];
-
     return (
       <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#070311] via-[#12082A] to-[#0F172A] text-slate-100">
         <div className="pointer-events-none absolute inset-0">
@@ -333,22 +301,8 @@ const WineSnap = () => {
                   </p>
                   <h1 className="text-3xl font-semibold text-white">{results.vin || "Okänt vin"}</h1>
                   <p className="text-sm text-slate-200/80">
-                    {results.typ || "–"} • {results.färgtyp || "–"} • {results.producent || "Okänd producent"}
+                    {results.typ || "–"} • {results.färgtyp || "–"}
                   </p>
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {quickFacts.map(({ label, value, icon: Icon }) => (
-                    <div key={label} className="flex h-full flex-col gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 text-sm text-slate-200">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-purple-100">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-purple-200/80">{label}</p>
-                        <p className="mt-1 text-base font-semibold text-white">{value || "–"}</p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200/85">
@@ -357,56 +311,11 @@ const WineSnap = () => {
                     Den här lilla rutan återger råden från den tidigare enklare resultatsidan: fota i bra ljus, håll etiketten rak och använd knappen nedan för att starta en ny skanning utan att behöva lämna sidan.
                   </p>
                 </div>
-
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-slate-200/85">
-                  <p className="font-medium text-white">Anteckning</p>
-                  <p>{results.karaktär || "AI:n kunde inte hitta någon tydlig karaktärsbeskrivning."}</p>
-                </div>
               </div>
             </div>
 
             <div className="rounded-[32px] border border-white/10 bg-white/85 p-6 shadow-2xl shadow-purple-900/30 backdrop-blur">
               <WineCardSBFull data={results} />
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-200/85">
-              <div className="flex items-start gap-3">
-                <Flame className="mt-1 h-4 w-4 text-orange-200" />
-                <div>
-                  <p className="font-semibold text-white">Smakprofil</p>
-                  <p>{results.smak || "Smaknoter saknas för den här analysen."}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-200/85">
-              <div className="flex items-start gap-3">
-                <ChefHat className="mt-1 h-4 w-4 text-emerald-200" />
-                <div>
-                  <p className="font-semibold text-white">Servering</p>
-                  <p>{results.servering || "AI:n gav inga serveringsrekommendationer den här gången."}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-200/85">
-              <div className="flex items-start gap-3">
-                <Sparkles className="mt-1 h-4 w-4 text-purple-200" />
-                <div className="space-y-2">
-                  <p className="font-semibold text-white">Passar till</p>
-                  {pairings.length > 0 ? (
-                    <ul className="list-inside list-disc space-y-1 text-slate-200/85">
-                      {pairings.slice(0, 4).map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>Inga pairing-förslag hittades för den här flaskan.</p>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
 
