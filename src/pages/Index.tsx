@@ -185,8 +185,18 @@ const Index = () => {
               <div className="grid gap-4 sm:grid-cols-3">
                 {heroStats.map(({ label, value, hint }) => (
                   <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <p className="text-xs uppercase tracking-wide text-purple-200/80">{label}</p>
-                    <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
+                    <p
+                      lang="sv"
+                      className="text-xs uppercase tracking-[0.2em] text-purple-200/80 leading-4 text-pretty sm:tracking-wide"
+                    >
+                      {label}
+                    </p>
+                    <p
+                      lang="sv"
+                      className="mt-2 text-xl font-semibold leading-tight text-white text-pretty break-words hyphens-auto sm:text-2xl"
+                    >
+                      {value}
+                    </p>
                     <p className="text-sm text-slate-300">{hint}</p>
                   </div>
                 ))}

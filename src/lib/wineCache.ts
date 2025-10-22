@@ -23,8 +23,10 @@ export interface CachedWineAnalysisEntry {
 function normalizeText(text: string): string {
   return text
     .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
+    .replace(/[^\p{L}\p{N}]/gu, '');
 }
 
 // Simple hash function for strings

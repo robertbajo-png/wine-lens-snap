@@ -70,20 +70,6 @@ const WineSnap = () => {
     setBanner(null);
 
     try {
-      // Check cache first (using image data as key)
-      const cached = getCachedAnalysis(imageData);
-      if (cached) {
-        setResults(cached);
-        setBanner({ type: "info", text: "Hämtade sparad analys från din enhet." });
-        toast({
-          title: "Klart!",
-          description: "Analys hämtad från cache."
-        });
-        setIsProcessing(false);
-        setProcessingStep(null);
-        return;
-      }
-
       // Step 1: Preprocess image
       console.log("Step 1: Preprocessing image...");
       const processedImage = await preprocessImage(imageData);
@@ -105,6 +91,20 @@ const WineSnap = () => {
 
       const noTextFound = ocrText.length < 10;
       console.log("No text found flag:", noTextFound);
+
+      const cacheLookupKey = !noTextFound && ocrText ? ocrText : imageData;
+      const cached = getCachedAnalysis(cacheLookupKey);
+      if (cached) {
+        setResults(cached);
+        setBanner({ type: "info", text: "Hämtade sparad analys från din enhet." });
+        toast({
+          title: "Klart!",
+          description: "Analys hämtad från cache.",
+        });
+        setIsProcessing(false);
+        setProcessingStep(null);
+        return;
+      }
 
       // Step 3: GPT Analysis with OCR text
       setProcessingStep("analysis");
@@ -183,7 +183,7 @@ const WineSnap = () => {
         };
 
         setResults(result);
-        setCachedAnalysis(imageData, result, imageData);
+        setCachedAnalysis(cacheLookupKey, result, imageData);
 
         // Show banner based on note
         if (note === "hit_memory" || note === "hit_supabase") {
