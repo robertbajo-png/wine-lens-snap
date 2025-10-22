@@ -1,7 +1,8 @@
-// Simple cache for wine analysis results using localStorage
+// Simple cache for wine analysis results using localStorage (keys) + IDB (optionally for images)
 
-const CACHE_KEY_PREFIX = 'wine_analysis_';
-const DEMO_CACHE_PREFIX = `${CACHE_KEY_PREFIX}demo_`;
+const CACHE_KEY_PREFIX = "wine_analysis_";
+export const DEMO_CACHE_PREFIX = `${CACHE_KEY_PREFIX}demo_`;
+const IMAGE_CACHE_PREFIX = `${CACHE_KEY_PREFIX}img_`;
 
 interface StoredWineAnalysisV1 {
   version: 1;
@@ -19,29 +20,56 @@ export interface CachedWineAnalysisEntry {
   imageData?: string;
 }
 
-// Normalize OCR text: trim, lowercase, remove non-alphanumeric
-function normalizeText(text: string): string {
+// Normalize OCR text: trim, strip diacritics, lowercase, keep only letters+digits (Unicode-safe)
+export function normalizeText(text: string): string {
   return text
     .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, '');
+    .replace(/[^\p{L}\p{N}]+/gu, "");
 }
 
-// Simple hash function for strings
-function hashString(str: string): string {
+// Strong, stable hash using Web Crypto (SHA-256 -> base64url, 16 chars)
+export async function hashString(str: string): Promise<string> {
+  const cryptoObj = globalThis.crypto;
+
+  if (cryptoObj?.subtle) {
+    const enc = new TextEncoder().encode(str);
+    const buf = await cryptoObj.subtle.digest("SHA-256", enc);
+    const bytes = new Uint8Array(buf);
+    let binary = "";
+    bytes.forEach(byte => {
+      binary += String.fromCharCode(byte);
+    });
+    if (typeof btoa === "function") {
+      const base64 = btoa(binary);
+      return base64
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "")
+        .slice(0, 16);
+    }
+  }
+
+  // Fallback: deterministic 32-bit hash
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
+    hash |= 0;
   }
   return Math.abs(hash).toString(36);
 }
 
-export function getCacheKey(ocrText: string): string {
+export async function getCacheKey(ocrText: string): Promise<string> {
   const normalized = normalizeText(ocrText);
-  const hash = hashString(normalized);
+  const hash = await hashString(normalized);
   return `${CACHE_KEY_PREFIX}${hash}`;
+}
+
+export function getImageCacheKey(hash: string): string {
+  return `${IMAGE_CACHE_PREFIX}${hash}`;
 }
 
 export interface WineAnalysisResult {
@@ -59,16 +87,17 @@ export interface WineAnalysisResult {
   smak: string;
   passar_till: string[];
   servering: string;
-  sockerhalt: string;
-  syra: string;
+  // kompletterande fält som används i UI
+  sockerhalt?: string;
+  syra?: string;
   källa: string;
-  meters?: {
+  meters: {
     sötma: number | null;
     fyllighet: number | null;
     fruktighet: number | null;
     fruktsyra: number | null;
   };
-  evidence?: {
+  evidence: {
     etiketttext: string;
     webbträffar: string[];
   };
@@ -107,33 +136,59 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
   return null;
 }
 
-export function getCachedAnalysis(ocrText: string): WineAnalysisResult | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const key = getCacheKey(ocrText);
-    const cached = parseStoredValue(key, localStorage.getItem(key));
-    if (cached) {
-      return cached.result;
-    }
-  } catch (error) {
-    console.error('Error reading from cache:', error);
-  }
-  return null;
+function writeStoredValue(key: string, result: WineAnalysisResult, imageData?: string) {
+  const payload: StoredWineAnalysisV1 = {
+    version: 1,
+    timestamp: new Date().toISOString(),
+    result,
+    imageData,
+  };
+
+  localStorage.setItem(key, JSON.stringify(payload));
 }
 
-export function setCachedAnalysis(ocrText: string, result: WineAnalysisResult, imageData?: string): void {
-  if (typeof window === 'undefined') return;
+export function getCachedAnalysisByKey(key: string): WineAnalysisResult | null {
+  if (typeof window === "undefined") return null;
+
   try {
-    const key = getCacheKey(ocrText);
-    const payload: StoredWineAnalysisV1 = {
-      version: 1,
-      timestamp: new Date().toISOString(),
-      result,
-      imageData,
-    };
-    localStorage.setItem(key, JSON.stringify(payload));
+    const cached = parseStoredValue(key, localStorage.getItem(key));
+    return cached ? cached.result : null;
   } catch (error) {
-    console.error('Error writing to cache:', error);
+    console.error("Error reading cached analysis:", error);
+    return null;
+  }
+}
+
+export async function getCachedAnalysis(ocrText: string): Promise<WineAnalysisResult | null> {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const key = await getCacheKey(ocrText);
+    return getCachedAnalysisByKey(key);
+  } catch (error) {
+    console.error("Error reading from cache:", error);
+    return null;
+  }
+}
+
+export function setCachedAnalysisByKey(key: string, result: WineAnalysisResult, imageData?: string): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    writeStoredValue(key, result, imageData);
+  } catch (error) {
+    console.error("Error writing cached analysis:", error);
+  }
+}
+
+export async function setCachedAnalysis(ocrText: string, result: WineAnalysisResult, imageData?: string): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  try {
+    const key = await getCacheKey(ocrText);
+    writeStoredValue(key, result, imageData);
+  } catch (error) {
+    console.error("Error writing to cache:", error);
   }
 }
 
