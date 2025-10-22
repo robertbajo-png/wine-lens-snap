@@ -14,7 +14,14 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
+import {
+  getCacheKey,
+  getCachedAnalysisByKey,
+  getImageCacheKey,
+  hashString,
+  setCachedAnalysisByKey,
+  type WineAnalysisResult,
+} from "@/lib/wineCache";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import WineCardSBFull from "@/components/WineCardSBFull";
 import { preprocessImage } from "@/lib/imagePrep";
@@ -70,14 +77,17 @@ const WineSnap = () => {
     setBanner(null);
 
     try {
-      // Check cache first (using image data as key)
-      const cached = getCachedAnalysis(imageData);
-      if (cached) {
-        setResults(cached);
+      const imageHash = await hashString(imageData);
+      const imageCacheKey = getImageCacheKey(imageHash);
+
+      // Step 1: Check quick image-based cache
+      const cachedFromImage = getCachedAnalysisByKey(imageCacheKey);
+      if (cachedFromImage) {
+        setResults(cachedFromImage);
         setBanner({ type: "info", text: "Hämtade sparad analys från din enhet." });
         toast({
           title: "Klart!",
-          description: "Analys hämtad från cache."
+          description: "Analys hämtad från cache.",
         });
         setIsProcessing(false);
         setProcessingStep(null);
@@ -105,6 +115,30 @@ const WineSnap = () => {
 
       const noTextFound = ocrText.length < 10;
       console.log("No text found flag:", noTextFound);
+
+      let primaryCacheKey: string | null = null;
+      if (!noTextFound && ocrText) {
+        primaryCacheKey = await getCacheKey(ocrText);
+        const cachedFromText = getCachedAnalysisByKey(primaryCacheKey);
+        if (cachedFromText) {
+          setResults(cachedFromText);
+          setBanner({ type: "info", text: "Hämtade sparad analys från din enhet." });
+          toast({
+            title: "Klart!",
+            description: "Analys hämtad från cache.",
+          });
+          setIsProcessing(false);
+          setProcessingStep(null);
+          return;
+        }
+      }
+
+      const storeResult = (result: WineAnalysisResult) => {
+        setCachedAnalysisByKey(imageCacheKey, result, imageData);
+        if (primaryCacheKey) {
+          setCachedAnalysisByKey(primaryCacheKey, result, imageData);
+        }
+      };
 
       // Step 3: GPT Analysis with OCR text
       setProcessingStep("analysis");
@@ -183,7 +217,7 @@ const WineSnap = () => {
         };
 
         setResults(result);
-        setCachedAnalysis(imageData, result, imageData);
+        storeResult(result);
 
         // Show banner based on note
         if (note === "hit_memory" || note === "hit_supabase") {

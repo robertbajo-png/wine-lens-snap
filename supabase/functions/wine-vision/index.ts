@@ -28,6 +28,333 @@ const cors = {
 // Helper functions
 const stripDiacritics = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const clamp = (s: string, n = 200) => (s.length > n ? s.slice(0, n) : s);
+const isBlank = (value: unknown): boolean => {
+  if (value === null || value === undefined) return true;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" || trimmed === "-" || trimmed === "–";
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0 || value.every((item) => isBlank(item));
+  }
+  return false;
+};
+
+const WHITE_GRAPES = [
+  "riesling","sauvignon blanc","chardonnay","pinot grigio","pinot gris","grüner veltliner",
+  "chenin blanc","gewürztraminer","viognier","albariño","garganega","glera","furmint",
+  "semillon","muscat","moscato","verdejo","assyrtiko","vermentino","godello","trebbiano"
+];
+
+const RED_GRAPES = [
+  "pinot noir","nebbiolo","barbera","sangiovese","tempranillo","garnacha","grenache",
+  "cabernet sauvignon","merlot","syrah","shiraz","malbec","zinfandel","primitivo",
+  "touriga nacional","baga","kékfrankos","blaufränkisch","kékmedoc"
+];
+
+function detectColour(data: any, ocrText: string) {
+  const joined = [
+    data?.färgtyp,
+    data?.typ,
+    data?.karaktär,
+    data?.smak,
+    data?.druvor,
+    ocrText
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/dessert|aszú|late harvest|ice\s?wine|sauternes|tokaji|sweet wine|dolce|porto|sherry/.test(joined)) {
+    return "dessert";
+  }
+  if (/mousserande|bubbl|champagne|cava|prosecco|spumante|frizzante|sparkling|crémant/.test(joined)) {
+    return "mousserande";
+  }
+  if (/ros[eéáå]|rosado|rosato|blush/.test(joined)) {
+    return "rosé";
+  }
+  if (/rött|rosso|rouge|tinto|negro|garnacha tinta|vin rouge|vino rosso/.test(joined)) {
+    return "rött";
+  }
+  if (/vitt|white|blanc|bianco|bianc|alb|weiß|weiss/.test(joined)) {
+    return "vitt";
+  }
+
+  const grapeText = joined;
+  if (RED_GRAPES.some((grape) => grapeText.includes(grape))) return "rött";
+  if (WHITE_GRAPES.some((grape) => grapeText.includes(grape))) return "vitt";
+
+  return "okänt";
+}
+
+function detectBody(data: any, ocrText: string) {
+  const joined = [data?.karaktär, data?.smak, data?.typ, data?.klassificering, ocrText]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/kraftfull|fyllig|barolo|amarone|reserva|gran reserva|cabernet|syrah|shiraz|malbec|barrique/.test(joined)) {
+    return "kraftfull";
+  }
+  if (/lätt|frisk|crisp|spritzy|pinot noir|gamay|vouvray|vinho verde|riesling|spritsig/.test(joined)) {
+    return "lätt";
+  }
+  return "medel";
+}
+
+function detectSweetness(data: any, ocrText: string) {
+  const joined = [data?.karaktär, data?.smak, data?.typ, data?.klassificering, data?.sockerhalt, ocrText]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/dessert|sweet|dolce|aszú|ice\s?wine|late harvest|passito|tokaji|sött|noble rot|vin santo|süß/.test(joined)) {
+    return "söt";
+  }
+  if (/halvsöt|halvtorr|demi-sec|semi seco|semi-seco|amabile|lieblich|off dry|semi sweet|dulce/.test(joined)) {
+    return "halvsöt";
+  }
+  return "torr";
+}
+
+function defaultPairings(colour: string, body: string, sweetness: string) {
+  if (colour === "dessert" || sweetness === "söt") {
+    return [
+      "Blåmögelost med honung",
+      "Crème brûlée",
+      "Fruktiga desserter med bär",
+      "Rostade nötter och torkad frukt"
+    ];
+  }
+  if (colour === "mousserande") {
+    return [
+      "Aperitif med charkuterier",
+      "Ostron och skaldjur",
+      "Sushi och sashimi",
+      "Friterade snacks eller tempura"
+    ];
+  }
+  if (colour === "rosé") {
+    return [
+      "Somrig sallad med getost",
+      "Grillad kyckling med örter",
+      "Pizza med grönsaker",
+      "Asiatiska smårätter"
+    ];
+  }
+  if (colour === "vitt") {
+    if (body === "lätt") {
+      return [
+        "Skaldjur med citron",
+        "Vit fisk med dill",
+        "Kyckling med örtsås",
+        "Färska getostar"
+      ];
+    }
+    return [
+      "Grillad lax med citron",
+      "Krämig pasta med svamp",
+      "Fläskfilé med örter",
+      "Halvmogna ostar"
+    ];
+  }
+  if (colour === "rött") {
+    if (body === "lätt") {
+      return [
+        "Pasta med tomat och basilika",
+        "Grillad kyckling",
+        "Lättare kötträtter",
+        "Milda ostar"
+      ];
+    }
+    if (body === "kraftfull") {
+      return [
+        "Grillat nötkött",
+        "Lammstek med örter",
+        "Viltgryta",
+        "Lagrade hårdostar"
+      ];
+    }
+    return [
+      "Nötkött eller entrecôte",
+      "Lasagne eller mustig pasta",
+      "Grillad fläskkarré",
+      "Lagrade ostar"
+    ];
+  }
+  return [
+    "Charkuterier och ostar",
+    "Pastarätt med örter",
+    "Grillade grönsaker",
+    "Rostad kyckling"
+  ];
+}
+
+function defaultServing(colour: string, body: string, sweetness: string) {
+  if (colour === "dessert" || sweetness === "söt") return "10–12 °C";
+  if (colour === "mousserande") return "6–8 °C";
+  if (colour === "rosé") return "8–10 °C";
+  if (colour === "vitt") {
+    return body === "lätt" ? "7–9 °C" : "9–11 °C";
+  }
+  if (colour === "rött") {
+    if (body === "lätt") return "14–15 °C";
+    if (body === "kraftfull") return "17–18 °C";
+    return "16–17 °C";
+  }
+  return "10–12 °C";
+}
+
+function defaultCharacter(colour: string, body: string, sweetness: string) {
+  if (colour === "dessert" || sweetness === "söt") {
+    return "Söt och koncentrerad med toner av honung, torkad frukt och karamell.";
+  }
+  if (colour === "mousserande") {
+    return "Pigg och elegant med fin mousse och frisk syra.";
+  }
+  if (colour === "rosé") {
+    return "Friskt och bärigt med inslag av smultron, blodapelsin och örter.";
+  }
+  if (colour === "vitt") {
+    return body === "lätt"
+      ? "Lätt och frisk med citrus, gröna äpplen och mineralitet."
+      : "Fylligt vitt med gul frukt, nötighet och balanserad syra.";
+  }
+  if (colour === "rött") {
+    if (body === "lätt") {
+      return "Lätt rött vin med röda bär, mjuka tanniner och frisk avslutning.";
+    }
+    if (body === "kraftfull") {
+      return "Kraftfull struktur med mörka bär, choklad och rostade fattoner.";
+    }
+    return "Medelfylligt med mörka bär, kryddor och mjuka tanniner.";
+  }
+  return "Fruktigt och balanserat vin med harmonisk avslutning.";
+}
+
+function defaultTaste(colour: string, body: string, sweetness: string) {
+  if (colour === "dessert" || sweetness === "söt") {
+    return "Rik sötma med smaker av aprikos, apelsinzest, honung och karamelliserade nötter.";
+  }
+  if (colour === "mousserande") {
+    return "Livlig smak med citrus, gröna äpplen och brödiga toner i avslutningen.";
+  }
+  if (colour === "rosé") {
+    return "Fruktig smak av jordgubbar, blodapelsin och örter med frisk syra.";
+  }
+  if (colour === "vitt") {
+    return body === "lätt"
+      ? "Frisk smak av citrus, gröna äpplen och mineral med pigg syra."
+      : "Fylligare vit frukt, gula äpplen och lätt ekfatston med krämig textur.";
+  }
+  if (colour === "rött") {
+    if (body === "lätt") {
+      return "Smak av röda bär, körsbär och kryddor med silkiga tanniner.";
+    }
+    if (body === "kraftfull") {
+      return "Intensiv smak med mörka bär, choklad, lakrits och tydliga tanniner.";
+    }
+    return "Balanserad smak av mörka bär, plommon och kryddiga toner med mjuka tanniner.";
+  }
+  return "Harmonisk smakbild med fruktiga toner och balanserad syra.";
+}
+
+function defaultMeters(colour: string, body: string, sweetness: string) {
+  const sötma = sweetness === "söt" ? 4.2 : sweetness === "halvsöt" ? 2.8 : colour === "mousserande" ? 1.2 : 1.0;
+  const fyllighet = body === "kraftfull" ? 4.0 : body === "lätt" ? 2.2 : 3.2;
+  const fruktighet = colour === "rött" ? (body === "kraftfull" ? 3.6 : 3.2) : colour === "dessert" ? 4.2 : 3.4;
+  const fruktsyra = colour === "rött" ? (body === "kraftfull" ? 2.6 : 3.2) : colour === "dessert" ? 3.0 : 3.8;
+
+  return { sötma, fyllighet, fruktighet, fruktsyra };
+}
+
+function fillMissingFields(finalData: any, webData: any, ocrText: string) {
+  const fields: Array<keyof typeof finalData> = [
+    "vin",
+    "land_region",
+    "producent",
+    "druvor",
+    "årgång",
+    "typ",
+    "färgtyp",
+    "klassificering",
+    "alkoholhalt",
+    "volym",
+    "karaktär",
+    "smak",
+    "servering",
+    "källa"
+  ];
+
+  for (const field of fields) {
+    if (isBlank(finalData[field]) && !isBlank(webData?.[field])) {
+      finalData[field] = webData[field];
+    }
+  }
+
+  const fromWebPairings = Array.isArray(webData?.passar_till)
+    ? webData.passar_till.filter((item: unknown) => typeof item === "string" && !isBlank(item))
+    : [];
+  const existingPairings = Array.isArray(finalData.passar_till)
+    ? finalData.passar_till.filter((item: unknown) => typeof item === "string" && !isBlank(item))
+    : [];
+  const combinedPairings = Array.from(new Set([...existingPairings, ...fromWebPairings]));
+  const limitedPairings: string[] = [];
+  for (const pairing of combinedPairings) {
+    limitedPairings.push(pairing);
+    if (limitedPairings.length === 5) break;
+  }
+  finalData.passar_till = limitedPairings;
+
+  const colour = detectColour(finalData, ocrText);
+  const body = detectBody(finalData, ocrText);
+  const sweetness = detectSweetness(finalData, ocrText);
+
+  if (!Array.isArray(finalData.passar_till)) {
+    finalData.passar_till = [];
+  }
+  if (finalData.passar_till.length < 3) {
+    const suggested = defaultPairings(colour, body, sweetness);
+    for (const suggestion of suggested) {
+      if (finalData.passar_till.length >= 5) break;
+      if (!finalData.passar_till.includes(suggestion)) {
+        finalData.passar_till.push(suggestion);
+      }
+    }
+  }
+
+  if (isBlank(finalData.servering)) {
+    finalData.servering = defaultServing(colour, body, sweetness);
+  }
+
+  if (isBlank(finalData.karaktär)) {
+    finalData.karaktär = defaultCharacter(colour, body, sweetness);
+  }
+
+  if (isBlank(finalData.smak)) {
+    finalData.smak = defaultTaste(colour, body, sweetness);
+  }
+
+  if (!finalData.meters) {
+    finalData.meters = { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null };
+  }
+
+  const meters = finalData.meters || {};
+  const defaults = defaultMeters(colour, body, sweetness);
+  finalData.meters = {
+    sötma: typeof meters.sötma === "number" ? meters.sötma : defaults.sötma,
+    fyllighet: typeof meters.fyllighet === "number" ? meters.fyllighet : defaults.fyllighet,
+    fruktighet: typeof meters.fruktighet === "number" ? meters.fruktighet : defaults.fruktighet,
+    fruktsyra: typeof meters.fruktsyra === "number" ? meters.fruktsyra : defaults.fruktsyra,
+  };
+
+  if (!finalData.evidence) {
+    finalData.evidence = { etiketttext: clamp(ocrText), webbträffar: [] };
+  }
+
+  return finalData;
+}
 
 function buildSearchVariants(ocr: string) {
   const raw = ocr.replace(/\s+/g, " ").trim();
@@ -106,7 +433,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { imageBase64 } = await req.json();
+    const reqJson = await req.json();
+    const { imageBase64 } = reqJson ?? {};
 
     const startTime = Date.now();
     console.log(`[${new Date().toISOString()}] Wine analysis started`);
@@ -353,6 +681,7 @@ WEB_JSON:
     // Post-process
     finalData = enrichFallback(ocrText, finalData);
     finalData = sanitize(finalData);
+    finalData = fillMissingFields(finalData, WEB_JSON, ocrText);
 
     const totalTime = Date.now() - startTime;
     console.log(`[${new Date().toISOString()}] Total processing time: ${totalTime}ms`);
