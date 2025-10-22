@@ -7,18 +7,19 @@ import {
   Loader2,
   Download,
   Sparkles,
-  Droplet,
-  ChefHat,
-  Flame,
-  MapPin,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
-import WineCardSBFull from "@/components/WineCardSBFull";
+import { SectionCard } from "@/components/results/SectionCard";
+import { InfoRow } from "@/components/results/InfoRow";
+import { SourceLink } from "@/components/results/SourceLink";
+import { GaugeRingsSB } from "@/components/results/GaugeRingsSB";
+import { CollapsibleBlock } from "@/components/results/CollapsibleBlock";
 import { preprocessImage } from "@/lib/imagePrep";
 import { createWorker } from "tesseract.js";
+import { cn } from "@/lib/utils";
 
 const INTRO_ROUTE = "/";
 
@@ -44,6 +45,7 @@ const WineSnap = () => {
   const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | null>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
+  const [ocrExpanded, setOcrExpanded] = useState(false);
 
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
@@ -59,6 +61,10 @@ const WineSnap = () => {
     }, 0);
     return () => clearTimeout(t);
   }, [results, previewImage]);
+
+  useEffect(() => {
+    setOcrExpanded(false);
+  }, [results]);
 
   const processWineImage = async (imageData: string) => {
     // Get user's language from browser
@@ -247,27 +253,84 @@ const WineSnap = () => {
 
   // Show results view if we have results
   if (results && !isProcessing) {
-    const pairings = Array.isArray(results.passar_till)
-      ? results.passar_till.filter(Boolean)
-      : [];
+    const cleanString = (value?: string | null) => {
+      if (typeof value !== "string") return undefined;
+      const trimmed = value.trim();
+      if (!trimmed || trimmed === "-" || trimmed === "–") return undefined;
+      return trimmed;
+    };
 
-    const quickFacts = [
-      {
-        label: "Region",
-        value: results.land_region || "–",
-        icon: MapPin,
-      },
-      {
-        label: "Druvor",
-        value: results.druvor || "–",
-        icon: Droplet,
-      },
-      {
-        label: "Servering",
-        value: results.servering || "–",
-        icon: ChefHat,
-      },
+    const parseSegments = (value?: string | null) => {
+      const normalized = cleanString(value);
+      if (!normalized) return [] as string[];
+      if (normalized.includes("•")) {
+        return normalized
+          .split("•")
+          .map((segment) => cleanString(segment))
+          .filter((segment): segment is string => Boolean(segment));
+      }
+      if (normalized.includes(",")) {
+        return normalized
+          .split(",")
+          .map((segment) => cleanString(segment))
+          .filter((segment): segment is string => Boolean(segment));
+      }
+      if (normalized.includes(" – ")) {
+        return normalized
+          .split(" – ")
+          .map((segment) => cleanString(segment))
+          .filter((segment): segment is string => Boolean(segment));
+      }
+      if (normalized.includes(" - ")) {
+        return normalized
+          .split(" - ")
+          .map((segment) => cleanString(segment))
+          .filter((segment): segment is string => Boolean(segment));
+      }
+      return [normalized];
+    };
+
+    const wineName = cleanString(results.vin) ?? "–";
+    const producer = cleanString(results.producent);
+    const locationBadges = parseSegments(results.land_region);
+    const yearBadge = cleanString(results.årgång);
+    const badges = Array.from(
+      new Set([
+        ...locationBadges,
+        ...(yearBadge ? [yearBadge] : []),
+      ])
+    );
+    const badgesToRender = badges.length ? badges : ["–"];
+
+    const keyFacts = [
+      { label: "Druvor", value: results.druvor },
+      { label: "Alkoholhalt", value: results.alkoholhalt },
+      { label: "Volym", value: results.volym },
+      { label: "Sockerhalt", value: results.sockerhalt },
+      { label: "Syra", value: results.syra },
     ];
+
+    const pairings = Array.from(
+      new Set(
+        (Array.isArray(results.passar_till) ? results.passar_till : [])
+          .map((item) => cleanString(item))
+          .filter((item): item is string => Boolean(item))
+      )
+    ).slice(0, 5);
+
+    const primarySource = cleanString(results.källa);
+    const primaryHref = primarySource && /^https?:\/\//i.test(primarySource) ? primarySource : undefined;
+
+    const secondarySources = Array.from(
+      new Set(
+        (results.evidence?.webbträffar ?? [])
+          .map((src) => cleanString(src))
+          .filter((src): src is string => Boolean(src) && src !== primarySource)
+      )
+    );
+
+    const ocrText = cleanString(results.evidence?.etiketttext) ?? cleanString(results.originaltext);
+    const hasOcrText = Boolean(ocrText);
 
     return (
       <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#070311] via-[#12082A] to-[#0F172A] text-slate-100">
@@ -292,7 +355,7 @@ const WineSnap = () => {
               <Button
                 variant="ghost"
                 size="sm"
-              className="text-slate-200 hover:text-white"
+                className="text-slate-200 hover:text-white"
                 onClick={() => navigate("/om")}
               >
                 Om WineSnap
@@ -310,126 +373,142 @@ const WineSnap = () => {
 
           {banner && (
             <div
-              className={`rounded-2xl border px-4 py-3 text-sm backdrop-blur transition ${
+              className={cn(
+                "rounded-2xl border px-4 py-3 text-sm backdrop-blur transition",
                 banner.type === "error"
-                  ? "border-destructive/40 bg-destructive/20 text-red-100"
+                  ? "border-red-500/40 bg-red-500/20 text-red-100"
                   : banner.type === "success"
-                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-100"
-                  : "border-sky-400/30 bg-sky-400/10 text-sky-100"
-              }`}
+                  ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+                  : "border-sky-400/40 bg-sky-500/15 text-sky-100"
+              )}
             >
               {banner.text}
             </div>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-white/10 p-8 backdrop-blur">
-              <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
-              <div className="relative space-y-6">
+          <section className="space-y-6 rounded-[32px] border border-white/10 bg-white/5 p-8 backdrop-blur-lg">
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-3xl font-semibold text-white">{wineName}</h1>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {badgesToRender.map((badge) => (
+                  <span
+                    key={badge}
+                    className={cn(
+                      "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em]",
+                      badge === "–"
+                        ? "bg-white/5 text-slate-400"
+                        : "bg-white/10 text-white"
+                    )}
+                  >
+                    {badge}
+                  </span>
+                ))}
+              </div>
+              <p className={cn("text-sm", producer ? "text-white/85" : "text-slate-400")}>{producer ?? "–"}</p>
+            </div>
+            <GaugeRingsSB meters={results.meters} />
+          </section>
+
+          <SectionCard title="Key Facts">
+            <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+              {keyFacts.map(({ label, value }) => (
+                <InfoRow key={label} label={label} value={value} />
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Karaktär" text={results.karaktär} clampLines={3} />
+          <SectionCard title="Smak" text={results.smak} clampLines={3} />
+          <SectionCard title="Servering" text={results.servering} clampLines={3} />
+
+          <SectionCard title="Matparning">
+            {pairings.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {pairings.map((item) => (
+                  <span
+                    key={item}
+                    className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-medium text-white"
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">–</p>
+            )}
+          </SectionCard>
+
+          <CollapsibleBlock title="Källor & OCR">
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Primär källa</p>
+                {primaryHref ? (
+                  <SourceLink href={primaryHref} label={primarySource} />
+                ) : (
+                  <span className={cn("text-sm", primarySource ? "text-white" : "text-slate-400")}>
+                    {primarySource ?? "–"}
+                  </span>
+                )}
+              </div>
+
+              {secondarySources.length > 0 && (
                 <div className="space-y-2">
-                  <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.25em] text-purple-100">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Analys klar
-                  </p>
-                  <h1 className="text-3xl font-semibold text-white">{results.vin || "Okänt vin"}</h1>
-                  <p className="text-sm text-slate-200/80">
-                    {results.typ || "–"} • {results.färgtyp || "–"} • {results.producent || "Okänd producent"}
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Övriga källor</p>
+                  <ul className="space-y-1">
+                    {secondarySources.map((src) => {
+                      const href = /^https?:\/\//i.test(src) ? src : undefined;
+                      return (
+                        <li key={src}>
+                          {href ? (
+                            <SourceLink href={href} label={src} />
+                          ) : (
+                            <span className="text-sm text-white">{src}</span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
+              )}
 
-                <div className="grid gap-4 sm:grid-cols-3">
-                  {quickFacts.map(({ label, value, icon: Icon }) => (
-                    <div key={label} className="flex h-full flex-col gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 text-sm text-slate-200">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-purple-100">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-purple-200/80">{label}</p>
-                        <p className="mt-1 text-base font-semibold text-white">{value || "–"}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200/85">
-                  <p className="font-medium text-white">Snabbguide för nästa skanning</p>
-                  <p>
-                    Den här lilla rutan återger råden från den tidigare enklare resultatsidan: fota i bra ljus, håll etiketten rak och använd knappen nedan för att starta en ny skanning utan att behöva lämna sidan.
-                  </p>
-                </div>
-
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-slate-200/85">
-                  <p className="font-medium text-white">Anteckning</p>
-                  <p>{results.karaktär || "AI:n kunde inte hitta någon tydlig karaktärsbeskrivning."}</p>
-                </div>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">OCR-utdrag</p>
+                {hasOcrText ? (
+                  <>
+                    <p
+                      className="text-[12px] leading-5 text-slate-300"
+                      style={
+                        !ocrExpanded
+                          ? {
+                              display: "-webkit-box",
+                              WebkitLineClamp: 4,
+                              WebkitBoxOrient: "vertical" as const,
+                              overflow: "hidden",
+                            }
+                          : undefined
+                      }
+                    >
+                      {ocrText}
+                    </p>
+                    {ocrText && ocrText.length > 200 && (
+                      <button
+                        type="button"
+                        onClick={() => setOcrExpanded((prev) => !prev)}
+                        className="text-xs font-semibold uppercase tracking-widest text-purple-200 hover:text-purple-100"
+                        aria-expanded={ocrExpanded}
+                      >
+                        {ocrExpanded ? "Visa mindre" : "Visa mer"}
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-sm text-slate-400">–</span>
+                )}
               </div>
             </div>
-
-            <div className="rounded-[32px] border border-white/10 bg-white/85 p-6 shadow-2xl shadow-purple-900/30 backdrop-blur">
-              <WineCardSBFull data={results} />
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-200/85">
-              <div className="flex items-start gap-3">
-                <Flame className="mt-1 h-4 w-4 text-orange-200" />
-                <div>
-                  <p className="font-semibold text-white">Smakprofil</p>
-                  <p>{results.smak || "Smaknoter saknas för den här analysen."}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-200/85">
-              <div className="flex items-start gap-3">
-                <ChefHat className="mt-1 h-4 w-4 text-emerald-200" />
-                <div>
-                  <p className="font-semibold text-white">Servering</p>
-                  <p>{results.servering || "AI:n gav inga serveringsrekommendationer den här gången."}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-200/85">
-              <div className="flex items-start gap-3">
-                <Sparkles className="mt-1 h-4 w-4 text-purple-200" />
-                <div className="space-y-2">
-                  <p className="font-semibold text-white">Passar till</p>
-                  {pairings.length > 0 ? (
-                    <ul className="list-inside list-disc space-y-1 text-slate-200/85">
-                      {pairings.slice(0, 4).map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>Inga pairing-förslag hittades för den här flaskan.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#7B3FE4]/15 via-[#8451ED]/15 to-[#38BDF8]/15 p-6 text-sm text-slate-100">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <Sparkles className="mt-1 h-4 w-4 text-purple-200" />
-                <div>
-                  <p className="font-semibold text-white">Spara dina fynd</p>
-                  <p>
-                    Lägg till egna anteckningar genom att spara etikettbilden i historiken. Testverktyget låter dig även fylla på demodata för att öva.
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                className="rounded-full border-white/30 bg-white/10 text-slate-100 hover:bg-white/20"
-                onClick={() => navigate("/historik")}
-              >
-                Visa historiken
-              </Button>
-            </div>
-          </div>
+          </CollapsibleBlock>
 
           <div className="fixed inset-x-0 bottom-0 bg-gradient-to-t from-[#070311] via-[#070311]/85 to-transparent px-4 pb-[calc(env(safe-area-inset-bottom)+1.5rem)] pt-6">
             <div className="mx-auto w-full max-w-5xl">
