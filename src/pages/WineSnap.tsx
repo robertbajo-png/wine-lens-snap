@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+ codex/renodla-resultatsidan-enligt-systembolagets-klassificeringar
 import {
   Camera,
   Wine,
@@ -9,6 +10,9 @@ import {
   Sparkles,
   ChefHat,
 } from "lucide-react";
+=======
+import { Camera, Wine, Loader2, Download, Sparkles } from "lucide-react";
+ main
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
@@ -246,6 +250,7 @@ const WineSnap = () => {
 
   // Show results view if we have results
   if (results && !isProcessing) {
+ codex/renodla-resultatsidan-enligt-systembolagets-klassificeringar
     const pairings = Array.isArray(results.passar_till)
       ? results.passar_till.filter(Boolean)
       : [];
@@ -283,6 +288,15 @@ const WineSnap = () => {
     const evidenceText = results.evidence?.etiketttext?.trim();
     const webSources = results.evidence?.webbträffar?.filter(Boolean) ?? [];
     const showInstallCTA = isInstallable && !isInstalled;
+=======
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#070311] via-[#12082A] to-[#0F172A] text-slate-100">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-10 top-24 h-72 w-72 rounded-full bg-[#8B5CF6]/20 blur-[140px]" />
+          <div className="absolute right-[-120px] top-40 h-96 w-96 rounded-full bg-[#38BDF8]/10 blur-[160px]" />
+          <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/80 to-transparent" />
+        </div>
+main
 
     const subtitleParts = [
       results.producent || undefined,
@@ -355,6 +369,7 @@ const WineSnap = () => {
                 </div>
                 <div className="space-y-2">
                   <h1 className="text-3xl font-semibold text-white">{results.vin || "Okänt vin"}</h1>
+ codex/renodla-resultatsidan-enligt-systembolagets-klassificeringar
                   <p className="text-sm text-slate-200/80">{subtitleParts.join(" • ")}</p>
                   {classificationTags.length > 0 && (
                     <div className="flex flex-wrap gap-2 pt-1">
@@ -464,6 +479,35 @@ const WineSnap = () => {
                 {results.originaltext ? (
                   <p className="mt-2 text-xs text-slate-300 leading-relaxed">
                     {results.originaltext}
+=======
+                  <p className="text-sm text-slate-200/80">
+                    {results.typ || "–"} • {results.färgtyp || "–"}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200/85">
+                  <p className="font-medium text-white">Snabbguide för nästa skanning</p>
+                  <p>
+                    Den här lilla rutan återger råden från den tidigare enklare resultatsidan: fota i bra ljus, håll etiketten rak och använd knappen nedan för att starta en ny skanning utan att behöva lämna sidan.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[32px] border border-white/10 bg-white/85 p-6 shadow-2xl shadow-purple-900/30 backdrop-blur">
+              <WineCardSBFull data={results} />
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#7B3FE4]/15 via-[#8451ED]/15 to-[#38BDF8]/15 p-6 text-sm text-slate-100">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Sparkles className="mt-1 h-4 w-4 text-purple-200" />
+                <div>
+                  <p className="font-semibold text-white">Spara dina fynd</p>
+                  <p>
+                    Lägg till egna anteckningar genom att spara etikettbilden i historiken. Testverktyget låter dig även fylla på demodata för att öva.
+ main
                   </p>
                 ) : (
                   <p className="mt-2 text-xs text-slate-400">Ingen OCR-text sparad för etiketten.</p>
