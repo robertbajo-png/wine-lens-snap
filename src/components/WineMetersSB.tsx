@@ -1,22 +1,25 @@
 import React from "react";
 
 /** SB-lik ring: bakgrundscirkel + fylld båge. Värde 0–5 (0..1 = 0–5/5). */
-function GaugeCircleSB({
+export function GaugeCircleSB({
   label,
   value,
   size = 56,
   stroke = 6,
+  showValue = false,
 }: {
   label: string;
   value?: number | null; // 0..5 (halvsteg ok); null = okänt
   size?: number;
   stroke?: number;
+  showValue?: boolean;
 }) {
   const val = typeof value === "number" ? Math.max(0, Math.min(5, value)) : 0;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const dash = c * (val / 5);
   const gap = c - dash;
+  const valueLabel = typeof value === "number" ? value.toFixed(1) : "–";
 
   return (
     <div className="flex flex-col items-center">
@@ -28,6 +31,17 @@ function GaugeCircleSB({
               className="text-gray-900" fill="none" strokeDasharray={`${dash} ${gap}`} />
           )}
         </g>
+        {showValue && (
+          <text
+            x="50%"
+            y="50%"
+            dominantBaseline="middle"
+            textAnchor="middle"
+            className="fill-current text-[11px] font-semibold"
+          >
+            {valueLabel}
+          </text>
+        )}
       </svg>
       <div className="text-[10px] tracking-wide mt-1 text-gray-500">{label.toUpperCase()}</div>
     </div>
