@@ -1,25 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
- codex/renodla-resultatsidan-enligt-systembolagets-klassificeringar
-import {
-  Camera,
-  Wine,
-  Loader2,
-  Download,
-  Sparkles,
-  ChefHat,
-} from "lucide-react";
-=======
 import { Camera, Wine, Loader2, Download, Sparkles } from "lucide-react";
- main
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
-import { SystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
-import { SystembolagetClassification } from "@/components/SystembolagetClassification";
-import { SystembolagetFactList } from "@/components/SystembolagetFactList";
+import WineCardSBFull from "@/components/WineCardSBFull";
 import { preprocessImage } from "@/lib/imagePrep";
 import { createWorker } from "tesseract.js";
 
@@ -250,45 +237,6 @@ const WineSnap = () => {
 
   // Show results view if we have results
   if (results && !isProcessing) {
- codex/renodla-resultatsidan-enligt-systembolagets-klassificeringar
-    const pairings = Array.isArray(results.passar_till)
-      ? results.passar_till.filter(Boolean)
-      : [];
-
-    const classificationSummary = Array.from(
-      new Set(
-        [results.färgtyp, results.typ, results.klassificering]
-          .map((value) => value?.trim())
-          .filter(Boolean) as string[]
-      )
-    );
-
-    const baseFacts = [
-      { label: "Producent", value: results.producent || "–" },
-      { label: "Land/Region", value: results.land_region || "–" },
-      { label: "Årgång", value: results.årgång || "–" },
-      { label: "Druvor", value: results.druvor || "–" },
-    ];
-
-    const technicalFacts = [
-      { label: "Alkoholhalt", value: results.alkoholhalt || "–" },
-      { label: "Volym", value: results.volym || "–" },
-      { label: "Sockerhalt", value: results.sockerhalt || "–" },
-      { label: "Syra", value: results.syra || "–" },
-    ];
-
-    const classificationTags = [
-      { label: "Färg", value: results.färgtyp },
-      { label: "Smaktyp", value: results.typ },
-      { label: "Ursprungsangivelse", value: results.klassificering },
-    ]
-      .map((tag) => ({ ...tag, value: tag.value?.trim() }))
-      .filter((tag) => tag.value);
-
-    const evidenceText = results.evidence?.etiketttext?.trim();
-    const webSources = results.evidence?.webbträffar?.filter(Boolean) ?? [];
-    const showInstallCTA = isInstallable && !isInstalled;
-=======
     return (
       <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#070311] via-[#12082A] to-[#0F172A] text-slate-100">
         <div className="pointer-events-none absolute inset-0">
@@ -296,26 +244,17 @@ const WineSnap = () => {
           <div className="absolute right-[-120px] top-40 h-96 w-96 rounded-full bg-[#38BDF8]/10 blur-[160px]" />
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/80 to-transparent" />
         </div>
-main
 
-    const subtitleParts = [
-      results.producent || undefined,
-      results.land_region || undefined,
-      results.årgång ? `Årgång ${results.årgång}` : undefined,
-    ].filter(Boolean);
+        <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-4 pb-20 pt-10 sm:px-8">
+          <input
+            id="wineImageUpload"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileChange}
+            className="hidden"
+          />
 
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100">
-        <input
-          id="wineImageUpload"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          className="hidden"
-        />
-
-        <div className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-6 px-4 pb-20 pt-10 sm:px-8">
           <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 shadow-lg shadow-purple-900/30">
@@ -360,129 +299,19 @@ main
             </div>
           )}
 
-          <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-purple-900/20 sm:p-8">
-            <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-purple-200/80">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Systembolagets analys
-                </div>
-                <div className="space-y-2">
-                  <h1 className="text-3xl font-semibold text-white">{results.vin || "Okänt vin"}</h1>
- codex/renodla-resultatsidan-enligt-systembolagets-klassificeringar
-                  <p className="text-sm text-slate-200/80">{subtitleParts.join(" • ")}</p>
-                  {classificationTags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {classificationTags.map((tag) => (
-                        <span
-                          key={tag.label}
-                          className="inline-flex items-center gap-2 rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-xs text-purple-100"
-                        >
-                          <span className="text-[10px] uppercase tracking-[0.25em] text-purple-200/70">{tag.label}</span>
-                          <span className="font-semibold text-white">{tag.value}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {classificationSummary.length > 0 && (
-                  <p className="text-xs text-slate-300/90">
-                    Systembolaget placerar vinet i {classificationSummary.join(" • ")}.
-                  </p>
-                )}
-              </div>
-              {previewImage && (
-                <div className="w-full max-w-[180px] overflow-hidden rounded-2xl border border-white/10 bg-black/40">
-                  <img src={previewImage} alt="Skannad vinetikett" className="w-full object-cover" />
-                </div>
-              )}
-            </div>
-
-            <SystembolagetClassification result={results} />
-
-            <SystembolagetTasteProfile result={results} />
-
-            <div className="mt-8 grid gap-6 md:grid-cols-2">
-              <div className="rounded-3xl border border-white/10 bg-black/25 p-5 text-sm text-slate-200/85">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-white">
-                  <Sparkles className="h-4 w-4 text-purple-200" />
-                  Systembolagets smakbeskrivning
-                </h2>
-                <p className="mt-3 text-xs uppercase tracking-[0.25em] text-purple-200/60">Karaktär</p>
-                <p className="mt-2 leading-relaxed">
-                  {results.karaktär || "Systembolagets karaktärstext saknas för den här flaskan."}
-                </p>
-                <p className="mt-3 text-xs uppercase tracking-[0.25em] text-purple-200/60">Smaknoter</p>
-                <p className="mt-2 leading-relaxed">
-                  {results.smak || "Smaknoter saknas för den här flaskan."}
-                </p>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-black/25 p-5 text-sm text-slate-200/85">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-white">
-                  <ChefHat className="h-4 w-4 text-emerald-200" />
-                  Servering enligt Systembolaget
-                </h2>
-                <p className="mt-3 leading-relaxed">
-                  {results.servering || "Systembolaget har inte publicerat serveringsråd för den här flaskan."}
-                </p>
-                {pairings.length > 0 ? (
-                  <div className="mt-3 space-y-2">
-                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-200/70">Passar till</p>
-                    <ul className="list-inside list-disc space-y-1 text-slate-200/85">
-                      {pairings.slice(0, 6).map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
+          <div className="space-y-6">
+            {previewImage && (
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-16 w-16 overflow-hidden rounded-lg border border-white/10">
+                    <img src={previewImage} alt="Skannad etikett" className="h-full w-full object-cover" />
                   </div>
-                ) : (
-                  <p className="mt-3 text-slate-300">Inga matmatchningar är registrerade.</p>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-8 grid gap-6 md:grid-cols-3">
-              <SystembolagetFactList
-                title="Systembolagets nyckelfakta"
-                subtitle="Från artikelinformationen."
-                items={baseFacts}
-              />
-
-              <SystembolagetFactList
-                title="Analysdata"
-                subtitle="Tekniska värden från Systembolaget."
-                items={technicalFacts}
-                footnote={`Källa: ${results.källa || "–"}`}
-              >
-                {(evidenceText || webSources.length > 0) && (
-                  <div className="mt-4 text-xs text-slate-400">
-                    <p className="font-semibold text-slate-300">Transparens</p>
-                    {evidenceText && (
-                      <p className="mt-2 leading-relaxed">
-                        OCR: {evidenceText.slice(0, 240)}
-                        {evidenceText.length > 240 ? "…" : ""}
-                      </p>
-                    )}
-                    {webSources.length > 0 && (
-                      <ul className="mt-2 list-disc pl-4">
-                        {webSources.map((source) => (
-                          <li key={source}>{source}</li>
-                        ))}
-                      </ul>
-                    )}
+                  <div>
+                    <p className="text-sm font-medium text-white">{results.vin || "Okänt vin"}</p>
+                    <p className="text-xs text-slate-200/80">
+                      {results.typ || "–"} • {results.färgtyp || "–"}
+                    </p>
                   </div>
-                )}
-              </SystembolagetFactList>
-
-              <div className="rounded-3xl border border-white/10 bg-black/20 p-5 text-sm text-slate-200/85">
-                <h3 className="text-base font-semibold text-white">Detekterad etiketttext</h3>
-                {results.originaltext ? (
-                  <p className="mt-2 text-xs text-slate-300 leading-relaxed">
-                    {results.originaltext}
-=======
-                  <p className="text-sm text-slate-200/80">
-                    {results.typ || "–"} • {results.färgtyp || "–"}
-                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-200/85">
@@ -492,7 +321,7 @@ main
                   </p>
                 </div>
               </div>
-            </div>
+            )}
 
             <div className="rounded-[32px] border border-white/10 bg-white/85 p-6 shadow-2xl shadow-purple-900/30 backdrop-blur">
               <WineCardSBFull data={results} />
@@ -507,47 +336,39 @@ main
                   <p className="font-semibold text-white">Spara dina fynd</p>
                   <p>
                     Lägg till egna anteckningar genom att spara etikettbilden i historiken. Testverktyget låter dig även fylla på demodata för att öva.
- main
                   </p>
-                ) : (
-                  <p className="mt-2 text-xs text-slate-400">Ingen OCR-text sparad för etiketten.</p>
-                )}
-                {results.detekterat_språk && (
-                  <p className="mt-3 text-xs text-slate-400">
-                    Upptäckt språk: {results.detekterat_språk.toUpperCase()}
-                  </p>
-                )}
+                </div>
               </div>
             </div>
+          </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-start">
-              <Button
-                onClick={handleReset}
-                size="lg"
-                className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold text-white shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] transition-all duration-300 focus-visible:ring-2 focus-visible:ring-[#9C5CFF]/70 sm:w-auto"
-              >
-                <Camera className="h-5 w-5" />
-                Fota ny flaska
-              </Button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-start">
+            <Button
+              onClick={handleReset}
+              size="lg"
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold text-white shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] transition-all duration-300 focus-visible:ring-2 focus-visible:ring-[#9C5CFF]/70 sm:w-auto"
+            >
+              <Camera className="h-5 w-5" />
+              Fota ny flaska
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full rounded-full border-white/20 bg-white/10 text-slate-100 hover:bg-white/20 sm:w-auto"
+              onClick={() => navigate("/historik")}
+            >
+              Öppna historiken
+            </Button>
+            {isInstallable && !isInstalled && (
               <Button
                 variant="outline"
-                className="w-full rounded-full border-white/20 bg-white/10 text-slate-100 hover:bg-white/20 sm:w-auto"
-                onClick={() => navigate("/historik")}
+                className="w-full rounded-full border-white/25 bg-white/10 text-slate-100 hover:bg-white/20 sm:w-auto"
+                onClick={handleInstall}
               >
-                Öppna historiken
+                <Download className="mr-2 h-4 w-4" />
+                Installera app
               </Button>
-              {showInstallCTA && (
-                <Button
-                  variant="outline"
-                  className="w-full rounded-full border-white/25 bg-white/10 text-slate-100 hover:bg-white/20 sm:w-auto"
-                  onClick={handleInstall}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Installera app
-                </Button>
-              )}
-            </div>
-          </section>
+            )}
+          </div>
 
           <div className="pb-6 text-center text-xs text-slate-500">
             Resultatet sparas lokalt i historiken tillsammans med etikettbilden.
