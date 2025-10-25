@@ -96,3 +96,10 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
