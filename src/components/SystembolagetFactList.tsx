@@ -24,22 +24,19 @@ export function SystembolagetFactList({
     return null;
   }
 
-  const layoutClass =
-    columns === 2
-      ? "grid gap-4 sm:grid-cols-2"
-      : "grid gap-4";
+  const layoutClass = columns === 2 ? "grid gap-4 sm:grid-cols-2" : "grid gap-4";
 
   return (
-    <section className="rounded-3xl border border-purple-100 bg-gradient-to-br from-purple-50 via-white to-slate-50 p-5 text-slate-800 shadow-sm">
+    <section className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm">
       <header className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-purple-700">{title}</p>
-        {subtitle && <p className="text-xs text-slate-600">{subtitle}</p>}
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">{title}</p>
+        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
       </header>
 
       <dl className={`mt-4 text-sm text-slate-700 ${layoutClass}`}>
         {items.map((fact) => (
-          <div key={fact.label} className="rounded-2xl border border-white/70 bg-white/90 p-4 shadow-sm shadow-purple-100/40">
-            <dt className="text-[11px] font-semibold uppercase tracking-[0.24em] text-purple-600">{fact.label}</dt>
+          <div key={fact.label} className="rounded-xl border border-slate-200/60 bg-slate-50/80 p-4">
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{fact.label}</dt>
             <dd className="mt-2 text-base font-semibold text-slate-900">{fact.value || "–"}</dd>
           </div>
         ))}

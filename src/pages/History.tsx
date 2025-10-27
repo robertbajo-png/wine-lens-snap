@@ -302,10 +302,10 @@ const History = () => {
               return (
                 <Card
                   key={entry.key}
-                  className="border-none bg-white/90 shadow-xl shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-2xl backdrop-blur"
+                  className="border-none bg-white/95 shadow-lg shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-xl backdrop-blur"
                 >
-                  <CardContent className="space-y-6 p-6">
-                    <header className="rounded-3xl border border-slate-200/70 bg-gradient-to-br from-white via-white to-slate-50/70 p-5 shadow-inner shadow-slate-900/5">
+                  <CardContent className="space-y-8 p-6">
+                    <header className="rounded-3xl border border-slate-200/70 bg-white p-5 shadow-sm">
                       <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                         <div className="flex gap-4">
                           <div className="relative h-28 w-24 overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-sm">
@@ -355,7 +355,7 @@ const History = () => {
                         </div>
 
                         <div className="flex flex-col items-start gap-3 text-sm text-slate-500 md:items-end md:text-right">
-                          <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600">
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600">
                             {entry.result.producent || "Okänd producent"}
                           </span>
                           <div>
@@ -366,59 +366,59 @@ const History = () => {
                       </div>
                     </header>
 
-                    <div className="space-y-5">
-                      <SystembolagetClassification result={entry.result} />
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                      <div className="space-y-5">
+                        <SystembolagetClassification result={entry.result} />
 
-                      <SystembolagetTasteProfile result={entry.result} />
+                        {descriptionBlocks.length > 0 && (
+                          <section className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm">
+                            <header className="space-y-1">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600">
+                                Systembolagets beskrivning
+                              </p>
+                              <p className="text-xs text-slate-500">Karaktär och smak enligt Systembolagets text.</p>
+                            </header>
+                            <div className="mt-4 space-y-4 text-sm leading-relaxed text-slate-700">
+                              {descriptionBlocks.map((block) => (
+                                <div key={block.label} className="space-y-1">
+                                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                    {block.label}
+                                  </p>
+                                  <p>{block.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </section>
+                        )}
 
-                      {descriptionBlocks.length > 0 && (
-                        <section className="rounded-3xl border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-slate-50 p-5 text-slate-800 shadow-sm">
+                        <section className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm">
                           <header className="space-y-1">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-amber-700">
-                              Systembolagets beskrivning
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600">
+                              Servering enligt Systembolaget
                             </p>
-                            <p className="text-xs text-amber-700/80">
-                              Karaktär och smak enligt Systembolagets text.
-                            </p>
+                            <p className="text-xs text-slate-500">Serveringsråd och matmatchningar från Systembolaget.</p>
                           </header>
-                          <div className="mt-4 space-y-4 text-sm leading-relaxed text-slate-700">
-                            {descriptionBlocks.map((block) => (
-                              <div key={block.label} className="space-y-1">
-                                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-700/80">
-                                  {block.label}
-                                </p>
-                                <p>{block.value}</p>
-                              </div>
-                            ))}
+                          <div className="mt-4 space-y-3 text-sm text-slate-700">
+                            <p>{entry.result.servering || "Systembolaget har inte publicerat serveringsråd."}</p>
+                            {pairings.length > 0 && (
+                              <ul className="flex flex-wrap gap-2">
+                                {pairings.map((pairing) => (
+                                  <li
+                                    key={pairing}
+                                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
+                                  >
+                                    {pairing}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
                         </section>
-                      )}
+                      </div>
 
-                      <section className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-slate-50 p-5 text-slate-800 shadow-sm">
-                        <header className="space-y-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-700">
-                            Servering enligt Systembolaget
-                          </p>
-                          <p className="text-xs text-emerald-700/80">Serveringsråd och matmatchningar från Systembolaget.</p>
-                        </header>
-                        <div className="mt-4 space-y-3 text-sm text-slate-700">
-                          <p>{entry.result.servering || "Systembolaget har inte publicerat serveringsråd."}</p>
-                          {pairings.length > 0 && (
-                            <ul className="flex flex-wrap gap-2">
-                              {pairings.map((pairing) => (
-                                <li
-                                  key={pairing}
-                                  className="rounded-full border border-emerald-200 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 shadow-sm"
-                                >
-                                  {pairing}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </section>
+                      <div className="space-y-5">
+                        <SystembolagetTasteProfile result={entry.result} />
 
-                      <div className="grid gap-4 lg:grid-cols-2">
                         <SystembolagetFactList
                           title="Artikelfakta"
                           subtitle="Nyckeluppgifter från Systembolaget."
@@ -436,7 +436,7 @@ const History = () => {
                       </div>
                     </div>
 
-                    <Separator className="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+                    <Separator className="h-px bg-slate-200/70" />
 
                     <footer className="flex flex-wrap gap-3">
                       <Dialog>

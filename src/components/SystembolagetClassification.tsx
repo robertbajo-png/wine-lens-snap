@@ -37,28 +37,25 @@ export function SystembolagetClassification({ result }: { result: WineAnalysisRe
   }
 
   return (
-    <section className="rounded-3xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-sky-50 p-6 text-slate-800 shadow-sm">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.32em] text-emerald-700">
-          <Sparkles className="h-4 w-4" />
+    <section className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm">
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-600">
+          <Sparkles className="h-4 w-4 text-purple-500" />
           Systembolagets klassificering
         </div>
-        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
           Grunden för analysen
         </span>
       </header>
 
-      <dl className="mt-6 grid gap-4 sm:grid-cols-3">
+      <dl className="mt-5 grid gap-4 sm:grid-cols-3">
         {items.map((item) => (
-          <div
-            key={item.key}
-            className="rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm shadow-emerald-100/40"
-          >
-            <dt className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-emerald-700">
-              <span className="text-emerald-600">{ICONS[item.key]}</span>
+          <div key={item.key} className="space-y-2">
+            <dt className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <span className="text-slate-600">{ICONS[item.key]}</span>
               {LABELS[item.key]}
             </dt>
-            <dd className="mt-3 space-y-1">
+            <dd className="space-y-1">
               <p className="text-base font-semibold text-slate-900">{item.value}</p>
               <span className="block text-xs text-slate-500">{DESCRIPTIONS[item.key]}</span>
             </dd>
