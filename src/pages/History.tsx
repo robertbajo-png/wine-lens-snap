@@ -26,6 +26,8 @@ import {
   type CachedWineAnalysisEntry,
 } from "@/lib/wineCache";
 import WineCardSBFull from "@/components/WineCardSBFull";
+import { GaugeCircleSB } from "@/components/WineMetersSB";
+import { getSystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
 import { ArrowLeft, Camera, Eraser, Sparkles, Trash2, Wand2 } from "lucide-react";
 
 const formatDate = (iso: string) => {
@@ -269,91 +271,162 @@ const History = () => {
           <div className="space-y-6">
             {entries.map((entry) => {
               const pairings = entry.result.passar_till?.slice(0, 3) ?? [];
+              const classificationTags = [
+                { label: "Färg", value: entry.result.färgtyp },
+                { label: "Smaktyp", value: entry.result.typ },
+                { label: "Ursprungsangivelse", value: entry.result.klassificering },
+              ]
+                .map((tag) => ({ ...tag, value: tag.value?.trim() }))
+                .filter((tag) => tag.value);
+
+              const baseFacts = [
+                { label: "Producent", value: entry.result.producent || "–" },
+                { label: "Land/Region", value: entry.result.land_region || "–" },
+                { label: "Årgång", value: entry.result.årgång || "–" },
+                { label: "Druvor", value: entry.result.druvor || "–" },
+              ];
+
+              const tasteProfile = getSystembolagetTasteProfile(entry.result);
+              const hasTasteData = tasteProfile.meters.some((meter) => meter.value !== null);
 
               return (
                 <Card
                   key={entry.key}
-                  className="border-none bg-white/80 shadow-xl shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-2xl backdrop-blur"
+                  className="border-none bg-white/90 shadow-xl shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-2xl backdrop-blur"
                 >
-                  <CardContent className="flex flex-col gap-6 pt-6 md:flex-row md:items-start">
-                    <div className="relative w-full overflow-hidden rounded-3xl bg-slate-100 shadow-sm md:max-w-[220px]">
-                      {entry.imageData ? (
-                        <img
-                          src={entry.imageData}
-                          alt={entry.result.vin || "Vin"}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full min-h-[180px] items-center justify-center text-slate-400">
-                          Ingen bild
+                  <CardContent className="space-y-6 p-6">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                      <div className="flex gap-4">
+                        <div className="relative h-28 w-24 overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-white/40">
+                          {entry.imageData ? (
+                            <img
+                              src={entry.imageData}
+                              alt={entry.result.vin || "Vin"}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-xs uppercase tracking-[0.3em] text-slate-400">
+                              Ingen bild
+                            </div>
+                          )}
+                          <div className="absolute inset-x-2 bottom-2 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white/90">
+                            {formatRelativeTime(entry.timestamp)}
+                          </div>
                         </div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 text-xs font-medium uppercase tracking-wide text-white/80">
-                        {formatRelativeTime(entry.timestamp)}
+
+                        <div className="space-y-2">
+                          <div className="flex flex-col gap-1">
+                            <h2 className="text-2xl font-semibold text-[#322152]">
+                              {entry.result.vin || "Okänt vin"}
+                            </h2>
+                            <p className="text-sm text-slate-500">
+                              {entry.result.land_region || "–"}
+                              {entry.result.årgång ? ` • Årgång ${entry.result.årgång}` : ""}
+                            </p>
+                          </div>
+                          {classificationTags.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {classificationTags.map((tag) => (
+                                <span
+                                  key={tag.label}
+                                  className="inline-flex items-center gap-2 rounded-full border border-emerald-200/80 bg-emerald-50 px-3 py-1 text-xs text-emerald-700"
+                                >
+                                  <span className="text-[10px] uppercase tracking-[0.25em] text-emerald-600">{tag.label}</span>
+                                  <span className="font-semibold">{tag.value}</span>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col items-start gap-2 text-sm text-slate-400 md:items-end md:text-right">
+                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-slate-500">
+                          {entry.result.producent || "Okänd producent"}
+                        </span>
+                        <p>{formatDate(entry.timestamp)}</p>
                       </div>
                     </div>
 
-                    <div className="flex-1 space-y-4">
-                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <h2 className="text-2xl font-semibold text-[#322152]">
-                            {entry.result.vin || "Okänt vin"}
-                          </h2>
-                          <p className="text-sm text-slate-500">
-                            {entry.result.land_region || "–"}
-                            {entry.result.årgång ? ` • Årgång ${entry.result.årgång}` : ""}
-                          </p>
-                        </div>
-                        <p className="text-sm text-slate-400">{formatDate(entry.timestamp)}</p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {entry.result.druvor && (
-                          <Badge variant="outline" className="rounded-full border-purple-200 bg-purple-50 text-purple-700">
-                            {entry.result.druvor}
-                          </Badge>
-                        )}
-                        {entry.result.typ && (
-                          <Badge variant="outline" className="rounded-full border-amber-200 bg-amber-50 text-amber-700">
-                            {entry.result.typ}
-                          </Badge>
-                        )}
-                        {pairings.map((pairing) => (
-                          <Badge key={pairing} variant="outline" className="rounded-full border-slate-200 bg-white/80 text-slate-600">
-                            {pairing}
-                          </Badge>
-                        ))}
-                      </div>
-
-                      <Separator className="bg-slate-100" />
-
-                      <div className="flex flex-wrap gap-3">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button size="sm" className="gap-2 rounded-full">
-                              Visa detaljer
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>{entry.result.vin || "Vinprofil"}</DialogTitle>
-                            </DialogHeader>
-                            <div className="max-h-[70vh] overflow-y-auto">
-                              <WineCardSBFull data={entry.result} />
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="rounded-2xl border border-slate-100 bg-white/70 p-4 text-sm text-slate-600 shadow-sm">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Artikelfakta</p>
+                        <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                          {baseFacts.map((fact) => (
+                            <div key={fact.label} className="space-y-1">
+                              <dt className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{fact.label}</dt>
+                              <dd className="text-base font-semibold text-slate-900">{fact.value}</dd>
                             </div>
-                          </DialogContent>
-                        </Dialog>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRemove(entry.key)}
-                          className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Ta bort
-                        </Button>
+                          ))}
+                        </dl>
                       </div>
+
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 text-sm text-slate-600 shadow-sm">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">Systembolagets smakprofil</p>
+                        <p className="mt-1 text-xs text-slate-500">Skala 0–5 enligt senaste publicerade värden.</p>
+                        <div className="mt-4 grid grid-cols-3 gap-3">
+                          {tasteProfile.meters.map((meter) => (
+                            <div key={meter.label} className="flex flex-col items-center gap-2 text-slate-700">
+                              <GaugeCircleSB label={meter.label} value={meter.value ?? null} size={60} stroke={6} showValue />
+                              <span className="text-[11px] text-slate-500">
+                                {typeof meter.value === "number" ? `${meter.value.toFixed(1)}/5` : "–"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        {!hasTasteData && (
+                          <p className="mt-3 text-xs text-amber-600">Systembolaget har inte publicerat värden för denna flaska.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-100 bg-white/80 p-4">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Serveringsnotiser</p>
+                      <div className="mt-2 text-sm text-slate-600">
+                        <p>{entry.result.servering || "Systembolaget har inte publicerat serveringsråd."}</p>
+                        {pairings.length > 0 && (
+                          <ul className="mt-3 flex flex-wrap gap-2">
+                            {pairings.map((pairing) => (
+                              <li
+                                key={pairing}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs text-slate-600 shadow-sm"
+                              >
+                                {pairing}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator className="bg-slate-100" />
+
+                    <div className="flex flex-wrap gap-3">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button size="sm" className="gap-2 rounded-full">
+                            Visa detaljer
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>{entry.result.vin || "Vinprofil"}</DialogTitle>
+                          </DialogHeader>
+                          <div className="max-h-[70vh] overflow-y-auto">
+                            <WineCardSBFull data={entry.result} />
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRemove(entry.key)}
+                        className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Ta bort
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
