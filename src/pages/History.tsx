@@ -26,6 +26,8 @@ import {
   type CachedWineAnalysisEntry,
 } from "@/lib/wineCache";
 import WineCardSBFull from "@/components/WineCardSBFull";
+import { GaugeCircleSB } from "@/components/WineMetersSB";
+import { getSystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
 import { ArrowLeft, Camera, Eraser, Sparkles, Trash2, Wand2 } from "lucide-react";
 
 const formatDate = (iso: string) => {
@@ -269,6 +271,23 @@ const History = () => {
           <div className="space-y-6">
             {entries.map((entry) => {
               const pairings = entry.result.passar_till?.slice(0, 3) ?? [];
+              const classificationTags = [
+                { label: "Färg", value: entry.result.färgtyp },
+                { label: "Smaktyp", value: entry.result.typ },
+                { label: "Ursprungsangivelse", value: entry.result.klassificering },
+              ]
+                .map((tag) => ({ ...tag, value: tag.value?.trim() }))
+                .filter((tag) => tag.value);
+
+              const baseFacts = [
+                { label: "Producent", value: entry.result.producent || "–" },
+                { label: "Land/Region", value: entry.result.land_region || "–" },
+                { label: "Årgång", value: entry.result.årgång || "–" },
+                { label: "Druvor", value: entry.result.druvor || "–" },
+              ];
+
+              const tasteProfile = getSystembolagetTasteProfile(entry.result);
+              const hasTasteData = tasteProfile.meters.some((meter) => meter.value !== null);
 
               return (
                 <Card
@@ -307,22 +326,71 @@ const History = () => {
                         <p className="text-sm text-slate-400">{formatDate(entry.timestamp)}</p>
                       </div>
 
-                      <div className="flex flex-wrap gap-2">
-                        {entry.result.druvor && (
-                          <Badge variant="outline" className="rounded-full border-purple-200 bg-purple-50 text-purple-700">
-                            {entry.result.druvor}
-                          </Badge>
+                      <div className="space-y-4">
+                        {classificationTags.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {classificationTags.map((tag) => (
+                              <span
+                                key={tag.label}
+                                className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-700"
+                              >
+                                <span className="text-[10px] uppercase tracking-[0.25em] text-emerald-600">{tag.label}</span>
+                                <span className="font-semibold">{tag.value}</span>
+                              </span>
+                            ))}
+                          </div>
                         )}
-                        {entry.result.typ && (
-                          <Badge variant="outline" className="rounded-full border-amber-200 bg-amber-50 text-amber-700">
-                            {entry.result.typ}
-                          </Badge>
-                        )}
-                        {pairings.map((pairing) => (
-                          <Badge key={pairing} variant="outline" className="rounded-full border-slate-200 bg-white/80 text-slate-600">
-                            {pairing}
-                          </Badge>
-                        ))}
+
+                        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+                          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-sm text-slate-600">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Artikelinformation</p>
+                            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+                              {baseFacts.map((fact) => (
+                                <div key={fact.label} className="space-y-1">
+                                  <dt className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{fact.label}</dt>
+                                  <dd className="text-base font-semibold text-slate-900">{fact.value}</dd>
+                                </div>
+                              ))}
+                            </dl>
+                          </div>
+
+                          <div className="rounded-2xl border border-emerald-100 bg-white p-4 text-sm text-slate-600 shadow-sm">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">Systembolagets smakprofil</p>
+                            <p className="mt-1 text-xs text-slate-500">Skala 0–5. Hämtad från senaste analysen.</p>
+                            <div className="mt-4 grid grid-cols-3 gap-3">
+                              {tasteProfile.meters.map((meter) => (
+                                <div key={meter.label} className="flex flex-col items-center gap-2 text-slate-700">
+                                  <GaugeCircleSB label={meter.label} value={meter.value ?? null} size={60} stroke={6} showValue />
+                                  <span className="text-[11px] text-slate-500">
+                                    {typeof meter.value === "number" ? `${meter.value.toFixed(1)}/5` : "–"}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            {!hasTasteData && (
+                              <p className="mt-3 text-xs text-amber-600">Systembolaget har inte publicerat värden för denna flaska.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-slate-100 bg-white/70 p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Serveringsnotiser</p>
+                          <div className="mt-2 text-sm text-slate-600">
+                            <p>{entry.result.servering || "Systembolaget har inte publicerat serveringsråd."}</p>
+                            {pairings.length > 0 && (
+                              <ul className="mt-2 flex flex-wrap gap-2">
+                                {pairings.map((pairing) => (
+                                  <li
+                                    key={pairing}
+                                    className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600"
+                                  >
+                                    {pairing}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       <Separator className="bg-slate-100" />
