@@ -26,6 +26,14 @@ import {
   type CachedWineAnalysisEntry,
 } from "@/lib/wineCache";
 import WineCardSBFull from "@/components/WineCardSBFull";
+import {
+  SystembolagetClassification,
+} from "@/components/SystembolagetClassification";
+import {
+  SystembolagetFactList,
+  type FactItem,
+} from "@/components/SystembolagetFactList";
+import { SystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
 import { ArrowLeft, Camera, Eraser, Sparkles, Trash2, Wand2 } from "lucide-react";
 
 const formatDate = (iso: string) => {
@@ -268,93 +276,195 @@ const History = () => {
         ) : (
           <div className="space-y-6">
             {entries.map((entry) => {
-              const pairings = entry.result.passar_till?.slice(0, 3) ?? [];
+              const pairings = entry.result.passar_till?.slice(0, 4) ?? [];
+
+              const articleFacts: FactItem[] = [
+                { label: "Producent", value: entry.result.producent || "–" },
+                { label: "Druvor", value: entry.result.druvor || "–" },
+                { label: "Årgång", value: entry.result.årgång || "–" },
+                { label: "Land/Region", value: entry.result.land_region || "–" },
+              ];
+
+              const analysisFacts: FactItem[] = [
+                { label: "Alkoholhalt", value: entry.result.alkoholhalt || "–" },
+                { label: "Volym", value: entry.result.volym || "–" },
+                { label: "Sockerhalt", value: entry.result.sockerhalt || "–" },
+                { label: "Syra", value: entry.result.syra || "–" },
+              ];
+
+              const descriptionBlocks = [
+                { label: "Karaktär", value: entry.result.karaktär },
+                { label: "Smak", value: entry.result.smak },
+              ].filter((block) => block.value && block.value.trim().length > 0);
+
+              const relativeTime = formatRelativeTime(entry.timestamp);
 
               return (
                 <Card
                   key={entry.key}
-                  className="border-none bg-white/80 shadow-xl shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-2xl backdrop-blur"
+                  className="border-none bg-white/95 shadow-lg shadow-slate-900/5 transition hover:-translate-y-1 hover:shadow-xl backdrop-blur"
                 >
-                  <CardContent className="flex flex-col gap-6 pt-6 md:flex-row md:items-start">
-                    <div className="relative w-full overflow-hidden rounded-3xl bg-slate-100 shadow-sm md:max-w-[220px]">
-                      {entry.imageData ? (
-                        <img
-                          src={entry.imageData}
-                          alt={entry.result.vin || "Vin"}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full min-h-[180px] items-center justify-center text-slate-400">
-                          Ingen bild
-                        </div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 text-xs font-medium uppercase tracking-wide text-white/80">
-                        {formatRelativeTime(entry.timestamp)}
-                      </div>
-                    </div>
+                  <CardContent className="space-y-8 p-6">
+                    <header className="rounded-3xl border border-slate-200/70 bg-white p-5 shadow-sm">
+                      <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                        <div className="flex gap-4">
+                          <div className="relative h-28 w-24 overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-sm">
+                            {entry.imageData ? (
+                              <img
+                                src={entry.imageData}
+                                alt={entry.result.vin || "Vin"}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-[10px] uppercase tracking-[0.32em] text-slate-400">
+                                Ingen bild
+                              </div>
+                            )}
+                            {relativeTime && (
+                              <div className="absolute inset-x-2 bottom-2 rounded-full bg-slate-900/70 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.24em] text-white/90">
+                                {relativeTime}
+                              </div>
+                            )}
+                          </div>
 
-                    <div className="flex-1 space-y-4">
-                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <h2 className="text-2xl font-semibold text-[#322152]">
-                            {entry.result.vin || "Okänt vin"}
-                          </h2>
-                          <p className="text-sm text-slate-500">
-                            {entry.result.land_region || "–"}
-                            {entry.result.årgång ? ` • Årgång ${entry.result.årgång}` : ""}
-                          </p>
-                        </div>
-                        <p className="text-sm text-slate-400">{formatDate(entry.timestamp)}</p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {entry.result.druvor && (
-                          <Badge variant="outline" className="rounded-full border-purple-200 bg-purple-50 text-purple-700">
-                            {entry.result.druvor}
-                          </Badge>
-                        )}
-                        {entry.result.typ && (
-                          <Badge variant="outline" className="rounded-full border-amber-200 bg-amber-50 text-amber-700">
-                            {entry.result.typ}
-                          </Badge>
-                        )}
-                        {pairings.map((pairing) => (
-                          <Badge key={pairing} variant="outline" className="rounded-full border-slate-200 bg-white/80 text-slate-600">
-                            {pairing}
-                          </Badge>
-                        ))}
-                      </div>
-
-                      <Separator className="bg-slate-100" />
-
-                      <div className="flex flex-wrap gap-3">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button size="sm" className="gap-2 rounded-full">
-                              Visa detaljer
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>{entry.result.vin || "Vinprofil"}</DialogTitle>
-                            </DialogHeader>
-                            <div className="max-h-[70vh] overflow-y-auto">
-                              <WineCardSBFull data={entry.result} />
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Systembolaget</p>
+                              <h2 className="text-2xl font-semibold text-[#322152]">
+                                {entry.result.vin || "Okänt vin"}
+                              </h2>
+                              <p className="text-sm text-slate-600">
+                                {entry.result.land_region || "–"}
+                                {entry.result.årgång ? ` • Årgång ${entry.result.årgång}` : ""}
+                              </p>
                             </div>
-                          </DialogContent>
-                        </Dialog>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge className="rounded-full border border-purple-200 bg-purple-50 text-[11px] font-semibold uppercase tracking-[0.24em] text-purple-700">
+                                {entry.result.typ || "Smaktyp saknas"}
+                              </Badge>
+                              <Badge className="rounded-full border border-emerald-200 bg-emerald-50 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-700">
+                                {entry.result.färgtyp || "Färg saknas"}
+                              </Badge>
+                              {entry.result.klassificering && (
+                                <Badge className="rounded-full border border-slate-200 bg-white text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600">
+                                  {entry.result.klassificering}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRemove(entry.key)}
-                          className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Ta bort
-                        </Button>
+                        <div className="flex flex-col items-start gap-3 text-sm text-slate-500 md:items-end md:text-right">
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600">
+                            {entry.result.producent || "Okänd producent"}
+                          </span>
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400">Sparad</p>
+                            <p className="text-sm font-medium text-slate-700">{formatDate(entry.timestamp)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </header>
+
+                    <div className="space-y-5">
+                      <SystembolagetClassification result={entry.result} />
+
+                      <SystembolagetTasteProfile result={entry.result} />
+
+                      {descriptionBlocks.length > 0 && (
+                        <section className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm">
+                          <header className="space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600">
+                              Systembolagets beskrivning
+                            </p>
+                            <p className="text-xs text-slate-500">Karaktär och smak enligt Systembolagets text.</p>
+                          </header>
+                          <div className="mt-4 space-y-4 text-sm leading-relaxed text-slate-700">
+                            {descriptionBlocks.map((block) => (
+                              <div key={block.label} className="space-y-1">
+                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                  {block.label}
+                                </p>
+                                <p>{block.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      )}
+
+                      <section className="rounded-2xl border border-slate-200/70 bg-white p-5 shadow-sm">
+                        <header className="space-y-1">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600">
+                            Servering enligt Systembolaget
+                          </p>
+                          <p className="text-xs text-slate-500">Serveringsråd och matmatchningar från Systembolaget.</p>
+                        </header>
+                        <div className="mt-4 space-y-3 text-sm text-slate-700">
+                          <p>{entry.result.servering || "Systembolaget har inte publicerat serveringsråd."}</p>
+                          {pairings.length > 0 && (
+                            <ul className="flex flex-wrap gap-2">
+                              {pairings.map((pairing) => (
+                                <li
+                                  key={pairing}
+                                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
+                                >
+                                  {pairing}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </section>
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <SystembolagetFactList
+                          title="Artikelfakta"
+                          subtitle="Nyckeluppgifter från Systembolaget."
+                          items={articleFacts}
+                          columns={2}
+                          className="h-full"
+                        />
+
+                        <SystembolagetFactList
+                          title="Analysdata"
+                          subtitle="Alkoholhalt och kemiska nyckeltal."
+                          items={analysisFacts.filter((fact) => fact.value && fact.value.trim() !== "–")}
+                          columns={2}
+                          footnote="Hämtat från den senast sparade analysen."
+                          className="h-full"
+                        />
                       </div>
                     </div>
+
+                    <Separator className="h-px bg-slate-200/70" />
+
+                    <footer className="flex flex-wrap gap-3">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button size="sm" className="gap-2 rounded-full">
+                            Visa detaljer
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>{entry.result.vin || "Vinprofil"}</DialogTitle>
+                          </DialogHeader>
+                          <div className="max-h-[70vh] overflow-y-auto">
+                            <WineCardSBFull data={entry.result} />
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRemove(entry.key)}
+                        className="gap-2 rounded-full border-destructive/40 text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Ta bort
+                      </Button>
+                    </footer>
                   </CardContent>
                 </Card>
               );

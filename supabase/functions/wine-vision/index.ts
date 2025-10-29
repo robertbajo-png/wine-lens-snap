@@ -1,17 +1,21 @@
 import { aiClient } from "./lib/aiClient.ts";
-import { 
-  getCacheKey, 
-  getFromMemoryCache, 
-  setMemoryCache, 
-  getFromSupabaseCache, 
-  setSupabaseCache 
+import {
+  getCacheKey,
+  getFromMemoryCache,
+  setMemoryCache,
+  getFromSupabaseCache,
+  setSupabaseCache
 } from "./cache.ts";
+import { ensureMetersFromText } from "./deriveMetersPatch.ts";
 
 const CFG = {
-  PPLX_TIMEOUT_MS: 12000,
+  FAST_TIMEOUT_MS: 3000,
   GEMINI_TIMEOUT_MS: 45000,
   MAX_WEB_URLS: 3,
   PPLX_MODEL: "sonar",
+  GEMINI_MODEL: "gemini-2.5-flash",
+  GEMINI_TEMPERATURE: 0.2,
+  GEMINI_MAX_TOKENS: 512,
 };
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -26,6 +30,22 @@ const cors = {
 };
 
 // Helper functions
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label}_timeout`)), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
 const stripDiacritics = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const clamp = (s: string, n = 200) => (s.length > n ? s.slice(0, n) : s);
 const isBlank = (value: unknown): boolean => {
@@ -269,6 +289,33 @@ function defaultMeters(colour: string, body: string, sweetness: string) {
   return { sötma, fyllighet, fruktighet, fruktsyra };
 }
 
+function buildLabelFallback(ocrText: string) {
+  const colourGuess = detectColour({}, ocrText);
+  const bodyGuess = detectBody({}, ocrText);
+  const sweetnessGuess = detectSweetness({}, ocrText);
+  const typ = colourGuess === "okänt" ? "-" : colourGuess;
+
+  return {
+    vin: "-",
+    land_region: "-",
+    producent: "-",
+    druvor: "-",
+    årgång: "-",
+    typ,
+    färgtyp: typ,
+    klassificering: "-",
+    alkoholhalt: "-",
+    volym: "-",
+    karaktär: defaultCharacter(colourGuess, bodyGuess, sweetnessGuess),
+    smak: defaultTaste(colourGuess, bodyGuess, sweetnessGuess),
+    passar_till: defaultPairings(colourGuess, bodyGuess, sweetnessGuess),
+    servering: defaultServing(colourGuess, bodyGuess, sweetnessGuess),
+    källa: "-",
+    meters: defaultMeters(colourGuess, bodyGuess, sweetnessGuess),
+    evidence: { etiketttext: clamp(ocrText), webbträffar: [] },
+  };
+}
+
 function fillMissingFields(finalData: any, webData: any, ocrText: string) {
   const fields: Array<keyof typeof finalData> = [
     "vin",
@@ -483,28 +530,33 @@ Deno.serve(async (req) => {
     
     console.log(`[${new Date().toISOString()}] Cache miss, proceeding with analysis...`);
 
-    // Step 2: Perplexity search with enhanced domain whitelist
-    let WEB_JSON: any = {
+    // Step 2 & 3: Fast-mode AI calls (Perplexity + Gemini in parallel)
+    const defaultWebJson = {
       vin: "-", producent: "-", druvor: "-", land_region: "-", årgång: "-",
       alkoholhalt: "-", volym: "-", klassificering: "-",
       karaktär: "-", smak: "-", servering: "-", passar_till: [], källor: []
     };
-    let cacheNote = "";
 
-    if (PERPLEXITY_API_KEY) {
+    let WEB_JSON: any = { ...defaultWebJson };
+    let cacheNote = "";
+    let fastPathHit = false;
+    let usedFallback = false;
+
+    const fastStart = Date.now();
+
+    const perplexityTask = (async () => {
       const perplexityStart = Date.now();
-      console.log(`[${new Date().toISOString()}] Starting Perplexity search (${CFG.PPLX_TIMEOUT_MS}ms timeout)...`);
+      console.log(`[${new Date().toISOString()}] Starting Perplexity search (${CFG.FAST_TIMEOUT_MS}ms timeout)...`);
 
       try {
         const queries = buildSearchVariants(ocrText);
-        
+
         const schemaJSON = `
 {
   "vin": "", "producent": "", "druvor": "", "land_region": "",
   "årgång": "", "alkoholhalt": "", "volym": "", "klassificering": "",
   "karaktär": "", "smak": "", "servering": "", "passar_till": [], "källor": []
-}
-`.trim();
+}`.trim();
 
         const systemPrompt = `Du är en extraktor som MÅSTE returnera ENBART ett giltigt, minifierat JSON-objekt enligt schema. Ingen markdown, inga backticks, ingen kommentar före eller efter. Dubbelcitat på alla nycklar/strängar. KRITISKT: ALL text i ditt svar MÅSTE vara på SVENSKA. Översätt alla beskrivningar till svenska.`;
 
@@ -521,18 +573,21 @@ Returnera ENBART ett JSON-objekt exakt enligt detta schema (saknas uppgift → "
 ${schemaJSON}
         `.trim();
 
-        WEB_JSON = await aiClient.perplexity(pplxPrompt, {
-          model: CFG.PPLX_MODEL,
-          timeoutMs: CFG.PPLX_TIMEOUT_MS,
-          systemPrompt,
-          schemaHint: schemaJSON,
-        });
+        const raw = await withTimeout(
+          aiClient.perplexity(pplxPrompt, {
+            model: CFG.PPLX_MODEL,
+            timeoutMs: CFG.FAST_TIMEOUT_MS,
+            systemPrompt,
+            schemaHint: schemaJSON,
+          }),
+          CFG.FAST_TIMEOUT_MS,
+          "perplexity"
+        );
 
-        console.log(`[${new Date().toISOString()}] Perplexity WEB_JSON:`, JSON.stringify(WEB_JSON, null, 2));
+        console.log(`[${new Date().toISOString()}] Perplexity WEB_JSON:`, JSON.stringify(raw, null, 2));
 
-        // Clean and sort sources
-        const sources = (WEB_JSON.källor || []) as unknown[];
-        WEB_JSON.källor = Array.from(new Set(sources))
+        const sources = (raw.källor || []) as unknown[];
+        raw.källor = Array.from(new Set(sources))
           .filter((u: unknown): u is string => typeof u === "string" && u.startsWith("http"))
           .slice(0, CFG.MAX_WEB_URLS)
           .sort((a, b) => {
@@ -546,11 +601,13 @@ ${schemaJSON}
           });
 
         const perplexityTime = Date.now() - perplexityStart;
-        console.log(`[${new Date().toISOString()}] Perplexity success (${perplexityTime}ms), sources: ${WEB_JSON.källor.length}`);
+        console.log(`[${new Date().toISOString()}] Perplexity success (${perplexityTime}ms), sources: ${raw.källor.length}`);
+
+        return { data: raw, ms: perplexityTime };
       } catch (error) {
         const perplexityTime = Date.now() - perplexityStart;
         const errorMsg = error instanceof Error ? error.message : String(error);
-        
+
         if (errorMsg === "perplexity_timeout") {
           console.log(`[${new Date().toISOString()}] Perplexity timeout (${perplexityTime}ms) - using OCR-only mode`);
           cacheNote = "perplexity_timeout";
@@ -559,19 +616,28 @@ ${schemaJSON}
           console.error("Perplexity full error details:", error);
           cacheNote = "perplexity_failed";
         }
+
+        const err = error instanceof Error ? error : new Error(errorMsg);
+        (err as any).ms = perplexityTime;
+        throw err;
       }
-    }
+    })();
 
-    // Step 3: Gemini summarization (strict JSON)
-    const geminiStart = Date.now();
-    console.log(`[${new Date().toISOString()}] Starting Gemini summarization...`);
+    const webJsonForGeminiPromise = Promise.race([
+      perplexityTask.then((res) => res.data, () => ({ ...defaultWebJson })),
+      new Promise<any>((resolve) => setTimeout(() => resolve({ ...defaultWebJson }), CFG.FAST_TIMEOUT_MS)),
+    ]);
 
-    let finalData: any;
-    try {
-      const hasWebData = WEB_JSON.källor && WEB_JSON.källor.length > 0;
-      
-      const gemPrompt = `
-DU ÄR: En AI-sommelier. ${hasWebData ? 'Använd OCR_TEXT (etiketten) och WEB_JSON (verifierad fakta).' : 'Använd OCR_TEXT från etiketten och din kunskap om vin för att analysera vinet.'} 
+    const geminiTask = (async () => {
+      const geminiStart = Date.now();
+      console.log(`[${new Date().toISOString()}] Starting Gemini summarization (fast mode)...`);
+      const webJsonForGemini = await webJsonForGeminiPromise;
+
+      try {
+        const hasWebData = webJsonForGemini.källor && webJsonForGemini.källor.length > 0;
+
+        const gemPrompt = `
+DU ÄR: En AI-sommelier. ${hasWebData ? 'Använd OCR_TEXT (etiketten) och WEB_JSON (verifierad fakta).' : 'Använd OCR_TEXT från etiketten och din kunskap om vin för att analysera vinet.'}
 Svara ENDAST med giltig JSON enligt schema.
 
 ${hasWebData ? '' : 'VIKTIGT: Eftersom inga webbkällor finns tillgängliga, använd din kunskap om vinregioner, druvor och producenter för att ge en komplett analys baserat på etiketten. Fyll i alla fält så gott du kan baserat på OCR-texten och allmän vinkunskap.'}
@@ -610,60 +676,130 @@ OCR_TEXT:
 <<<${ocrText}>>>
 
 WEB_JSON:
-<<<${JSON.stringify(WEB_JSON)}>>>
-      `.trim();
+<<<${JSON.stringify(webJsonForGemini)}>>>
+        `.trim();
 
-      finalData = await aiClient.gemini(gemPrompt, {
-        json: true,
-        timeoutMs: CFG.GEMINI_TIMEOUT_MS,
-      });
+        let finalData = await withTimeout(
+          aiClient.gemini(gemPrompt, {
+            json: true,
+            timeoutMs: CFG.FAST_TIMEOUT_MS,
+            model: CFG.GEMINI_MODEL,
+            temperature: CFG.GEMINI_TEMPERATURE,
+            maxTokens: CFG.GEMINI_MAX_TOKENS,
+          }),
+          CFG.FAST_TIMEOUT_MS,
+          "gemini"
+        );
 
-      console.log(`[${new Date().toISOString()}] Gemini finalData:`, JSON.stringify(finalData, null, 2));
+        console.log(`[${new Date().toISOString()}] Gemini finalData:`, JSON.stringify(finalData, null, 2));
 
-      // Ensure proper structure
-      if (!finalData.källa || finalData.källa === "-") {
-        finalData.källa = WEB_JSON.källor?.[0] || "-";
+        if (!finalData.källa || finalData.källa === "-") {
+          finalData.källa = webJsonForGemini.källor?.[0] || "-";
+        }
+        finalData.evidence = finalData.evidence || { etiketttext: "", webbträffar: [] };
+        finalData.evidence.etiketttext = finalData.evidence.etiketttext || clamp(ocrText);
+        finalData.evidence.webbträffar = (webJsonForGemini.källor || []).slice(0, CFG.MAX_WEB_URLS);
+
+        const geminiTime = Date.now() - geminiStart;
+        console.log(`[${new Date().toISOString()}] Gemini success (${geminiTime}ms)`);
+
+        return { data: finalData, ms: geminiTime, webJson: webJsonForGemini };
+      } catch (error) {
+        const geminiTime = Date.now() - geminiStart;
+        const errorMsg = error instanceof Error ? error.message : String(error);
+
+        console.error(`[${new Date().toISOString()}] Gemini error (${geminiTime}ms):`, errorMsg);
+
+        const err = error instanceof Error ? error : new Error(errorMsg);
+        (err as any).ms = geminiTime;
+        throw err;
       }
-      finalData.evidence = finalData.evidence || { etiketttext: "", webbträffar: [] };
-      finalData.evidence.etiketttext = finalData.evidence.etiketttext || clamp(ocrText);
-      finalData.evidence.webbträffar = (WEB_JSON.källor || []).slice(0, CFG.MAX_WEB_URLS);
+    })();
 
-      const geminiTime = Date.now() - geminiStart;
-      console.log(`[${new Date().toISOString()}] Gemini success (${geminiTime}ms)`);
-    } catch (error) {
-      const geminiTime = Date.now() - geminiStart;
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      
-      console.error(`[${new Date().toISOString()}] Gemini error (${geminiTime}ms):`, errorMsg);
-      
-      if (errorMsg === "rate_limit_exceeded") {
+    const [perplexityResult, geminiResult] = await Promise.allSettled([perplexityTask, geminiTask]);
+
+    let finalData: any = null;
+    let pplxMs: number | null = null;
+    let geminiMs: number | null = null;
+    const timeoutDetails: string[] = [];
+
+    if (perplexityResult.status === "fulfilled") {
+      pplxMs = perplexityResult.value.ms;
+      WEB_JSON = perplexityResult.value.data;
+    } else {
+      const reason = perplexityResult.reason as (Error & { ms?: number }) | undefined;
+      if (reason?.ms !== undefined) pplxMs = reason.ms;
+      if (reason?.message === "perplexity_timeout") {
+        timeoutDetails.push("perplexity_timeout");
+        cacheNote = cacheNote || "perplexity_timeout";
+      } else if (reason) {
+        timeoutDetails.push("perplexity_error");
+        cacheNote = cacheNote || "perplexity_failed";
+      }
+    }
+
+    if (geminiResult.status === "fulfilled") {
+      geminiMs = geminiResult.value.ms;
+      finalData = geminiResult.value.data;
+      if (geminiResult.value.webJson?.källor?.length) {
+        WEB_JSON = geminiResult.value.webJson;
+      }
+    } else {
+      const reason = geminiResult.reason as (Error & { ms?: number }) | undefined;
+      if (reason?.ms !== undefined) geminiMs = reason.ms;
+      if (reason?.message === "gemini_timeout") {
+        timeoutDetails.push("gemini_timeout");
+      } else if (reason?.message === "rate_limit_exceeded") {
         return new Response(
-          JSON.stringify({ 
-            ok: false, 
-            error: "Rate limits exceeded, please try again shortly." 
+          JSON.stringify({
+            ok: false,
+            error: "Rate limits exceeded, please try again shortly."
           }),
           { status: 429, headers: { ...cors, "content-type": "application/json" } }
         );
-      }
-      if (errorMsg === "payment_required") {
+      } else if (reason?.message === "payment_required") {
         return new Response(
-          JSON.stringify({ 
-            ok: false, 
-            error: "Payment required. Please add credits to your Lovable workspace." 
+          JSON.stringify({
+            ok: false,
+            error: "Payment required. Please add credits to your Lovable workspace."
           }),
           { status: 402, headers: { ...cors, "content-type": "application/json" } }
         );
+      } else if (reason) {
+        timeoutDetails.push("gemini_error");
       }
-      
-      throw new Error(errorMsg);
     }
 
-    // Post-process
+    if (!finalData) {
+      usedFallback = true;
+      cacheNote = cacheNote || "label_fallback";
+      finalData = buildLabelFallback(ocrText);
+      timeoutDetails.push("label_fallback");
+    }
+
     finalData = enrichFallback(ocrText, finalData);
     finalData = sanitize(finalData);
     finalData = fillMissingFields(finalData, WEB_JSON, ocrText);
+    
+    finalData = ensureMetersFromText(finalData);
+
+    finalData.evidence = finalData.evidence || { etiketttext: clamp(ocrText), webbträffar: [] };
+    finalData.evidence.etiketttext = finalData.evidence.etiketttext || clamp(ocrText);
+    finalData.evidence.webbträffar = (WEB_JSON.källor || []).slice(0, CFG.MAX_WEB_URLS);
+
+    const withinFast = (ms: number | null) => typeof ms === "number" && ms <= CFG.FAST_TIMEOUT_MS;
+    fastPathHit = !usedFallback && withinFast(geminiMs) && (pplxMs === null || withinFast(pplxMs));
 
     const totalTime = Date.now() - startTime;
+    const timeout_reason = timeoutDetails.length ? timeoutDetails.join("+") : "none";
+    console.log(`[${new Date().toISOString()}] Fast mode metrics: ${JSON.stringify({
+      pplx_ms: pplxMs,
+      gemini_ms: geminiMs,
+      total_ms: totalTime,
+      fastPathHit,
+      timeout_reason,
+      fastPathDuration: Date.now() - fastStart
+    })}`);
     console.log(`[${new Date().toISOString()}] Total processing time: ${totalTime}ms`);
 
     // Store in both caches
