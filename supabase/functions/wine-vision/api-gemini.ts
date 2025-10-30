@@ -107,15 +107,15 @@ export async function ocrWithGemini(
 ): Promise<string> {
   const systemPrompt = `Du är en OCR-expert. Läs all text från vinflasketiketten. Returnera ENDAST texten, ingen analys.`;
   
-  const userMessage = [
+  const userMessage: GeminiMessageContent[] = [
     {
-      type: "image_url",
+      type: "image_url" as const,
       image_url: {
         url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`
       }
     },
     {
-      type: "text",
+      type: "text" as const,
       text: "Läs all text från etiketten."
     }
   ];
@@ -210,13 +210,13 @@ Vid konflikt mellan källor: prioritera Systembolaget > nordiska monopol > produ
   const userMessage: GeminiUserMessage = imageBase64
     ? [
         {
-          type: "image_url",
+          type: "image_url" as const,
           image_url: {
             url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`,
           },
         },
         {
-          type: "text",
+          type: "text" as const,
           text: context,
         },
       ]

@@ -182,7 +182,7 @@ Text att reparera:
  * const result = await gemini("Translate to Swedish", { json: true });
  * const ocr = await gemini("Read text", { imageUrl: base64Image });
  */
-async function gemini(prompt: string, options: GeminiTextOptions = {}): Promise<string>;
+async function gemini(prompt: string, options?: GeminiTextOptions): Promise<string>;
 async function gemini(prompt: string, options: GeminiJsonOptions): Promise<Record<string, unknown>>;
 async function gemini(prompt: string, options: GeminiOptions = {}): Promise<string | Record<string, unknown>> {
   const {
