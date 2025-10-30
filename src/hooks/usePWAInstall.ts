@@ -13,7 +13,10 @@ export function usePWAInstall() {
   useEffect(() => {
     // Check if already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const isIOSStandalone = (window.navigator as any).standalone === true;
+    const navigatorWithStandalone = window.navigator as Navigator & {
+      standalone?: boolean;
+    };
+    const isIOSStandalone = navigatorWithStandalone.standalone === true;
     setIsInstalled(isStandalone || isIOSStandalone);
 
     // Listen for the beforeinstallprompt event

@@ -1,5 +1,26 @@
+import type { WineSearchResult } from "./types.ts";
+
+interface PerplexityChoice {
+  message?: {
+    content?: string;
+  };
+}
+
+interface PerplexityResponse {
+  choices?: PerplexityChoice[];
+  citations?: string[];
+}
+
+function parseJsonObject(payload: string): Record<string, unknown> {
+  const parsed = JSON.parse(payload) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Expected JSON object");
+  }
+  return parsed as Record<string, unknown>;
+}
+
 // Perplexity API client - JSON in -> JSON out
-export async function queryPerplexityJSON(prompt: string, apiKey: string) {
+export async function queryPerplexityJSON(prompt: string, apiKey: string): Promise<Record<string, unknown>> {
   const res = await fetch("https://api.perplexity.ai/chat/completions", {
     method: "POST",
     headers: {
@@ -19,22 +40,22 @@ export async function queryPerplexityJSON(prompt: string, apiKey: string) {
     throw new Error(`Perplexity HTTP ${res.status}: ${errText}`);
   }
   
-  const data = await res.json();
+  const data = (await res.json()) as PerplexityResponse;
   const text = data?.choices?.[0]?.message?.content ?? "{}";
-  
-  try { 
-    return JSON.parse(text); 
-  } catch { 
-    throw new Error("Perplexity gav inte giltig JSON"); 
+
+  try {
+    return parseJsonObject(text);
+  } catch {
+    throw new Error("Perplexity gav inte giltig JSON");
   }
 }
 
 // Enhanced Perplexity search with domain whitelist and diacritic normalization
 export async function searchWineWithPerplexity(
-  ocrText: string, 
+  ocrText: string,
   apiKey: string,
   timeoutMs = 12000
-): Promise<{ data: any; sources: string[] }> {
+): Promise<{ data: WineSearchResult; sources: string[] }> {
   
   // Normalize diacritics in OCR text for better matching
   const normalizedOcr = ocrText.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -109,15 +130,15 @@ Om ett fält saknas: använd "-". Max 3 passar_till-maträtter.`
       throw new Error(`Perplexity HTTP ${res.status}: ${errText}`);
     }
 
-    const resData = await res.json();
+    const resData = (await res.json()) as PerplexityResponse;
     const rawText = resData?.choices?.[0]?.message?.content || "";
-    const citations = resData?.citations || [];
+    const citations = Array.isArray(resData?.citations) ? resData.citations : [];
 
     // Parse JSON response
-    let parsedData: any = null;
+    let parsedData: WineSearchResult | null = null;
     try {
       const cleanJson = rawText.trim().replace(/^```json\s*|```$/g, "");
-      parsedData = JSON.parse(cleanJson);
+      parsedData = parseJsonObject(cleanJson) as WineSearchResult;
     } catch (parseError) {
       console.error("Perplexity JSON parse error:", parseError);
       console.error("Raw Perplexity response (first 500 chars):", rawText.substring(0, 500));
@@ -126,21 +147,21 @@ Om ett fält saknas: använd "-". Max 3 passar_till-maträtter.`
     }
 
     // Prioritize sources: Systembolaget > Nordic monopolies > Producer > Retailers > Professional magazines
-    const systembolagetSources = citations.filter((url: string) => url.includes("systembolaget.se"));
-    const nordicMonopolSources = citations.filter((url: string) => 
+    const systembolagetSources = citations.filter((url) => url.includes("systembolaget.se"));
+    const nordicMonopolSources = citations.filter((url) =>
       url.includes("alko.fi") || url.includes("vinmonopolet.no") || url.includes("vinbudin.is")
     );
-    const producerSources = citations.filter((url: string) => 
-      !url.includes("systembolaget.se") && 
-      !url.includes("alko.fi") && 
-      !url.includes("vinmonopolet.no") && 
+    const producerSources = citations.filter((url) =>
+      !url.includes("systembolaget.se") &&
+      !url.includes("alko.fi") &&
+      !url.includes("vinmonopolet.no") &&
       !url.includes("vinbudin.is") &&
       (url.includes("winery") || url.includes("bodega") || url.includes("vineyard") || url.includes("chateau"))
     );
-    const retailerSources = citations.filter((url: string) =>
+    const retailerSources = citations.filter((url) =>
       url.includes("vivino.com") || url.includes("wine-searcher.com") || url.includes("cellartracker.com")
     );
-    const magazineSources = citations.filter((url: string) =>
+    const magazineSources = citations.filter((url) =>
       url.includes("wine-spectator.com") || url.includes("decanter.com") || url.includes("robertparker.com")
     );
 
@@ -153,8 +174,8 @@ Om ett fält saknas: använd "-". Max 3 passar_till-maträtter.`
     ].slice(0, 3); // Max 3 sources
 
     return {
-      data: parsedData || { text: rawText },
-      sources: prioritizedSources
+      data: parsedData ?? { text: rawText },
+      sources: prioritizedSources,
     };
 
   } catch (error) {

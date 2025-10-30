@@ -1,8 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.58.0";
 
+import type { WineSummary } from "./types.ts";
+
 // In-memory cache with TTL
 const CACHE_TTL_MS = 1000 * 60 * 60; // 60 min
-const memoryCache = new Map<string, { ts: number; data: any }>();
+const memoryCache = new Map<string, { ts: number; data: WineSummary }>();
 
 function normalizeOCR(text: string): string {
   return text
@@ -28,7 +30,7 @@ export function getCacheKey(ocrText: string): string {
 }
 
 // Get from in-memory cache
-export function getFromMemoryCache(key: string): { data: any; note: string } | null {
+export function getFromMemoryCache(key: string): { data: WineSummary; note: string } | null {
   const hit = memoryCache.get(key);
   if (!hit) return null;
   if (Date.now() - hit.ts > CACHE_TTL_MS) {
@@ -39,7 +41,7 @@ export function getFromMemoryCache(key: string): { data: any; note: string } | n
 }
 
 // Set in-memory cache
-export function setMemoryCache(key: string, data: any): void {
+export function setMemoryCache(key: string, data: WineSummary): void {
   memoryCache.set(key, { ts: Date.now(), data });
   // Limit cache size (max 100 entries)
   if (memoryCache.size > 100) {
@@ -55,7 +57,7 @@ export async function getFromSupabaseCache(
   key: string,
   supabaseUrl: string,
   supabaseKey: string
-): Promise<{ data: any; note: string } | null> {
+): Promise<{ data: WineSummary; note: string } | null> {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
     
@@ -75,7 +77,7 @@ export async function getFromSupabaseCache(
       return null;
     }
 
-    return { data: data.data, note: "hit_supabase" };
+    return { data: data.data as WineSummary, note: "hit_supabase" };
   } catch (error) {
     console.error("Supabase cache read error:", error);
     return null;
@@ -85,7 +87,7 @@ export async function getFromSupabaseCache(
 // Set in Supabase cache
 export async function setSupabaseCache(
   key: string,
-  cacheData: any,
+  cacheData: WineSummary,
   supabaseUrl: string,
   supabaseKey: string
 ): Promise<void> {

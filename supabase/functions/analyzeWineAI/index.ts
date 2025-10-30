@@ -3,6 +3,25 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+interface WineHeuristics {
+  druva?: string;
+  region?: string;
+  typ?: string;
+  servering?: string;
+  preset?: boolean;
+  [key: string]: string | boolean | undefined;
+}
+
+interface WineAnalysis {
+  vin?: string;
+  typ?: string;
+  druva?: string;
+  region?: string;
+  stil_smak?: string;
+  servering?: string;
+  att_till?: unknown;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -31,9 +50,9 @@ serve(async (req) => {
     console.log(`Analyzing wine with language: ${lang}`);
 
     // Quick heuristics to detect specific wines from OCR text
-    function quickHeuristics(txt: string) {
+    function quickHeuristics(txt: string): WineHeuristics {
       const t = txt.toLowerCase();
-      const hints: any = {};
+      const hints: WineHeuristics = {};
       
       // Tokaji Furmint detection
       if (t.includes("tokaji") && t.includes("furmint")) {
@@ -133,13 +152,13 @@ Returnera strikt JSON enligt schema.`;
     }
 
     const data = await response.json();
-    let analysisText = data.choices[0].message.content;
+    const analysisText = data.choices[0].message.content;
 
     console.log('Analysis response:', analysisText);
 
 
     // Parse the JSON response robustly (handle code fences or extra text)
-    let analysis;
+    let analysis: WineAnalysis;
     try {
       let jsonText = (analysisText || "").trim();
 
@@ -155,7 +174,7 @@ Returnera strikt JSON enligt schema.`;
         }
       }
 
-      analysis = JSON.parse(jsonText);
+      analysis = JSON.parse(jsonText) as WineAnalysis;
     } catch (parseError) {
       console.error('Failed to parse JSON:', parseError, analysisText);
       return new Response(
