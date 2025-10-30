@@ -1,11 +1,12 @@
 import { aiClient } from "./lib/aiClient.ts";
-import { 
-  getCacheKey, 
-  getFromMemoryCache, 
-  setMemoryCache, 
-  getFromSupabaseCache, 
-  setSupabaseCache 
+import {
+  getCacheKey,
+  getFromMemoryCache,
+  setMemoryCache,
+  getFromSupabaseCache,
+  setSupabaseCache
 } from "./cache.ts";
+import type { WineSearchResult, WineSummary } from "./types.ts";
 
 const CFG = {
   PPLX_TIMEOUT_MS: 12000,
@@ -52,7 +53,142 @@ const RED_GRAPES = [
   "touriga nacional","baga","kékfrankos","blaufränkisch","kékmedoc"
 ];
 
-function detectColour(data: any, ocrText: string) {
+function createEmptySummary(): WineSummary {
+  return {
+    vin: "-",
+    land_region: "-",
+    producent: "-",
+    druvor: "-",
+    årgång: "-",
+    typ: "-",
+    färgtyp: "-",
+    klassificering: "-",
+    alkoholhalt: "-",
+    volym: "-",
+    karaktär: "-",
+    smak: "-",
+    servering: "-",
+    källa: "-",
+    passar_till: [],
+    meters: { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
+    evidence: { etiketttext: "", webbträffar: [] },
+  };
+}
+
+const ensureString = (value: unknown, fallback = "-"): string =>
+  typeof value === "string" ? value : fallback;
+
+const ensureStringArray = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+
+function ensureMeters(value: unknown): WineSummary["meters"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null };
+  }
+
+  const meters = value as Partial<WineSummary["meters"]>;
+  return {
+    sötma: typeof meters.sötma === "number" ? meters.sötma : null,
+    fyllighet: typeof meters.fyllighet === "number" ? meters.fyllighet : null,
+    fruktighet: typeof meters.fruktighet === "number" ? meters.fruktighet : null,
+    fruktsyra: typeof meters.fruktsyra === "number" ? meters.fruktsyra : null,
+  };
+}
+
+function ensureEvidence(value: unknown): WineSummary["evidence"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { etiketttext: "", webbträffar: [] };
+  }
+
+  const evidence = value as Partial<WineSummary["evidence"]>;
+  return {
+    etiketttext: typeof evidence.etiketttext === "string" ? evidence.etiketttext : "",
+    webbträffar: ensureStringArray(evidence.webbträffar),
+  };
+}
+
+function normalizeWineSummary(value: unknown): WineSummary {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return createEmptySummary();
+  }
+
+  const record = value as Record<string, unknown>;
+  return {
+    ...createEmptySummary(),
+    vin: ensureString(record.vin, "-"),
+    land_region: ensureString(record.land_region, "-"),
+    producent: ensureString(record.producent, "-"),
+    druvor: ensureString(record.druvor, "-"),
+    årgång: ensureString(record.årgång, "-"),
+    typ: ensureString(record.typ, "-"),
+    färgtyp: ensureString(record.färgtyp, "-"),
+    klassificering: ensureString(record.klassificering, "-"),
+    alkoholhalt: ensureString(record.alkoholhalt, "-"),
+    volym: ensureString(record.volym, "-"),
+    karaktär: ensureString(record.karaktär, "-"),
+    smak: ensureString(record.smak, "-"),
+    servering: ensureString(record.servering, "-"),
+    källa: ensureString(record.källa, "-"),
+    passar_till: ensureStringArray(record.passar_till),
+    meters: ensureMeters(record.meters),
+    evidence: ensureEvidence(record.evidence),
+  };
+}
+
+function normalizeSearchResult(value: unknown): WineSearchResult {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      vin: "-",
+      producent: "-",
+      druvor: "-",
+      land_region: "-",
+      årgång: "-",
+      alkoholhalt: "-",
+      volym: "-",
+      klassificering: "-",
+      karaktär: "-",
+      smak: "-",
+      servering: "-",
+      passar_till: [],
+      källor: [],
+      fallback_mode: true,
+    };
+  }
+
+  const record = value as Record<string, unknown>;
+  const result: WineSearchResult = {
+    vin: ensureString(record.vin, "-"),
+    producent: ensureString(record.producent, "-"),
+    druvor: ensureString(record.druvor, "-"),
+    land_region: ensureString(record.land_region, "-"),
+    årgång: ensureString(record.årgång, "-"),
+    alkoholhalt: ensureString(record.alkoholhalt, "-"),
+    volym: ensureString(record.volym, "-"),
+    klassificering: ensureString(record.klassificering, "-"),
+    karaktär: ensureString(record.karaktär, "-"),
+    smak: ensureString(record.smak, "-"),
+    servering: ensureString(record.servering, "-"),
+    passar_till: ensureStringArray(record.passar_till),
+    källor: ensureStringArray(record.källor),
+  };
+
+  if (typeof record.text === "string") {
+    result.text = record.text;
+  }
+  if (typeof record.fallback_mode === "boolean") {
+    result.fallback_mode = record.fallback_mode;
+  }
+  if (record.meters !== undefined) {
+    result.meters = ensureMeters(record.meters);
+  }
+  if (record.evidence !== undefined) {
+    result.evidence = ensureEvidence(record.evidence);
+  }
+
+  return result;
+}
+
+function detectColour(data: Partial<WineSummary>, ocrText: string) {
   const joined = [
     data?.färgtyp,
     data?.typ,
@@ -88,7 +224,7 @@ function detectColour(data: any, ocrText: string) {
   return "okänt";
 }
 
-function detectBody(data: any, ocrText: string) {
+function detectBody(data: Partial<WineSummary>, ocrText: string) {
   const joined = [data?.karaktär, data?.smak, data?.typ, data?.klassificering, ocrText]
     .filter(Boolean)
     .join(" ")
@@ -103,7 +239,7 @@ function detectBody(data: any, ocrText: string) {
   return "medel";
 }
 
-function detectSweetness(data: any, ocrText: string) {
+function detectSweetness(data: Partial<WineSummary>, ocrText: string) {
   const joined = [data?.karaktär, data?.smak, data?.typ, data?.klassificering, data?.sockerhalt, ocrText]
     .filter(Boolean)
     .join(" ")
@@ -269,8 +405,8 @@ function defaultMeters(colour: string, body: string, sweetness: string) {
   return { sötma, fyllighet, fruktighet, fruktsyra };
 }
 
-function fillMissingFields(finalData: any, webData: any, ocrText: string) {
-  const fields: Array<keyof typeof finalData> = [
+function fillMissingFields(finalData: WineSummary, webData: WineSearchResult | null, ocrText: string): WineSummary {
+  const fields: Array<keyof WineSummary> = [
     "vin",
     "land_region",
     "producent",
@@ -284,24 +420,28 @@ function fillMissingFields(finalData: any, webData: any, ocrText: string) {
     "karaktär",
     "smak",
     "servering",
-    "källa"
+    "källa",
   ];
 
   for (const field of fields) {
-    if (isBlank(finalData[field]) && !isBlank(webData?.[field])) {
-      finalData[field] = webData[field];
+    const currentValue = finalData[field];
+    const candidate = webData?.[field];
+    if (isBlank(currentValue) && typeof candidate === "string" && !isBlank(candidate)) {
+      finalData[field] = candidate as WineSummary[typeof field];
     }
   }
 
-  const fromWebPairings = Array.isArray(webData?.passar_till) ? webData.passar_till.filter((item: unknown) => typeof item === "string" && !isBlank(item)) : [];
-  const existingPairings = Array.isArray(finalData.passar_till) ? finalData.passar_till.filter((item: unknown) => typeof item === "string" && !isBlank(item)) : [];
+  const fromWebPairings = Array.isArray(webData?.passar_till)
+    ? webData.passar_till.filter((item): item is string => typeof item === "string" && !isBlank(item))
+    : [];
+  const existingPairings = finalData.passar_till.filter((item) => typeof item === "string" && !isBlank(item));
   finalData.passar_till = Array.from(new Set([...existingPairings, ...fromWebPairings])).slice(0, 5);
 
   const colour = detectColour(finalData, ocrText);
   const body = detectBody(finalData, ocrText);
   const sweetness = detectSweetness(finalData, ocrText);
 
-  if (!Array.isArray(finalData.passar_till) || finalData.passar_till.length < 3) {
+  if (finalData.passar_till.length < 3) {
     finalData.passar_till = defaultPairings(colour, body, sweetness);
   }
 
@@ -317,12 +457,8 @@ function fillMissingFields(finalData: any, webData: any, ocrText: string) {
     finalData.smak = defaultTaste(colour, body, sweetness);
   }
 
-  if (!finalData.meters) {
-    finalData.meters = { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null };
-  }
-
-  const meters = finalData.meters || {};
   const defaults = defaultMeters(colour, body, sweetness);
+  const meters = finalData.meters ?? { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null };
   finalData.meters = {
     sötma: typeof meters.sötma === "number" ? meters.sötma : defaults.sötma,
     fyllighet: typeof meters.fyllighet === "number" ? meters.fyllighet : defaults.fyllighet,
@@ -330,9 +466,11 @@ function fillMissingFields(finalData: any, webData: any, ocrText: string) {
     fruktsyra: typeof meters.fruktsyra === "number" ? meters.fruktsyra : defaults.fruktsyra,
   };
 
-  if (!finalData.evidence) {
-    finalData.evidence = { etiketttext: clamp(ocrText), webbträffar: [] };
-  }
+  finalData.evidence = finalData.evidence ?? { etiketttext: clamp(ocrText), webbträffar: [] };
+  finalData.evidence = {
+    etiketttext: finalData.evidence.etiketttext || clamp(ocrText),
+    webbträffar: ensureStringArray(finalData.evidence.webbträffar),
+  };
 
   return finalData;
 }
@@ -360,14 +498,14 @@ function buildSearchVariants(ocr: string) {
   ].slice(0, 12);
 }
 
-function sanitize(data: any) {
+function sanitize(data: WineSummary): WineSummary {
   if (data.smak && /tekniskt fel|ingen läsbar text|ocr|error/i.test(data.smak)) {
     data.smak = "–";
   }
   return data;
 }
 
-function enrichFallback(ocrText: string, data: any) {
+function enrichFallback(ocrText: string, data: WineSummary): WineSummary {
   const t = (ocrText || "").toLowerCase();
   const hasTokaji = /tokaji/.test(t);
   const hasFurmint = /furmint/.test(t);
@@ -484,10 +622,21 @@ Deno.serve(async (req) => {
     console.log(`[${new Date().toISOString()}] Cache miss, proceeding with analysis...`);
 
     // Step 2: Perplexity search with enhanced domain whitelist
-    let WEB_JSON: any = {
-      vin: "-", producent: "-", druvor: "-", land_region: "-", årgång: "-",
-      alkoholhalt: "-", volym: "-", klassificering: "-",
-      karaktär: "-", smak: "-", servering: "-", passar_till: [], källor: []
+    let WEB_JSON: WineSearchResult = {
+      vin: "-",
+      producent: "-",
+      druvor: "-",
+      land_region: "-",
+      årgång: "-",
+      alkoholhalt: "-",
+      volym: "-",
+      klassificering: "-",
+      karaktär: "-",
+      smak: "-",
+      servering: "-",
+      passar_till: [],
+      källor: [],
+      fallback_mode: true,
     };
     let cacheNote = "";
 
@@ -521,19 +670,22 @@ Returnera ENBART ett JSON-objekt exakt enligt detta schema (saknas uppgift → "
 ${schemaJSON}
         `.trim();
 
-        WEB_JSON = await aiClient.perplexity(pplxPrompt, {
+        const perplexityResult = await aiClient.perplexity(pplxPrompt, {
           model: CFG.PPLX_MODEL,
           timeoutMs: CFG.PPLX_TIMEOUT_MS,
           systemPrompt,
           schemaHint: schemaJSON,
         });
 
+        WEB_JSON = normalizeSearchResult(perplexityResult);
+        WEB_JSON.fallback_mode = false;
+
         console.log(`[${new Date().toISOString()}] Perplexity WEB_JSON:`, JSON.stringify(WEB_JSON, null, 2));
 
         // Clean and sort sources
-        const sources = (WEB_JSON.källor || []) as unknown[];
+        const sources = WEB_JSON.källor ?? [];
         WEB_JSON.källor = Array.from(new Set(sources))
-          .filter((u: unknown): u is string => typeof u === "string" && u.startsWith("http"))
+          .filter((u) => u.startsWith("http"))
           .slice(0, CFG.MAX_WEB_URLS)
           .sort((a, b) => {
             const score = (u: string) =>
@@ -566,9 +718,9 @@ ${schemaJSON}
     const geminiStart = Date.now();
     console.log(`[${new Date().toISOString()}] Starting Gemini summarization...`);
 
-    let finalData: any;
+    let finalData = createEmptySummary();
     try {
-      const hasWebData = WEB_JSON.källor && WEB_JSON.källor.length > 0;
+      const hasWebData = (WEB_JSON.källor ?? []).length > 0;
       
       const gemPrompt = `
 DU ÄR: En AI-sommelier. ${hasWebData ? 'Använd OCR_TEXT (etiketten) och WEB_JSON (verifierad fakta).' : 'Använd OCR_TEXT från etiketten och din kunskap om vin för att analysera vinet.'} 
@@ -613,20 +765,22 @@ WEB_JSON:
 <<<${JSON.stringify(WEB_JSON)}>>>
       `.trim();
 
-      finalData = await aiClient.gemini(gemPrompt, {
+      const geminiResult = await aiClient.gemini(gemPrompt, {
         json: true,
         timeoutMs: CFG.GEMINI_TIMEOUT_MS,
       });
+
+      finalData = normalizeWineSummary(geminiResult);
 
       console.log(`[${new Date().toISOString()}] Gemini finalData:`, JSON.stringify(finalData, null, 2));
 
       // Ensure proper structure
       if (!finalData.källa || finalData.källa === "-") {
-        finalData.källa = WEB_JSON.källor?.[0] || "-";
+        finalData.källa = WEB_JSON.källor?.[0] ?? "-";
       }
       finalData.evidence = finalData.evidence || { etiketttext: "", webbträffar: [] };
       finalData.evidence.etiketttext = finalData.evidence.etiketttext || clamp(ocrText);
-      finalData.evidence.webbträffar = (WEB_JSON.källor || []).slice(0, CFG.MAX_WEB_URLS);
+      finalData.evidence.webbträffar = (WEB_JSON.källor ?? []).slice(0, CFG.MAX_WEB_URLS);
 
       const geminiTime = Date.now() - geminiStart;
       console.log(`[${new Date().toISOString()}] Gemini success (${geminiTime}ms)`);

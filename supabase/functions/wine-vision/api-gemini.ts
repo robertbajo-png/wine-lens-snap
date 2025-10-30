@@ -1,13 +1,47 @@
+import type { WineSearchResult, WineSummary } from "./types.ts";
+
 // Gemini API client via Lovable AI Gateway
 
 const MODEL = "google/gemini-2.5-flash";
 
-export async function callGeminiJSON(
+type GeminiTextContent = {
+  type: "text";
+  text: string;
+};
+
+type GeminiImageContent = {
+  type: "image_url";
+  image_url: { url: string };
+};
+
+type GeminiMessageContent = GeminiTextContent | GeminiImageContent;
+
+type GeminiUserMessage = string | GeminiMessageContent[];
+
+interface GeminiChoice {
+  message?: {
+    content?: string;
+  };
+}
+
+interface GeminiResponse {
+  choices?: GeminiChoice[];
+}
+
+function parseJsonObject(payload: string): Record<string, unknown> {
+  const parsed = JSON.parse(payload) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Expected JSON object");
+  }
+  return parsed as Record<string, unknown>;
+}
+
+export async function callGeminiJSON<T extends Record<string, unknown>>(
   systemPrompt: string,
-  userMessage: any,
+  userMessage: GeminiUserMessage,
   apiKey: string,
   timeoutMs = 20000
-): Promise<any> {
+): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -46,13 +80,13 @@ export async function callGeminiJSON(
       throw new Error(`Gemini HTTP ${response.status}: ${errText}`);
     }
 
-    const json = await response.json();
+    const json = (await response.json()) as GeminiResponse;
     const content = json?.choices?.[0]?.message?.content || "{}";
-    
+
     try {
       // Remove markdown code blocks if present
       const clean = content.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
-      return JSON.parse(clean);
+      return parseJsonObject(clean) as T;
     } catch {
       throw new Error("Gemini returnerade inte giltig JSON");
     }
@@ -86,18 +120,18 @@ export async function ocrWithGemini(
     }
   ];
 
-  const result = await callGeminiJSON(systemPrompt, userMessage, apiKey);
-  return result.text || "";
+  const result = await callGeminiJSON<{ text?: string }>(systemPrompt, userMessage, apiKey);
+  return result.text ?? "";
 }
 
 // Summarize wine with Gemini
 export async function summarizeWithGemini(
   ocrText: string,
-  webData: any,
+  webData: WineSearchResult | null,
   webSources: string[],
   imageBase64: string | undefined,
   apiKey: string
-): Promise<any> {
+): Promise<WineSummary> {
   const systemPrompt = `DU ÄR: En faktagranskande AI-sommelier. Du får OCR-text från etiketten och ett JSON-objekt med webbfakta ("WEB_JSON"). Du ska returnera ENDAST ett giltigt JSON-objekt i Systembolaget-stil. Inga påhitt.
 
 ARBETSGÅNG:
@@ -144,16 +178,16 @@ REGLER:
 - "källa": välj den viktigaste URL:en från WEB_JSON.källor (helst Systembolaget, annars nordiska monopol, annars producent, annars retailer, annars proffsmagasin). 
 - "evidence": etiketttext (kortad) = OCR_TEXT (max 200 tecken). "webbträffar" = upp till tre URL:er från WEB_JSON.källor.`;
 
-  const webJson = webData 
+  const webJson = webData
     ? {
         text: JSON.stringify(webData),
         källor: webSources,
-        fallback_mode: false
+        fallback_mode: false,
       }
     : {
         text: "(Ingen verifierad källa hittades. Baserat endast på etikett.)",
         källor: [],
-        fallback_mode: true
+        fallback_mode: true,
       };
 
   const context = webJson.fallback_mode
@@ -173,23 +207,20 @@ ${JSON.stringify(webJson, null, 2)}
 
 Vid konflikt mellan källor: prioritera Systembolaget > nordiska monopol > producent > retailer > proffsmagasin. Analysera vinet och returnera ENDAST JSON enligt schemat.`;
 
-  let userMessage: any;
-  if (imageBase64) {
-    userMessage = [
-      {
-        type: "image_url",
-        image_url: {
-          url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`
-        }
-      },
-      {
-        type: "text",
-        text: context
-      }
-    ];
-  } else {
-    userMessage = context;
-  }
+  const userMessage: GeminiUserMessage = imageBase64
+    ? [
+        {
+          type: "image_url",
+          image_url: {
+            url: imageBase64.startsWith('data:') ? imageBase64 : `data:image/jpeg;base64,${imageBase64}`,
+          },
+        },
+        {
+          type: "text",
+          text: context,
+        },
+      ]
+    : context;
 
-  return await callGeminiJSON(systemPrompt, userMessage, apiKey);
+  return await callGeminiJSON<WineSummary>(systemPrompt, userMessage, apiKey);
 }
