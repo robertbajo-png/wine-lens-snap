@@ -28,7 +28,8 @@ import {
 import WineCardSBFull from "@/components/WineCardSBFull";
 import { GaugeCircleSB } from "@/components/WineMetersSB";
 import { getSystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
-import { ArrowLeft, Camera, Eraser, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { ArrowLeft, Camera, Copy, Eraser, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { toast } from "@/components/ui/use-toast";
 
 const formatDate = (iso: string) => {
   const date = new Date(iso);
@@ -128,6 +129,48 @@ const History = () => {
     const updated = getAllCachedAnalyses();
     setEntries(updated);
     setDevStatus(updated.length === 0 ? "Historiken rensades." : "Vissa poster kunde inte tas bort.");
+  };
+
+  const handleCopyToClipboard = async (entry: CachedWineAnalysisEntry) => {
+    const payload = JSON.stringify(
+      {
+        key: entry.key,
+        timestamp: entry.timestamp,
+        result: entry.result,
+      },
+      null,
+      2,
+    );
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload);
+      } else if (typeof document !== "undefined") {
+        const textarea = document.createElement("textarea");
+        textarea.value = payload;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      } else {
+        throw new Error("Clipboard API not available");
+      }
+
+      toast({
+        title: "Vinanalys kopierad",
+        description: `${entry.result.vin || "Vinprofil"} finns nu i urklipp.`,
+      });
+    } catch (error) {
+      console.error("Error copying wine analysis to clipboard:", error);
+      toast({
+        title: "Kunde inte kopiera",
+        description: "Din webbläsare blockerade kopieringen. Försök igen.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -411,6 +454,16 @@ const History = () => {
                             </div>
                           </DialogContent>
                         </Dialog>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleCopyToClipboard(entry)}
+                          className="gap-2 rounded-full"
+                        >
+                          <Copy className="h-4 w-4" />
+                          Kopiera
+                        </Button>
 
                         <Button
                           size="sm"
