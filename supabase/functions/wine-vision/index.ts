@@ -9,8 +9,9 @@ import {
 import type { WineSearchResult, WineSummary } from "./types.ts";
 
 const CFG = {
-  PPLX_TIMEOUT_MS: 12000,
-  GEMINI_TIMEOUT_MS: 45000,
+  PPLX_TIMEOUT_MS: 12000,   // max PPLX-tid
+  GEMINI_TIMEOUT_MS: 45000, // max Gemini-tid
+  FAST_TIMEOUT_MS: 3000,    // efter 3s: gå “fast path” (heuristik) om inget svar
   MAX_WEB_URLS: 3,
   PPLX_MODEL: "sonar",
 };
@@ -40,6 +41,189 @@ const isBlank = (value: unknown): boolean => {
   }
   return false;
 };
+
+function withTimeout<T>(promise: Promise<T>, ms: number, reason: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        const error = new Error(`timeout:${reason}:${ms}ms`);
+        error.name = "TimeoutError";
+        reject(error);
+      }
+    }, ms);
+
+    promise
+      .then((value) => {
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error) => {
+        settled = true;
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
+type WebJson = WineSearchResult | null;
+
+async function runPerplexity(ocrText: string): Promise<WebJson> {
+  if (!PERPLEXITY_API_KEY) return null;
+
+  const queries = buildSearchVariants(ocrText);
+  const schemaJSON = `
+{
+  "vin": "", "producent": "", "druvor": "", "land_region": "",
+  "årgång": "", "alkoholhalt": "", "volym": "", "klassificering": "",
+  "karaktär": "", "smak": "", "servering": "", "passar_till": [], "källor": []
+}`.trim();
+  const systemPrompt =
+    "Du är en extraktor som MÅSTE returnera ENBART ett giltigt, minifierat JSON-objekt enligt schema. Ingen markdown, inga backticks, ingen kommentar före eller efter. Dubbelcitat på alla nycklar/strängar. KRITISKT: ALL text i ditt svar MÅSTE vara på SVENSKA. Översätt alla beskrivningar till svenska.";
+
+  const pplxPrompt = `
+VIN-LEDTRÅD (OCR):
+"${ocrText.slice(0, 300)}"
+
+Sök i denna prioritering med site:-filter:
+${queries.slice(0, 8).map((q, i) => `${i + 1}) ${q}`).join("\n")}
+
+Normalisera sökningen (ta bort diakritiska tecken; "Egri" ≈ "Eger").
+
+Returnera ENBART ett JSON-objekt exakt enligt detta schema (saknas uppgift → "-"):
+${schemaJSON}
+  `.trim();
+
+  const perplexityResult = await aiClient.perplexity(pplxPrompt, {
+    model: CFG.PPLX_MODEL,
+    timeoutMs: CFG.PPLX_TIMEOUT_MS,
+    systemPrompt,
+    schemaHint: schemaJSON,
+  });
+
+  const normalized = normalizeSearchResult(perplexityResult);
+  normalized.fallback_mode = false;
+
+  const sources = normalized.källor ?? [];
+  normalized.källor = Array.from(new Set(sources))
+    .filter((u) => u.startsWith("http"))
+    .slice(0, CFG.MAX_WEB_URLS)
+    .sort((a, b) => {
+      const score = (u: string) =>
+        u.includes("systembolaget.se") ? 5 :
+        u.includes("vinmonopolet.no") || u.includes("alko.fi") || u.includes("saq.com") || u.includes("lcbo.com") ? 4 :
+        u.includes("wine-searcher.com") || u.includes("wine.com") || u.includes("totalwine.com") ? 3 :
+        u.includes("decanter.com") || u.includes("winemag.com") || u.includes("jancisrobinson.com") ? 2 :
+        u.includes("vivino.com") || u.includes("cellartracker.com") ? 1 : 0;
+      return score(b) - score(a);
+    });
+
+  return normalized;
+}
+
+async function runGeminiFast(_ocrText: string, _imageHint?: string): Promise<WebJson> {
+  if (!LOVABLE_API_KEY) return null;
+  return null;
+}
+
+type WebMeta = {
+  fastPathHit: boolean;
+  pplx_ms: number | null;
+  gemini_ms: number | null;
+  pplx_status: "ok" | "timeout" | "error" | "skipped" | "empty";
+  gemini_status: "ok" | "timeout" | "error" | "skipped" | "empty";
+};
+
+async function parallelWeb(ocrText: string): Promise<{ web: WebJson; meta: WebMeta }> {
+  let pplx_ms: number | null = null;
+  let gemini_ms: number | null = null;
+  let fastPathHit = false;
+  let pplx_status: WebMeta["pplx_status"] = PERPLEXITY_API_KEY ? "empty" : "skipped";
+  let gemini_status: WebMeta["gemini_status"] = LOVABLE_API_KEY ? "empty" : "skipped";
+
+  const tasks: Promise<WebJson>[] = [];
+
+  if (PERPLEXITY_API_KEY) {
+    console.log(`[${new Date().toISOString()}] Starting Perplexity search (${CFG.PPLX_TIMEOUT_MS}ms timeout)...`);
+    const pplxPromise = (async () => {
+      const start = Date.now();
+      try {
+        const res = await withTimeout(runPerplexity(ocrText), CFG.PPLX_TIMEOUT_MS, "pplx");
+        pplx_ms = Date.now() - start;
+        pplx_status = res ? "ok" : "empty";
+        if (res) {
+          console.log(`[${new Date().toISOString()}] Perplexity WEB_JSON:`, JSON.stringify(res, null, 2));
+          console.log(`[${new Date().toISOString()}] Perplexity success (${pplx_ms}ms), sources: ${res.källor?.length ?? 0}`);
+        } else {
+          console.log(`[${new Date().toISOString()}] Perplexity returned empty result (${pplx_ms}ms)`);
+        }
+        return res;
+      } catch (error) {
+        pplx_ms = Date.now() - start;
+        if (error instanceof Error && error.name === "TimeoutError") {
+          pplx_status = "timeout";
+          console.log(`[${new Date().toISOString()}] Perplexity timeout (${pplx_ms}ms)`);
+        } else {
+          pplx_status = "error";
+          console.error(`[${new Date().toISOString()}] Perplexity error (${pplx_ms}ms):`, error);
+        }
+        return null;
+      }
+    })();
+    tasks.push(pplxPromise);
+  }
+
+  if (LOVABLE_API_KEY) {
+    const gemPromise = (async () => {
+      const start = Date.now();
+      try {
+        const res = await withTimeout(runGeminiFast(ocrText), CFG.GEMINI_TIMEOUT_MS, "gemini");
+        gemini_ms = Date.now() - start;
+        gemini_status = res ? "ok" : "empty";
+        return res;
+      } catch (error) {
+        gemini_ms = Date.now() - start;
+        if (error instanceof Error && error.name === "TimeoutError") {
+          gemini_status = "timeout";
+        } else {
+          gemini_status = "error";
+          console.error(`[${new Date().toISOString()}] Gemini fast-path error (${gemini_ms}ms):`, error);
+        }
+        return null;
+      }
+    })();
+    tasks.push(gemPromise);
+  }
+
+  let web: WebJson = null;
+
+  if (tasks.length > 0) {
+    try {
+      web = await withTimeout(Promise.any(tasks), CFG.FAST_TIMEOUT_MS, "fastpath");
+    } catch (error) {
+      fastPathHit = true;
+      if (error instanceof Error && error.name === "TimeoutError") {
+        console.log(`[${new Date().toISOString()}] Fast-path timeout (${CFG.FAST_TIMEOUT_MS}ms) – enabling heuristics.`);
+      }
+    }
+
+    if (!web) {
+      const settled = await Promise.allSettled(tasks);
+      for (const result of settled) {
+        if (result.status === "fulfilled" && result.value) {
+          web = result.value;
+          break;
+        }
+      }
+    }
+  }
+
+  return {
+    web,
+    meta: { fastPathHit, pplx_ms, gemini_ms, pplx_status, gemini_status },
+  };
+}
 
 const WHITE_GRAPES = [
   "riesling","sauvignon blanc","chardonnay","pinot grigio","pinot gris","grüner veltliner",
@@ -405,7 +589,12 @@ function defaultMeters(colour: string, body: string, sweetness: string) {
   return { sötma, fyllighet, fruktighet, fruktsyra };
 }
 
-function fillMissingFields(finalData: WineSummary, webData: WineSearchResult | null, ocrText: string): WineSummary {
+function fillMissingFields(
+  finalData: WineSummary,
+  webData: WineSearchResult | null,
+  ocrText: string,
+  allowHeuristics = true
+): WineSummary {
   const fields: Array<keyof WineSummary> = [
     "vin",
     "land_region",
@@ -437,34 +626,44 @@ function fillMissingFields(finalData: WineSummary, webData: WineSearchResult | n
   const existingPairings = finalData.passar_till.filter((item) => typeof item === "string" && !isBlank(item));
   finalData.passar_till = Array.from(new Set([...existingPairings, ...fromWebPairings])).slice(0, 5);
 
-  const colour = detectColour(finalData, ocrText);
-  const body = detectBody(finalData, ocrText);
-  const sweetness = detectSweetness(finalData, ocrText);
-
-  if (finalData.passar_till.length < 3) {
-    finalData.passar_till = defaultPairings(colour, body, sweetness);
-  }
-
-  if (isBlank(finalData.servering)) {
-    finalData.servering = defaultServing(colour, body, sweetness);
-  }
-
-  if (isBlank(finalData.karaktär)) {
-    finalData.karaktär = defaultCharacter(colour, body, sweetness);
-  }
-
-  if (isBlank(finalData.smak)) {
-    finalData.smak = defaultTaste(colour, body, sweetness);
-  }
-
-  const defaults = defaultMeters(colour, body, sweetness);
   const meters = finalData.meters ?? { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null };
-  finalData.meters = {
-    sötma: typeof meters.sötma === "number" ? meters.sötma : defaults.sötma,
-    fyllighet: typeof meters.fyllighet === "number" ? meters.fyllighet : defaults.fyllighet,
-    fruktighet: typeof meters.fruktighet === "number" ? meters.fruktighet : defaults.fruktighet,
-    fruktsyra: typeof meters.fruktsyra === "number" ? meters.fruktsyra : defaults.fruktsyra,
-  };
+
+  if (allowHeuristics) {
+    const colour = detectColour(finalData, ocrText);
+    const body = detectBody(finalData, ocrText);
+    const sweetness = detectSweetness(finalData, ocrText);
+
+    if (finalData.passar_till.length < 3) {
+      finalData.passar_till = defaultPairings(colour, body, sweetness);
+    }
+
+    if (isBlank(finalData.servering)) {
+      finalData.servering = defaultServing(colour, body, sweetness);
+    }
+
+    if (isBlank(finalData.karaktär)) {
+      finalData.karaktär = defaultCharacter(colour, body, sweetness);
+    }
+
+    if (isBlank(finalData.smak)) {
+      finalData.smak = defaultTaste(colour, body, sweetness);
+    }
+
+    const defaults = defaultMeters(colour, body, sweetness);
+    finalData.meters = {
+      sötma: typeof meters.sötma === "number" ? meters.sötma : defaults.sötma,
+      fyllighet: typeof meters.fyllighet === "number" ? meters.fyllighet : defaults.fyllighet,
+      fruktighet: typeof meters.fruktighet === "number" ? meters.fruktighet : defaults.fruktighet,
+      fruktsyra: typeof meters.fruktsyra === "number" ? meters.fruktsyra : defaults.fruktsyra,
+    };
+  } else {
+    finalData.meters = {
+      sötma: typeof meters.sötma === "number" ? meters.sötma : null,
+      fyllighet: typeof meters.fyllighet === "number" ? meters.fyllighet : null,
+      fruktighet: typeof meters.fruktighet === "number" ? meters.fruktighet : null,
+      fruktsyra: typeof meters.fruktsyra === "number" ? meters.fruktsyra : null,
+    };
+  }
 
   finalData.evidence = finalData.evidence ?? { etiketttext: clamp(ocrText), webbträffar: [] };
   finalData.evidence = {
@@ -552,7 +751,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { imageBase64 } = await req.json();
+    const reqJson = await req.json();
+    const imageBase64 = typeof reqJson?.imageBase64 === "string" ? reqJson.imageBase64 : null;
+    const clientWantsHeuristics = Boolean(reqJson?.allowHeuristics === true);
+
+    if (!imageBase64) {
+      return new Response(JSON.stringify({ ok: false, error: "Missing image data" }), {
+        status: 400,
+        headers: { ...cors, "content-type": "application/json" },
+      });
+    }
 
     const startTime = Date.now();
     console.log(`[${new Date().toISOString()}] Wine analysis started`);
@@ -621,8 +829,9 @@ Deno.serve(async (req) => {
     
     console.log(`[${new Date().toISOString()}] Cache miss, proceeding with analysis...`);
 
-    // Step 2: Perplexity search with enhanced domain whitelist
-    let WEB_JSON: WineSearchResult = {
+    // Step 2: Web search (Perplexity/Gemini fast-path)
+    let cacheNote = "";
+    const defaultWeb: WineSearchResult = {
       vin: "-",
       producent: "-",
       druvor: "-",
@@ -638,83 +847,23 @@ Deno.serve(async (req) => {
       källor: [],
       fallback_mode: true,
     };
-    let cacheNote = "";
 
-    if (PERPLEXITY_API_KEY) {
-      const perplexityStart = Date.now();
-      console.log(`[${new Date().toISOString()}] Starting Perplexity search (${CFG.PPLX_TIMEOUT_MS}ms timeout)...`);
+    const { web: webResult, meta: webMeta } = await parallelWeb(ocrText);
+    let WEB_JSON: WineSearchResult = webResult ? { ...webResult, fallback_mode: false } : { ...defaultWeb };
 
-      try {
-        const queries = buildSearchVariants(ocrText);
-        
-        const schemaJSON = `
-{
-  "vin": "", "producent": "", "druvor": "", "land_region": "",
-  "årgång": "", "alkoholhalt": "", "volym": "", "klassificering": "",
-  "karaktär": "", "smak": "", "servering": "", "passar_till": [], "källor": []
-}
-`.trim();
-
-        const systemPrompt = `Du är en extraktor som MÅSTE returnera ENBART ett giltigt, minifierat JSON-objekt enligt schema. Ingen markdown, inga backticks, ingen kommentar före eller efter. Dubbelcitat på alla nycklar/strängar. KRITISKT: ALL text i ditt svar MÅSTE vara på SVENSKA. Översätt alla beskrivningar till svenska.`;
-
-        const pplxPrompt = `
-VIN-LEDTRÅD (OCR):
-"${ocrText.slice(0, 300)}"
-
-Sök i denna prioritering med site:-filter:
-${queries.slice(0, 8).map((q, i) => `${i + 1}) ${q}`).join("\n")}
-
-Normalisera sökningen (ta bort diakritiska tecken; "Egri" ≈ "Eger").
-
-Returnera ENBART ett JSON-objekt exakt enligt detta schema (saknas uppgift → "-"):
-${schemaJSON}
-        `.trim();
-
-        const perplexityResult = await aiClient.perplexity(pplxPrompt, {
-          model: CFG.PPLX_MODEL,
-          timeoutMs: CFG.PPLX_TIMEOUT_MS,
-          systemPrompt,
-          schemaHint: schemaJSON,
-        });
-
-        WEB_JSON = normalizeSearchResult(perplexityResult);
-        WEB_JSON.fallback_mode = false;
-
-        console.log(`[${new Date().toISOString()}] Perplexity WEB_JSON:`, JSON.stringify(WEB_JSON, null, 2));
-
-        // Clean and sort sources
-        const sources = WEB_JSON.källor ?? [];
-        WEB_JSON.källor = Array.from(new Set(sources))
-          .filter((u) => u.startsWith("http"))
-          .slice(0, CFG.MAX_WEB_URLS)
-          .sort((a, b) => {
-            const score = (u: string) =>
-              u.includes("systembolaget.se") ? 5 :
-              u.includes("vinmonopolet.no") || u.includes("alko.fi") || u.includes("saq.com") || u.includes("lcbo.com") ? 4 :
-              u.includes("wine-searcher.com") || u.includes("wine.com") || u.includes("totalwine.com") ? 3 :
-              u.includes("decanter.com") || u.includes("winemag.com") || u.includes("jancisrobinson.com") ? 2 :
-              u.includes("vivino.com") || u.includes("cellartracker.com") ? 1 : 0;
-            return score(b) - score(a);
-          });
-
-        const perplexityTime = Date.now() - perplexityStart;
-        console.log(`[${new Date().toISOString()}] Perplexity success (${perplexityTime}ms), sources: ${WEB_JSON.källor.length}`);
-      } catch (error) {
-        const perplexityTime = Date.now() - perplexityStart;
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        
-        if (errorMsg === "perplexity_timeout") {
-          console.log(`[${new Date().toISOString()}] Perplexity timeout (${perplexityTime}ms) - using OCR-only mode`);
-          cacheNote = "perplexity_timeout";
-        } else {
-          console.error(`[${new Date().toISOString()}] Perplexity error (${perplexityTime}ms):`, errorMsg);
-          console.error("Perplexity full error details:", error);
-          cacheNote = "perplexity_failed";
-        }
+    if (!webResult && PERPLEXITY_API_KEY) {
+      if (webMeta.pplx_status === "timeout") {
+        cacheNote = "perplexity_timeout";
+      } else if (webMeta.pplx_status === "error") {
+        cacheNote = "perplexity_failed";
       }
     }
 
-    // Step 3: Gemini summarization (strict JSON)
+    if (!webResult) {
+      console.log(`[${new Date().toISOString()}] No web data found – falling back to heuristics.`);
+    }
+
+// Step 3: Gemini summarization (strict JSON)
     const geminiStart = Date.now();
     console.log(`[${new Date().toISOString()}] Starting Gemini summarization...`);
 
@@ -815,10 +964,32 @@ WEB_JSON:
     // Post-process
     finalData = enrichFallback(ocrText, finalData);
     finalData = sanitize(finalData);
-    finalData = fillMissingFields(finalData, WEB_JSON, ocrText);
+
+    const heuristicsAuto = !clientWantsHeuristics && (webMeta.fastPathHit || !webResult);
+    const allowHeuristics = clientWantsHeuristics || webMeta.fastPathHit || !webResult;
+
+    finalData = fillMissingFields(finalData, WEB_JSON, ocrText, allowHeuristics);
+
+    if (!cacheNote && heuristicsAuto) {
+      cacheNote = webMeta.fastPathHit ? "fastpath" : "fastpath_heuristic";
+    }
 
     const totalTime = Date.now() - startTime;
     console.log(`[${new Date().toISOString()}] Total processing time: ${totalTime}ms`);
+    console.log(JSON.stringify({
+      note: cacheNote || "success",
+      timings: {
+        total_ms: totalTime,
+        pplx_ms: webMeta.pplx_ms,
+        gemini_ms: webMeta.gemini_ms,
+      },
+      web_trace: {
+        fastPathHit: webMeta.fastPathHit,
+        pplx_status: webMeta.pplx_status,
+        gemini_status: webMeta.gemini_status,
+        heuristics_allowed: allowHeuristics,
+      }
+    }));
 
     // Store in both caches
     setMemoryCache(cacheKey, finalData);

@@ -12,6 +12,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
+import { ProgressBanner } from "@/components/ProgressBanner";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { SystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
 import { SystembolagetClassification } from "@/components/SystembolagetClassification";
@@ -43,10 +44,29 @@ const WineSnap = () => {
   const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | null>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
+  const [progressNote, setProgressNote] = useState<string | null>(null);
 
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
   const cameraOpenedRef = useRef(false);
+  const ocrWorkerRef = useRef<any | null>(null);
+
+  useEffect(() => {
+    return () => {
+      const worker = ocrWorkerRef.current;
+      if (worker) {
+        worker.terminate?.();
+        ocrWorkerRef.current = null;
+      }
+    };
+  }, []);
+
+  async function getWorker(langs: string) {
+    if (ocrWorkerRef.current) return ocrWorkerRef.current;
+    const worker = await createWorker(langs);
+    ocrWorkerRef.current = worker;
+    return worker;
+  }
 
   useEffect(() => {
     if (results || previewImage) return;
@@ -67,22 +87,25 @@ const WineSnap = () => {
     setIsProcessing(true);
     setProcessingStep("prep");
     setBanner(null);
+    setProgressNote(null);
 
     try {
-      // Step 1: Preprocess image
-      console.log("Step 1: Preprocessing image...");
-      const processedImage = await preprocessImage(imageData);
-      console.log("Image preprocessed, size:", processedImage.length);
+      console.log("Steg 1–2: Preprocess + OCR i parallell...");
+      const preprocessPromise = preprocessImage(imageData);
 
-      // Step 2: OCR with Tesseract.js (multi-language support)
       setProcessingStep("ocr");
       console.log("Step 2: Running OCR with Tesseract.js...");
       console.log("OCR languages:", OLANGS);
 
-      const worker = await createWorker(OLANGS);
-      const { data: { text } } = await worker.recognize(processedImage);
-      await worker.terminate();
+      const worker = await getWorker(OLANGS);
+      const [ocrResult, processedImage] = await Promise.all([
+        worker.recognize(imageData),
+        preprocessPromise,
+      ]);
 
+      console.log("Image preprocessed, size:", processedImage.length);
+
+      const text = ocrResult?.data?.text ?? "";
       // Normalize text: NFC normalization + whitespace cleanup
       const ocrText = text.normalize("NFC").replace(/\s{2,}/g, " ").trim();
       console.log("OCR text length:", ocrText.length);
@@ -100,6 +123,7 @@ const WineSnap = () => {
           title: "Klart!",
           description: "Analys hämtad från cache.",
         });
+        setProgressNote(null);
         setIsProcessing(false);
         setProcessingStep(null);
         return;
@@ -107,6 +131,7 @@ const WineSnap = () => {
 
       // Step 3: GPT Analysis with OCR text
       setProcessingStep("analysis");
+      setProgressNote("Analyserar – kan ta ~3 sekunder...");
       console.log("Step 3: Analyzing with GPT...");
 
       const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wine-vision`;
@@ -121,7 +146,8 @@ const WineSnap = () => {
           ocrText,
           imageBase64: processedImage,
           noTextFound,
-          uiLang
+          uiLang,
+          allowHeuristics: false
         })
       });
 
@@ -148,6 +174,7 @@ const WineSnap = () => {
           meters: { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
           evidence: { etiketttext: "", webbträffar: [] }
         });
+        setProgressNote(null);
         setIsProcessing(false);
         setProcessingStep(null);
         return;
@@ -183,6 +210,7 @@ const WineSnap = () => {
 
         setResults(result);
         setCachedAnalysis(cacheLookupKey, result, imageData);
+        setProgressNote(null);
 
         // Show banner based on note
         if (note === "hit_memory" || note === "hit_supabase") {
@@ -191,6 +219,8 @@ const WineSnap = () => {
           setBanner({ type: "info", text: "Webbsökning tog för lång tid – använder endast etikett-info." });
         } else if (note === "perplexity_failed") {
           setBanner({ type: "info", text: "Kunde ej söka på webben – använder endast etikett-info. Kolla loggarna för detaljer." });
+        } else if (note === "fastpath" || note === "fastpath_heuristic") {
+          setBanner({ type: "info", text: "⚡ Snabbanalys – fyller profil utan webbsvar." });
         } else {
           setBanner({ type: "success", text: "Klart! Din vinprofil är uppdaterad." });
         }
@@ -205,6 +235,7 @@ const WineSnap = () => {
     } finally {
       setIsProcessing(false);
       setProcessingStep(null);
+      setProgressNote(null);
     }
   };
 
@@ -235,6 +266,7 @@ const WineSnap = () => {
     setIsProcessing(false);
     setProcessingStep(null);
     setBanner(null);
+    setProgressNote(null);
     autoOpenedRef.current = false;
     cameraOpenedRef.current = false;
 
@@ -611,13 +643,9 @@ const WineSnap = () => {
 
                   {isProcessing && (
                     <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/70 backdrop-blur">
-                      <div className="space-y-3 text-center">
+                      <div className="w-full max-w-xs space-y-4 text-center">
                         <Loader2 className="mx-auto h-10 w-10 animate-spin text-purple-200" />
-                        <p className="text-lg font-semibold text-white">
-                          {processingStep === "prep" && "Förbereder bild..."}
-                          {processingStep === "ocr" && "Läser etikett..."}
-                          {processingStep === "analysis" && "Analyserar vin..."}
-                        </p>
+                        <ProgressBanner step={processingStep} note={progressNote} />
                       </div>
                     </div>
                   )}
