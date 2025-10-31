@@ -275,16 +275,23 @@ const WineSnap = () => {
       }
     } catch (error) {
       console.error("Processing error:", error);
+      const errorMessage =
+        error instanceof Error && error.message === "ocr_timeout"
+          ? "OCR tog för lång tid. Vi försökte fortsätta ändå – prova gärna fota rakare och i bättre ljus."
+          : error instanceof Error
+            ? error.message
+            : "Kunde inte analysera bilden – försök fota rakare och i bra ljus.";
+
       setBanner({
         type: "error",
-        text:
-          error instanceof Error && error.message === "ocr_timeout"
-            ? "OCR tog för lång tid. Vi försökte fortsätta ändå – prova gärna fota rakare och i bättre ljus."
-            : error instanceof Error
-              ? error.message
-              : "Kunde inte analysera bilden – försök fota rakare och i bra ljus."
+        text: errorMessage
       });
-      setPreviewImage(null);
+
+      toast({
+        title: "Skanningen misslyckades",
+        description: errorMessage,
+        variant: "destructive"
+      });
     } finally {
       setIsProcessing(false);
       setProcessingStep(null);
