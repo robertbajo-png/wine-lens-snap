@@ -36,20 +36,15 @@ let workerPromise: Promise<import("tesseract.js").Worker> | null = null;
 let currentLang: OcrLang | null = null;
 
 async function getWorker(lang: OcrLang) {
-  if (!workerPromise) {
-    workerPromise = createWorker();
+  if (!workerPromise || currentLang !== lang) {
+    // Skapa ny worker och initiera direkt med språket
+    workerPromise = (async () => {
+      const worker = await createWorker(lang);
+      currentLang = lang;
+      return worker;
+    })();
   }
-  const worker = await workerPromise;
-  // Ladda språk endast om nytt
-  if (currentLang !== lang) {
-    // Ladda + initiera valt språk
-    // @ts-ignore - tesseract typings allows string
-    await worker.loadLanguage(lang);
-    // @ts-ignore
-    await worker.initialize(lang);
-    currentLang = lang;
-  }
-  return worker;
+  return await workerPromise;
 }
 
 /** Förladda worker vid sida/komponents initialisering */

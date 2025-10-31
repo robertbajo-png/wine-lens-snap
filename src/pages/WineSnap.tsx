@@ -222,7 +222,7 @@ const WineSnap = () => {
     setPreviewImage(null);
     setResults(null);
     setIsProcessing(false);
-    setProcessingStep(null);
+    setProgressStep(null);
     setBanner(null);
     setProgressNote(null);
     autoOpenedRef.current = false;
