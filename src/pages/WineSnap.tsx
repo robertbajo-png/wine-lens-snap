@@ -41,7 +41,7 @@ const WineSnap = () => {
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | null>(null);
+  const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | "error" | null>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
   const [progressNote, setProgressNote] = useState<string | null>(null);
@@ -96,6 +96,8 @@ const WineSnap = () => {
         throw e;
       }
     };
+
+    let encounteredError = false;
 
     try {
       return await withTimeout(doOCR(OLANGS), OCR_TIMEOUT_MS);
@@ -274,28 +276,33 @@ const WineSnap = () => {
         }
       }
     } catch (error) {
-      console.error("Processing error:", error);
+      encounteredError = true;
+      console.error("Processing failed in phase:", processingStep, error);
+
       const errorMessage =
         error instanceof Error && error.message === "ocr_timeout"
-          ? "OCR tog för lång tid. Vi försökte fortsätta ändå – prova gärna fota rakare och i bättre ljus."
+          ? "OCR tog för lång tid – försökte fortsätta ändå. Prova igen med bättre ljus eller rakare etikett."
           : error instanceof Error
             ? error.message
-            : "Kunde inte analysera bilden – försök fota rakare och i bra ljus.";
+            : "Kunde inte analysera bilden. Försök igen eller fota rakare i bättre ljus.";
 
-      setBanner({
-        type: "error",
-        text: errorMessage
-      });
+      setBanner({ type: "error", text: errorMessage });
+      setProcessingStep("error");
+      setProgressNote(null);
 
       toast({
         title: "Skanningen misslyckades",
         description: errorMessage,
         variant: "destructive"
       });
+
+      return;
     } finally {
       setIsProcessing(false);
-      setProcessingStep(null);
-      setProgressNote(null);
+      if (!encounteredError) {
+        setProcessingStep(null);
+        setProgressNote(null);
+      }
     }
   };
 
