@@ -41,7 +41,9 @@ const WineSnap = () => {
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | null>(null);
+  const [processingStep, setProcessingStep] = useState<
+    "prep" | "ocr" | "analysis" | "error" | "done" | null
+  >(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
   const [progressNote, setProgressNote] = useState<string | null>(null);
@@ -130,6 +132,8 @@ const WineSnap = () => {
     setProcessingStep("prep");
     setBanner(null);
     setProgressNote(null);
+
+    let errorOccurred = false;
 
     try {
       console.log("Step 1: Preprocessing image...");
@@ -274,28 +278,35 @@ const WineSnap = () => {
         }
       }
     } catch (error) {
-      console.error("Processing error:", error);
+      errorOccurred = true;
+      console.error("Processing failed in phase:", processingStep, error);
+
       const errorMessage =
         error instanceof Error && error.message === "ocr_timeout"
-          ? "OCR tog för lång tid. Vi försökte fortsätta ändå – prova gärna fota rakare och i bättre ljus."
+          ? "OCR tog för lång tid – försökte fortsätta ändå. Prova igen med bättre ljus eller rakare etikett."
           : error instanceof Error
             ? error.message
-            : "Kunde inte analysera bilden – försök fota rakare och i bra ljus.";
+            : "Kunde inte analysera bilden. Försök igen eller fota rakare i bättre ljus.";
 
       setBanner({
         type: "error",
-        text: errorMessage
+        text: errorMessage,
       });
+
+      setProcessingStep("error");
 
       toast({
         title: "Skanningen misslyckades",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsProcessing(false);
-      setProcessingStep(null);
       setProgressNote(null);
+
+      if (!errorOccurred) {
+        setProcessingStep(null);
+      }
     }
   };
 
@@ -437,6 +448,19 @@ const WineSnap = () => {
               }`}
             >
               {banner.text}
+            </div>
+          )}
+
+          {banner?.type === "error" && previewImage && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                size="lg"
+                onClick={() => processWineImage(previewImage)}
+                className="h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold shadow-lg hover:opacity-90 transition"
+                disabled={isProcessing}
+              >
+                Försök igen
+              </Button>
             </div>
           )}
 
@@ -678,6 +702,33 @@ const WineSnap = () => {
             </Button>
           </div>
         </header>
+
+        {banner && (
+          <div
+            className={`mb-4 w-full rounded-2xl border px-4 py-3 text-sm transition ${
+              banner.type === "error"
+                ? "border-red-500/40 bg-red-500/10 text-red-100"
+                : banner.type === "success"
+                ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100"
+                : "border-sky-400/40 bg-sky-400/10 text-sky-100"
+            }`}
+          >
+            {banner.text}
+          </div>
+        )}
+
+        {banner?.type === "error" && previewImage && (
+          <div className="mb-6 flex w-full justify-center">
+            <Button
+              size="lg"
+              onClick={() => processWineImage(previewImage)}
+              className="h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold shadow-lg hover:opacity-90 transition"
+              disabled={isProcessing}
+            >
+              Försök igen
+            </Button>
+          </div>
+        )}
 
         <div className="flex w-full max-w-md flex-col items-center gap-8">
           <div className="space-y-3">

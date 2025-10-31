@@ -1,14 +1,32 @@
 import React from "react";
 
-type Step = "prep" | "ocr" | "analysis" | "done" | null;
+type Step = "prep" | "ocr" | "analysis" | "done" | "error" | null;
 
 export const ProgressBanner: React.FC<{ step: Step; note?: string | null }> = ({ step, note }) => {
-  const pct = step === "prep" ? 20 : step === "ocr" ? 55 : step === "analysis" ? 90 : step === "done" ? 100 : 0;
-  const label = step === "prep" ? "Förbereder bild"
-    : step === "ocr" ? "Läser etiketten"
-    : step === "analysis" ? "Bygger vinprofil"
-    : step === "done" ? "Klart"
-    : "Startar…";
+  const pct =
+    step === "prep"
+      ? 20
+      : step === "ocr"
+      ? 55
+      : step === "analysis"
+      ? 90
+      : step === "done" || step === "error"
+      ? 100
+      : 0;
+  const label =
+    step === "prep"
+      ? "Förbereder bild"
+      : step === "ocr"
+      ? "Läser etiketten"
+      : step === "analysis"
+      ? "Bygger vinprofil"
+      : step === "done"
+      ? "Klart"
+      : step === "error"
+      ? "Något gick fel"
+      : "Startar…";
+  const progressClass =
+    step === "error" ? "h-1.5 rounded bg-red-400 transition-all" : "h-1.5 rounded bg-white/80 transition-all";
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-100">
@@ -18,7 +36,7 @@ export const ProgressBanner: React.FC<{ step: Step; note?: string | null }> = ({
       </div>
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-white/10">
         <div
-          className="h-1.5 rounded bg-white/80 transition-all"
+          className={progressClass}
           style={{ width: `${pct}%` }}
           aria-valuemin={0}
           aria-valuemax={100}
