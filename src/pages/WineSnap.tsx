@@ -41,7 +41,13 @@ const WineSnap = () => {
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+ codex/improve-error-handling-in-winesnap
+  const [processingStep, setProcessingStep] = useState<
+    "prep" | "ocr" | "analysis" | "error" | "done" | null
+  >(null);
+=======
   const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | "error" | null>(null);
+ main
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
   const [progressNote, setProgressNote] = useState<string | null>(null);
@@ -132,6 +138,8 @@ const WineSnap = () => {
     setProcessingStep("prep");
     setBanner(null);
     setProgressNote(null);
+
+    let errorOccurred = false;
 
     try {
       console.log("Step 1: Preprocessing image...");
@@ -276,7 +284,11 @@ const WineSnap = () => {
         }
       }
     } catch (error) {
+ codex/improve-error-handling-in-winesnap
+      errorOccurred = true;
+=======
       encounteredError = true;
+ main
       console.error("Processing failed in phase:", processingStep, error);
 
       const errorMessage =
@@ -286,22 +298,38 @@ const WineSnap = () => {
             ? error.message
             : "Kunde inte analysera bilden. Försök igen eller fota rakare i bättre ljus.";
 
+ codex/improve-error-handling-in-winesnap
+      setBanner({
+        type: "error",
+        text: errorMessage,
+      });
+=======
       setBanner({ type: "error", text: errorMessage });
       setProcessingStep("error");
       setProgressNote(null);
+ main
+
+      setProcessingStep("error");
 
       toast({
         title: "Skanningen misslyckades",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
       });
 
       return;
     } finally {
       setIsProcessing(false);
+ codex/improve-error-handling-in-winesnap
+      setProgressNote(null);
+
+      if (!errorOccurred) {
+        setProcessingStep(null);
+=======
       if (!encounteredError) {
         setProcessingStep(null);
         setProgressNote(null);
+main
       }
     }
   };
@@ -444,6 +472,19 @@ const WineSnap = () => {
               }`}
             >
               {banner.text}
+            </div>
+          )}
+
+          {banner?.type === "error" && previewImage && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                size="lg"
+                onClick={() => processWineImage(previewImage)}
+                className="h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold shadow-lg hover:opacity-90 transition"
+                disabled={isProcessing}
+              >
+                Försök igen
+              </Button>
             </div>
           )}
 
@@ -685,6 +726,33 @@ const WineSnap = () => {
             </Button>
           </div>
         </header>
+
+        {banner && (
+          <div
+            className={`mb-4 w-full rounded-2xl border px-4 py-3 text-sm transition ${
+              banner.type === "error"
+                ? "border-red-500/40 bg-red-500/10 text-red-100"
+                : banner.type === "success"
+                ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100"
+                : "border-sky-400/40 bg-sky-400/10 text-sky-100"
+            }`}
+          >
+            {banner.text}
+          </div>
+        )}
+
+        {banner?.type === "error" && previewImage && (
+          <div className="mb-6 flex w-full justify-center">
+            <Button
+              size="lg"
+              onClick={() => processWineImage(previewImage)}
+              className="h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold shadow-lg hover:opacity-90 transition"
+              disabled={isProcessing}
+            >
+              Försök igen
+            </Button>
+          </div>
+        )}
 
         <div className="flex w-full max-w-md flex-col items-center gap-8">
           <div className="space-y-3">
