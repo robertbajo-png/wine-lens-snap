@@ -17,23 +17,11 @@ import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { SystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
 import { SystembolagetClassification } from "@/components/SystembolagetClassification";
 import { SystembolagetFactList } from "@/components/SystembolagetFactList";
-import { preprocessImage } from "@/lib/imagePrep";
-import { createWorker } from "tesseract.js";
+import { preprocessImage } from "@/lib/preprocess";
+import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
 
 const INTRO_ROUTE = "/";
-
-// OCR language support - comprehensive wine label coverage
-const OLANGS = [
-  // Europa (latinskt)
-  "eng","swe","hun","deu","fra","spa","ita","por","nld","nor","dan","fin",
-  "pol","ces","slk","slv","ron","hrv","srp_latn",
-  // Central/öst
-  "tur","ell","bul","ukr","rus","mkd","lav","lit","est",
-  // RTL/CJK/SEA
-  "heb","ara","fas","urd",
-  "chi_sim","chi_tra","jpn","kor",
-  "tha","vie","ind","msa"
-].join("+");
+type ProgressKey = "prep" | "ocr" | "analysis" | null;
 
 const WineSnap = () => {
   const { toast } = useToast();
@@ -41,7 +29,7 @@ const WineSnap = () => {
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | "error" | null>(null);
+  const [progressStep, setProgressStep] = useState<ProgressKey>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
   const [progressNote, setProgressNote] = useState<string | null>(null);
@@ -49,68 +37,12 @@ const WineSnap = () => {
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
   const cameraOpenedRef = useRef(false);
-  // ==== OCR-konstanter ====
-  const OCR_TIMEOUT_MS = 10000; // hård timeout för att inte fastna
-
-  /**
-   * Kör Tesseract med progress + hård timeout.
-   * Försöker först med OLANGS, faller tillbaka till 'eng' vid fel/timeout.
-   * Returnerar normaliserad text (kan vara tom sträng).
-   */
-  async function runOCRWithTimeout(imageData: string): Promise<string> {
-    const withTimeout = <T,>(p: Promise<T>, ms: number) =>
-      new Promise<T>((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error("ocr_timeout")), ms);
-        p
-          .then((v) => {
-            clearTimeout(t);
-            resolve(v);
-          })
-          .catch((e) => {
-            clearTimeout(t);
-            reject(e);
-          });
-      });
-
-    const doOCR = async (langs: string) => {
-      const worker = await createWorker(langs, 1, {
-        logger: () => {
-          // Progress callback (0..1). Kan kopplas till UI om vi vill.
-        },
-      });
-      try {
-        const {
-          data: { text },
-        } = await worker.recognize(imageData);
-        await worker.terminate();
-        return (text || "")
-          .normalize("NFC")
-          .replace(/\s{2,}/g, " ")
-          .trim();
-      } catch (e) {
-        try {
-          await worker.terminate();
-        } catch {
-          // noop
-        }
-        throw e;
-      }
-    };
-
-    let encounteredError = false;
-
-    try {
-      return await withTimeout(doOCR(OLANGS), OCR_TIMEOUT_MS);
-    } catch (e) {
-      console.warn("OCR failed/timeout on OLANGS, falling back to ENG:", e);
-      try {
-        return await withTimeout(doOCR("eng"), Math.round(OCR_TIMEOUT_MS * 0.7));
-      } catch (e2) {
-        console.error("OCR fallback ENG also failed:", e2);
-        return "";
-      }
-    }
-  }
+  useEffect(() => {
+    const lang = navigator.language || "sv-SE";
+    prewarmOcr(lang).catch(() => {
+      // ignorerad förladdningsfail
+    });
+  }, []);
 
   useEffect(() => {
     if (results || previewImage) return;
@@ -124,35 +56,30 @@ const WineSnap = () => {
   }, [results, previewImage]);
 
   const processWineImage = async (imageData: string) => {
-    // Get user's language from browser
     const uiLang = navigator.language || "sv-SE";
-    console.log("UI Language:", uiLang);
 
     setIsProcessing(true);
-    setProcessingStep("prep");
     setBanner(null);
-    setProgressNote(null);
-
-    let errorOccurred = false;
+    setProgressStep("prep");
+    setProgressNote("Förbereder bilden…");
 
     try {
-      console.log("Step 1: Preprocessing image...");
-      const processedImage = await preprocessImage(imageData);
-      console.log("Image preprocessed, size:", processedImage.length);
+      const processedImage = await preprocessImage(imageData, {
+        maxSide: 1200,
+        quality: 0.68,
+        grayscale: true,
+        contrast: 1.12,
+      });
 
-      setProcessingStep("ocr");
-      console.log("Step 2: Running OCR (timeout + fallback)...");
-      const ocrText = await runOCRWithTimeout(processedImage);
-      console.log("OCR text length:", ocrText.length);
-      console.log("OCR text preview:", ocrText.substring(0, 200));
+      setProgressStep("ocr");
+      setProgressNote("Läser text (OCR) …");
+      const ocrText = await ocrRecognize(processedImage, uiLang);
 
-      const noTextFound = ocrText.length < 10;
-      console.log("No text found flag:", noTextFound);
+      const noTextFound = !ocrText || ocrText.length < 10;
       if (noTextFound) {
         toast({
           title: "Fortsätter utan etiketttext",
-          description:
-            "Kunde inte läsa etiketten i tid – vi söker på webben utifrån bild/heuristik.",
+          description: "Kunde inte läsa etiketten – vi söker utifrån bild och heuristik.",
         });
       }
 
@@ -165,16 +92,14 @@ const WineSnap = () => {
           title: "Klart!",
           description: "Analys hämtad från cache.",
         });
+        setProgressStep(null);
         setProgressNote(null);
         setIsProcessing(false);
-        setProcessingStep(null);
         return;
       }
 
-      // Step 3: GPT Analysis with OCR text
-      setProcessingStep("analysis");
-      setProgressNote("Analyserar – kan ta ~3 sekunder...");
-      console.log("Step 3: Analyzing with GPT...");
+      setProgressStep("analysis");
+      setProgressNote("Analyserar vinet …");
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -186,54 +111,31 @@ const WineSnap = () => {
       }
 
       const functionUrl = `${supabaseUrl}/functions/v1/wine-vision`;
-
       const response = await fetch(functionUrl, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'apikey': supabaseAnonKey
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          apikey: supabaseAnonKey,
         },
         body: JSON.stringify({
           ocrText,
           imageBase64: processedImage,
           noTextFound,
           uiLang,
-          allowHeuristics: false
-        })
+        }),
       });
-
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Edge function error:", errorData);
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        throw new Error(errorData?.error || `HTTP ${response.status}`);
       }
 
-      const responseData = await response.json();
-      console.log("Received data from vision API:", responseData);
+      const { ok, data, note } = await response.json();
 
-      // Handle new response format: { ok, data, note }
-      if (!responseData.ok) {
-        setBanner({ type: "error", text: "Tyvärr, ingen data tillgänglig för denna flaska – prova en annan bild eller kontrollera uppkopplingen." });
-        setResults(responseData.data || {
-          vin: "–", land_region: "–", producent: "–", druvor: "–", årgång: "–",
-          typ: "–", färgtyp: "–", klassificering: "–", alkoholhalt: "–", volym: "–",
-          karaktär: "–", smak: "–", passar_till: [], servering: "–", sockerhalt: "–",
-          syra: "–", källa: "–",
-          meters: { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
-          evidence: { etiketttext: "", webbträffar: [] }
-        });
-        setProgressNote(null);
-        setIsProcessing(false);
-        setProcessingStep(null);
-        return;
+      if (!ok) {
+        throw new Error("Analys misslyckades");
       }
-
-      const data = responseData.data;
-      const note = responseData.note;
 
       if (data) {
         const result: WineAnalysisResult = {
@@ -257,20 +159,18 @@ const WineSnap = () => {
           meters: data.meters || { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
           evidence: data.evidence || { etiketttext: "", webbträffar: [] },
           detekterat_språk: data.detekterat_språk,
-          originaltext: data.originaltext
+          originaltext: data.originaltext,
         };
 
         setResults(result);
-        setCachedAnalysis(cacheLookupKey, result, imageData);
-        setProgressNote(null);
+        setCachedAnalysis(cacheLookupKey, result, processedImage);
 
-        // Show banner based on note
         if (note === "hit_memory" || note === "hit_supabase") {
           setBanner({ type: "info", text: "Hämtade sparad profil för snabbare upplevelse." });
         } else if (note === "perplexity_timeout") {
           setBanner({ type: "info", text: "Webbsökning tog för lång tid – använder endast etikett-info." });
         } else if (note === "perplexity_failed") {
-          setBanner({ type: "info", text: "Kunde ej söka på webben – använder endast etikett-info. Kolla loggarna för detaljer." });
+          setBanner({ type: "info", text: "Kunde ej söka på webben – använder endast etikett-info." });
         } else if (note === "fastpath" || note === "fastpath_heuristic") {
           setBanner({ type: "info", text: "⚡ Snabbanalys – fyller profil utan webbsvar." });
         } else {
@@ -278,17 +178,12 @@ const WineSnap = () => {
         }
       }
     } catch (error) {
-      console.error("Processing failed in phase:", processingStep, error);
-
       const errorMessage =
-        error instanceof Error && error.message === "ocr_timeout"
-          ? "OCR tog för lång tid – försökte fortsätta ändå. Prova igen med bättre ljus eller rakare etikett."
-          : error instanceof Error
-            ? error.message
-            : "Kunde inte analysera bilden. Försök igen eller fota rakare i bättre ljus.";
+        error instanceof Error
+          ? error.message
+          : "Kunde inte analysera bilden – försök igen i bättre ljus.";
 
       setBanner({ type: "error", text: errorMessage });
-      setProcessingStep("error");
 
       toast({
         title: "Skanningen misslyckades",
@@ -297,10 +192,8 @@ const WineSnap = () => {
       });
     } finally {
       setIsProcessing(false);
+      setProgressStep(null);
       setProgressNote(null);
-      if (processingStep !== "error") {
-        setProcessingStep(null);
-      }
     }
   };
 
@@ -750,7 +643,7 @@ const WineSnap = () => {
                     <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/70 backdrop-blur">
                       <div className="w-full max-w-xs space-y-4 text-center">
                         <Loader2 className="mx-auto h-10 w-10 animate-spin text-purple-200" />
-                        <ProgressBanner step={processingStep} note={progressNote} />
+                        <ProgressBanner step={progressStep} note={progressNote} />
                       </div>
                     </div>
                   )}
