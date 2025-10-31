@@ -19,6 +19,7 @@ import { SystembolagetClassification } from "@/components/SystembolagetClassific
 import { SystembolagetFactList } from "@/components/SystembolagetFactList";
 import { preprocessImage } from "@/lib/imagePrep";
 import { createWorker } from "tesseract.js";
+import type { Worker as TesseractWorker } from "tesseract.js";
 
 const INTRO_ROUTE = "/";
 
@@ -49,7 +50,7 @@ const WineSnap = () => {
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
   const cameraOpenedRef = useRef(false);
-  const ocrWorkerRef = useRef<any | null>(null);
+  const ocrWorkerRef = useRef<TesseractWorker | null>(null);
 
   useEffect(() => {
     return () => {
@@ -134,13 +135,23 @@ const WineSnap = () => {
       setProgressNote("Analyserar – kan ta ~3 sekunder...");
       console.log("Step 3: Analyzing with GPT...");
 
-      const functionUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wine-vision`;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error(
+          "Appen saknar Supabase-konfiguration – sätt VITE_SUPABASE_URL och VITE_SUPABASE_PUBLISHABLE_KEY."
+        );
+      }
+
+      const functionUrl = `${supabaseUrl}/functions/v1/wine-vision`;
 
       const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseAnonKey
         },
         body: JSON.stringify({
           ocrText,

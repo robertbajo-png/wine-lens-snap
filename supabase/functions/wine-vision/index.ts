@@ -849,7 +849,7 @@ Deno.serve(async (req) => {
     };
 
     const { web: webResult, meta: webMeta } = await parallelWeb(ocrText);
-    let WEB_JSON: WineSearchResult = webResult ? { ...webResult, fallback_mode: false } : { ...defaultWeb };
+    const WEB_JSON: WineSearchResult = webResult ? { ...webResult, fallback_mode: false } : { ...defaultWeb };
 
     if (!webResult && PERPLEXITY_API_KEY) {
       if (webMeta.pplx_status === "timeout") {
