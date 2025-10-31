@@ -19,7 +19,6 @@ import { SystembolagetClassification } from "@/components/SystembolagetClassific
 import { SystembolagetFactList } from "@/components/SystembolagetFactList";
 import { preprocessImage } from "@/lib/imagePrep";
 import { createWorker } from "tesseract.js";
-import type { Worker as TesseractWorker } from "tesseract.js";
 
 const INTRO_ROUTE = "/";
 
@@ -50,23 +49,65 @@ const WineSnap = () => {
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
   const cameraOpenedRef = useRef(false);
-  const ocrWorkerRef = useRef<TesseractWorker | null>(null);
+  // ==== OCR-konstanter ====
+  const OCR_TIMEOUT_MS = 10000; // hård timeout för att inte fastna
 
-  useEffect(() => {
-    return () => {
-      const worker = ocrWorkerRef.current;
-      if (worker) {
-        worker.terminate?.();
-        ocrWorkerRef.current = null;
+  /**
+   * Kör Tesseract med progress + hård timeout.
+   * Försöker först med OLANGS, faller tillbaka till 'eng' vid fel/timeout.
+   * Returnerar normaliserad text (kan vara tom sträng).
+   */
+  async function runOCRWithTimeout(imageData: string): Promise<string> {
+    const withTimeout = <T,>(p: Promise<T>, ms: number) =>
+      new Promise<T>((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error("ocr_timeout")), ms);
+        p
+          .then((v) => {
+            clearTimeout(t);
+            resolve(v);
+          })
+          .catch((e) => {
+            clearTimeout(t);
+            reject(e);
+          });
+      });
+
+    const doOCR = async (langs: string) => {
+      const worker = await createWorker(langs, 1, {
+        logger: () => {
+          // Progress callback (0..1). Kan kopplas till UI om vi vill.
+        },
+      });
+      try {
+        const {
+          data: { text },
+        } = await worker.recognize(imageData);
+        await worker.terminate();
+        return (text || "")
+          .normalize("NFC")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+      } catch (e) {
+        try {
+          await worker.terminate();
+        } catch {
+          // noop
+        }
+        throw e;
       }
     };
-  }, []);
 
-  async function getWorker(langs: string) {
-    if (ocrWorkerRef.current) return ocrWorkerRef.current;
-    const worker = await createWorker(langs);
-    ocrWorkerRef.current = worker;
-    return worker;
+    try {
+      return await withTimeout(doOCR(OLANGS), OCR_TIMEOUT_MS);
+    } catch (e) {
+      console.warn("OCR failed/timeout on OLANGS, falling back to ENG:", e);
+      try {
+        return await withTimeout(doOCR("eng"), Math.round(OCR_TIMEOUT_MS * 0.7));
+      } catch (e2) {
+        console.error("OCR fallback ENG also failed:", e2);
+        return "";
+      }
+    }
   }
 
   useEffect(() => {
@@ -91,29 +132,25 @@ const WineSnap = () => {
     setProgressNote(null);
 
     try {
-      console.log("Steg 1–2: Preprocess + OCR i parallell...");
-      const preprocessPromise = preprocessImage(imageData);
-
-      setProcessingStep("ocr");
-      console.log("Step 2: Running OCR with Tesseract.js...");
-      console.log("OCR languages:", OLANGS);
-
-      const worker = await getWorker(OLANGS);
-      const [ocrResult, processedImage] = await Promise.all([
-        worker.recognize(imageData),
-        preprocessPromise,
-      ]);
-
+      console.log("Step 1: Preprocessing image...");
+      const processedImage = await preprocessImage(imageData);
       console.log("Image preprocessed, size:", processedImage.length);
 
-      const text = ocrResult?.data?.text ?? "";
-      // Normalize text: NFC normalization + whitespace cleanup
-      const ocrText = text.normalize("NFC").replace(/\s{2,}/g, " ").trim();
+      setProcessingStep("ocr");
+      console.log("Step 2: Running OCR (timeout + fallback)...");
+      const ocrText = await runOCRWithTimeout(processedImage);
       console.log("OCR text length:", ocrText.length);
       console.log("OCR text preview:", ocrText.substring(0, 200));
 
       const noTextFound = ocrText.length < 10;
       console.log("No text found flag:", noTextFound);
+      if (noTextFound) {
+        toast({
+          title: "Fortsätter utan etiketttext",
+          description:
+            "Kunde inte läsa etiketten i tid – vi söker på webben utifrån bild/heuristik.",
+        });
+      }
 
       const cacheLookupKey = !noTextFound && ocrText ? ocrText : imageData;
       const cached = getCachedAnalysis(cacheLookupKey);
@@ -240,7 +277,12 @@ const WineSnap = () => {
       console.error("Processing error:", error);
       setBanner({
         type: "error",
-        text: error instanceof Error ? error.message : "Kunde inte analysera bilden – försök fota rakare och i bra ljus."
+        text:
+          error instanceof Error && error.message === "ocr_timeout"
+            ? "OCR tog för lång tid. Vi försökte fortsätta ändå – prova gärna fota rakare och i bättre ljus."
+            : error instanceof Error
+              ? error.message
+              : "Kunde inte analysera bilden – försök fota rakare och i bra ljus."
       });
       setPreviewImage(null);
     } finally {
