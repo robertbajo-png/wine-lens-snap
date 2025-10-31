@@ -731,9 +731,15 @@ Deno.serve(async (req) => {
     });
 
   try {
-    // Validate required API keys
+    // Validate API keys
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ ok: false, error: "Missing LOVABLE_API_KEY" }), {
+        status: 500,
+        headers: { ...cors, "content-type": "application/json" },
+      });
+    }
+    if (!PERPLEXITY_API_KEY) {
+      return new Response(JSON.stringify({ ok: false, error: "Missing PERPLEXITY_API_KEY" }), {
         status: 500,
         headers: { ...cors, "content-type": "application/json" },
       });
@@ -743,11 +749,6 @@ Deno.serve(async (req) => {
         status: 500,
         headers: { ...cors, "content-type": "application/json" },
       });
-    }
-    
-    // Note: PERPLEXITY_API_KEY is optional - the function will use fallback logic if missing
-    if (!PERPLEXITY_API_KEY) {
-      console.log(`[${new Date().toISOString()}] PERPLEXITY_API_KEY missing - will use Gemini-only mode`);
     }
 
     const reqJson = await req.json();
