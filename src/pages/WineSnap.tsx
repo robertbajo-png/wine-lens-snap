@@ -41,9 +41,13 @@ const WineSnap = () => {
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+ codex/improve-error-handling-in-winesnap
   const [processingStep, setProcessingStep] = useState<
     "prep" | "ocr" | "analysis" | "error" | "done" | null
   >(null);
+=======
+  const [processingStep, setProcessingStep] = useState<"prep" | "ocr" | "analysis" | "error" | null>(null);
+ main
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
   const [progressNote, setProgressNote] = useState<string | null>(null);
@@ -98,6 +102,8 @@ const WineSnap = () => {
         throw e;
       }
     };
+
+    let encounteredError = false;
 
     try {
       return await withTimeout(doOCR(OLANGS), OCR_TIMEOUT_MS);
@@ -278,7 +284,11 @@ const WineSnap = () => {
         }
       }
     } catch (error) {
+ codex/improve-error-handling-in-winesnap
       errorOccurred = true;
+=======
+      encounteredError = true;
+ main
       console.error("Processing failed in phase:", processingStep, error);
 
       const errorMessage =
@@ -288,10 +298,16 @@ const WineSnap = () => {
             ? error.message
             : "Kunde inte analysera bilden. Försök igen eller fota rakare i bättre ljus.";
 
+ codex/improve-error-handling-in-winesnap
       setBanner({
         type: "error",
         text: errorMessage,
       });
+=======
+      setBanner({ type: "error", text: errorMessage });
+      setProcessingStep("error");
+      setProgressNote(null);
+ main
 
       setProcessingStep("error");
 
@@ -300,12 +316,20 @@ const WineSnap = () => {
         description: errorMessage,
         variant: "destructive",
       });
+
+      return;
     } finally {
       setIsProcessing(false);
+ codex/improve-error-handling-in-winesnap
       setProgressNote(null);
 
       if (!errorOccurred) {
         setProcessingStep(null);
+=======
+      if (!encounteredError) {
+        setProcessingStep(null);
+        setProgressNote(null);
+main
       }
     }
   };
