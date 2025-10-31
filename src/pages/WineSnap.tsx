@@ -235,11 +235,6 @@ const WineSnap = () => {
       const data = responseData.data;
       const note = responseData.note;
 
-      console.log("=== WINE DATA RECEIVED ===");
-      console.log("Response OK:", responseData.ok);
-      console.log("Has data:", !!data);
-      console.log("Note:", note);
-
       if (data) {
         const result: WineAnalysisResult = {
           vin: data.vin || "–",
@@ -265,12 +260,9 @@ const WineSnap = () => {
           originaltext: data.originaltext
         };
 
-        console.log("=== SETTING RESULTS ===");
-        console.log("Result object:", result);
         setResults(result);
         setCachedAnalysis(cacheLookupKey, result, imageData);
         setProgressNote(null);
-        console.log("=== RESULTS SET COMPLETE ===");
 
         // Show banner based on note
         if (note === "hit_memory" || note === "hit_supabase") {
@@ -304,14 +296,11 @@ const WineSnap = () => {
         variant: "destructive",
       });
     } finally {
-      console.log("=== FINALLY BLOCK ===");
-      console.log("Processing step:", processingStep);
       setIsProcessing(false);
       setProgressNote(null);
       if (processingStep !== "error") {
         setProcessingStep(null);
       }
-      console.log("=== PROCESSING COMPLETE ===");
     }
   };
 
@@ -353,13 +342,7 @@ const WineSnap = () => {
   };
 
   // Show results view if we have results
-  console.log("=== RENDER CHECK ===");
-  console.log("Has results:", !!results);
-  console.log("Is processing:", isProcessing);
-  console.log("Preview image:", !!previewImage);
-  
   if (results && !isProcessing) {
-    console.log("=== SHOWING RESULTS VIEW ===");
     const pairings = Array.isArray(results.passar_till)
       ? results.passar_till.filter(Boolean)
       : [];
