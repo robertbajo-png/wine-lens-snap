@@ -189,9 +189,15 @@ const WineSnap = () => {
         } else if (note === "hit_analysis_cache" || note === "hit_analysis_cache_get") {
           setBanner({ type: "info", text: "⚡ Hämtade färdig vinprofil från global cache." });
         } else if (note === "perplexity_timeout") {
-          setBanner({ type: "info", text: "Webbsökning tog för lång tid – använder endast etikett-info." });
+          setBanner({
+            type: "info",
+            text: "Webbsökning tog för lång tid – endast etikettinfo. Smakprofil visas inte.",
+          });
         } else if (note === "perplexity_failed") {
-          setBanner({ type: "info", text: "Kunde ej söka på webben – använder endast etikett-info." });
+          setBanner({
+            type: "info",
+            text: "Kunde ej söka på webben – endast etikettinfo. Smakprofil visas inte.",
+          });
         } else if (note === "fastpath" || note === "fastpath_heuristic") {
           setBanner({ type: "info", text: "⚡ Snabbanalys – fyller profil utan webbsvar." });
         } else {
