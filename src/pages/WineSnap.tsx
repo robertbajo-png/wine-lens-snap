@@ -1,14 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Camera,
-  Wine,
-  Loader2,
-  Download,
-  Sparkles,
-  ChefHat,
-} from "lucide-react";
+import { Camera, Wine, Loader2, Download, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
@@ -16,9 +9,15 @@ import { autoCropLabel } from "@/lib/autoCrop";
 import { sha1Base64, getOcrCache, setOcrCache } from "@/lib/ocrCache";
 import { ProgressBanner } from "@/components/ProgressBanner";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
-import { SystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
-import { SystembolagetClassification } from "@/components/SystembolagetClassification";
-import { SystembolagetFactList } from "@/components/SystembolagetFactList";
+import ResultHeader from "@/components/result/ResultHeader";
+import MetersRow from "@/components/result/MetersRow";
+import KeyFacts from "@/components/result/KeyFacts";
+import ClampTextCard from "@/components/result/ClampTextCard";
+import Pairings from "@/components/result/Pairings";
+import ServingCard from "@/components/result/ServingCard";
+import EvidenceAccordion from "@/components/result/EvidenceAccordion";
+import ActionBar from "@/components/result/ActionBar";
+import ResultSkeleton from "@/components/result/ResultSkeleton";
 import { preprocessImage } from "@/lib/preprocess";
 import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
 
@@ -252,54 +251,22 @@ const WineSnap = () => {
 
   // Show results view if we have results
   if (results && !isProcessing) {
-    const pairings = Array.isArray(results.passar_till)
-      ? results.passar_till.filter(Boolean)
-      : [];
-
-    const classificationSummary = Array.from(
-      new Set(
-        [results.färgtyp, results.typ, results.klassificering]
-          .map((value) => value?.trim())
-          .filter(Boolean) as string[]
-      )
-    );
-
-    const baseFacts = [
-      { label: "Producent", value: results.producent || "–" },
-      { label: "Land/Region", value: results.land_region || "–" },
-      { label: "Årgång", value: results.årgång || "–" },
-      { label: "Druvor", value: results.druvor || "–" },
-    ];
-
-    const technicalFacts = [
-      { label: "Alkoholhalt", value: results.alkoholhalt || "–" },
-      { label: "Volym", value: results.volym || "–" },
-      { label: "Sockerhalt", value: results.sockerhalt || "–" },
-      { label: "Syra", value: results.syra || "–" },
-    ];
-
-    const classificationTags = [
-      { label: "Färg", value: results.färgtyp },
-      { label: "Smaktyp", value: results.typ },
-      { label: "Ursprungsangivelse", value: results.klassificering },
-    ]
-      .map((tag) => ({ ...tag, value: tag.value?.trim() }))
-      .filter((tag) => tag.value);
-
-    const evidenceText = results.evidence?.etiketttext?.trim();
-    const webSources = results.evidence?.webbträffar?.filter(Boolean) ?? [];
     const showInstallCTA = isInstallable && !isInstalled;
-
-    const subtitleParts = [
-      results.producent || undefined,
-      results.land_region || undefined,
-      results.årgång ? `Årgång ${results.årgång}` : undefined,
-    ].filter(Boolean);
-
-    const subtitle = subtitleParts.join(" • ");
+    const pairings = Array.isArray(results.passar_till)
+      ? (results.passar_till.filter(Boolean) as string[])
+      : [];
+    const ocrText = results.originaltext && results.originaltext !== "–"
+      ? results.originaltext
+      : results.evidence?.etiketttext;
 
     return (
-      <div className="min-h-screen bg-zinc-50 text-slate-900">
+      <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#05020f] via-[#120c2b] to-[#030712] text-slate-100">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-[#8B5CF6]/25 blur-[150px]" />
+          <div className="absolute right-[-120px] bottom-8 h-96 w-96 rounded-full bg-[#38BDF8]/10 blur-[170px]" />
+          <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/70 to-transparent" />
+        </div>
+
         <input
           id="wineImageUpload"
           type="file"
@@ -309,22 +276,17 @@ const WineSnap = () => {
           className="hidden"
         />
 
-        <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-4 pb-20 pt-10 sm:px-8">
-          <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600/10 text-emerald-700">
-                <Wine className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">WineSnap</p>
-                <p className="text-sm text-slate-600">Analys enligt Systembolagets modell</p>
-              </div>
+        <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-32 pt-10 sm:pt-16">
+          <header className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">WineSnap</p>
+              <p className="text-sm text-slate-200/80">Din digitala sommelier</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-slate-600 hover:text-slate-900"
+                className="text-slate-200 hover:text-white"
                 onClick={() => navigate("/")}
               >
                 Om WineSnap
@@ -332,213 +294,98 @@ const WineSnap = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="rounded-full border-zinc-200 bg-white text-slate-700 hover:bg-zinc-50"
+                className="rounded-full border-white/20 bg-white/10 text-slate-100 hover:bg-white/20"
                 onClick={() => navigate("/historik")}
               >
-                Öppna historiken
+                Historik
               </Button>
+              {showInstallCTA && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full border-white/20 bg-white/10 text-slate-100 hover:bg-white/20"
+                  onClick={handleInstall}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Installera app
+                </Button>
+              )}
             </div>
           </header>
 
           {banner && (
             <div
-              className={`rounded-2xl border px-4 py-3 text-sm transition ${
+              className={`mb-6 rounded-2xl border px-4 py-3 text-sm transition ${
                 banner.type === "error"
-                  ? "border-red-200 bg-red-50 text-red-700"
+                  ? "border-red-500/40 bg-red-500/10 text-red-100"
                   : banner.type === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-sky-200 bg-sky-50 text-sky-700"
+                  ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-100"
+                  : "border-sky-400/40 bg-sky-400/10 text-sky-100"
               }`}
             >
               {banner.text}
             </div>
           )}
 
-          {banner?.type === "error" && previewImage && (
-            <div className="mt-4 flex justify-center">
-              <Button
-                size="lg"
-                onClick={() => processWineImage(previewImage)}
-                className="h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold shadow-lg hover:opacity-90 transition"
-                disabled={isProcessing}
-              >
-                Försök igen
-              </Button>
-            </div>
-          )}
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="space-y-6">
+              <ResultHeader
+                vin={results.vin}
+                ar={results.årgång}
+                producent={results.producent}
+                land_region={results.land_region}
+                typ={results.typ}
+              />
 
-          <section className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:p-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500">
-                  <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                  Systembolagets analys
-                </div>
-                <div className="space-y-2">
-                  <h1 className="text-3xl font-semibold text-slate-900">{results.vin || "Okänt vin"}</h1>
-                  {subtitle && <p className="text-sm text-slate-600">{subtitle}</p>}
-                  {classificationTags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {classificationTags.map((tag) => (
-                        <span
-                          key={tag.label}
-                          className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs text-emerald-700"
-                        >
-                          <span className="text-[10px] uppercase tracking-[0.25em] text-emerald-600">{tag.label}</span>
-                          <span className="font-semibold">{tag.value}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {classificationSummary.length > 0 && (
-                  <p className="text-xs text-slate-500">
-                    Systembolaget placerar vinet i {classificationSummary.join(" • ")}.
-                  </p>
-                )}
-                <dl className="mt-6 grid gap-4 text-sm text-slate-700 sm:grid-cols-2">
-                  {baseFacts.map((fact) => (
-                    <div key={fact.label} className="flex flex-col">
-                      <dt className="text-xs uppercase tracking-[0.2em] text-slate-500">{fact.label}</dt>
-                      <dd className="text-base font-semibold text-slate-900">{fact.value}</dd>
-                    </div>
-                  ))}
-                </dl>
+              <MetersRow meters={results.meters} />
+
+              <KeyFacts
+                druvor={results.druvor}
+                fargtyp={results.färgtyp}
+                klassificering={results.klassificering}
+                alkoholhalt={results.alkoholhalt}
+                volym={results.volym}
+                sockerhalt={results.sockerhalt}
+                syra={results.syra}
+              />
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ClampTextCard title="Karaktär" text={results.karaktär} />
+                <ClampTextCard title="Smak" text={results.smak} />
               </div>
-              {previewImage && (
-                <div className="w-full max-w-[220px] overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100">
-                  <img src={previewImage} alt="Skannad vinetikett" className="w-full object-cover" />
-                </div>
+
+              <Pairings items={pairings} />
+
+              <ServingCard servering={results.servering} />
+
+              <EvidenceAccordion
+                ocr={ocrText}
+                hits={results.evidence?.webbträffar}
+                primary={results.källa}
+              />
+
+              {results.detekterat_språk && (
+                <p className="text-xs text-slate-300/80">
+                  Upptäckt språk: {results.detekterat_språk.toUpperCase()}
+                </p>
               )}
-            </div>
 
-            <div className="mt-8 space-y-6">
-              <SystembolagetClassification result={results} />
-
-              <SystembolagetTasteProfile result={results} />
-
-              <div className="grid gap-6 lg:grid-cols-2">
-                <section className="rounded-2xl border border-zinc-200 bg-white p-5 text-sm text-slate-700 shadow-sm">
-                  <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                    <Sparkles className="h-4 w-4 text-emerald-600" />
-                    Smakbeskrivning
-                  </h2>
-                  <p className="mt-4 text-xs uppercase tracking-[0.2em] text-slate-500">Karaktär</p>
-                  <p className="mt-2 leading-relaxed">
-                    {results.karaktär || "Systembolagets karaktärstext saknas för den här flaskan."}
-                  </p>
-                  <p className="mt-4 text-xs uppercase tracking-[0.2em] text-slate-500">Smaknoter</p>
-                  <p className="mt-2 leading-relaxed">
-                    {results.smak || "Smaknoter saknas för den här flaskan."}
-                  </p>
-                </section>
-
-                <section className="rounded-2xl border border-zinc-200 bg-white p-5 text-sm text-slate-700 shadow-sm">
-                  <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
-                    <ChefHat className="h-4 w-4 text-emerald-600" />
-                    Servering
-                  </h2>
-                  <p className="mt-4 leading-relaxed">
-                    {results.servering || "Systembolaget har inte publicerat serveringsråd för den här flaskan."}
-                  </p>
-                  {pairings.length > 0 ? (
-                    <div className="mt-4 space-y-2">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Passar till</p>
-                      <ul className="list-inside list-disc space-y-1">
-                        {pairings.slice(0, 6).map((item) => (
-                          <li key={item}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : (
-                    <p className="mt-4 text-slate-500">Inga matmatchningar är registrerade.</p>
-                  )}
-                </section>
-              </div>
-            </div>
-          </section>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <SystembolagetFactList
-              title="Systembolagets nyckelfakta"
-              subtitle="Från artikelinformationen."
-              items={baseFacts}
-              columns={2}
-            />
-
-            <SystembolagetFactList
-              title="Analysdata"
-              subtitle="Tekniska värden från Systembolaget."
-              items={technicalFacts}
-              footnote={`Källa: ${results.källa || "–"}`}
-            >
-              {(evidenceText || webSources.length > 0) && (
-                <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-xs text-slate-600">
-                  <p className="font-semibold text-slate-700">Transparens</p>
-                  {evidenceText && (
-                    <p className="mt-2 leading-relaxed">
-                      OCR: {evidenceText.slice(0, 240)}
-                      {evidenceText.length > 240 ? "…" : ""}
-                    </p>
-                  )}
-                  {webSources.length > 0 && (
-                    <ul className="mt-2 list-disc pl-4">
-                      {webSources.map((source) => (
-                        <li key={source}>{source}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              )}
-            </SystembolagetFactList>
-          </div>
-
-          <section className="rounded-2xl border border-zinc-200 bg-white p-5 text-sm text-slate-700 shadow-sm">
-            <h3 className="text-base font-semibold text-slate-900">Detekterad etiketttext</h3>
-            {results.originaltext ? (
-              <p className="mt-3 text-xs leading-relaxed text-slate-600">{results.originaltext}</p>
-            ) : (
-              <p className="mt-3 text-xs text-slate-500">Ingen OCR-text sparad för etiketten.</p>
-            )}
-            {results.detekterat_språk && (
-              <p className="mt-4 text-xs text-slate-500">
-                Upptäckt språk: {results.detekterat_språk.toUpperCase()}
+              <p className="text-xs text-slate-400/80">
+                Resultatet sparas lokalt tillsammans med etikettbilden.
               </p>
-            )}
-          </section>
+            </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-start">
-            <Button
-              onClick={handleReset}
-              size="lg"
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-emerald-600 text-base font-semibold text-white shadow-sm transition-all duration-200 hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 sm:w-auto"
-            >
-              <Camera className="h-5 w-5" />
-              Fota ny flaska
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full rounded-full border-zinc-200 bg-white text-slate-700 hover:bg-zinc-50 sm:w-auto"
-              onClick={() => navigate("/historik")}
-            >
-              Öppna historiken
-            </Button>
-            {showInstallCTA && (
-              <Button
-                variant="outline"
-                className="w-full rounded-full border-zinc-200 bg-white text-slate-700 hover:bg-zinc-50 sm:w-auto"
-                onClick={handleInstall}
-              >
-                <Download className="mr-2 h-4 w-4" />
-                Installera app
-              </Button>
+            {previewImage && (
+              <aside className="lg:sticky lg:top-24">
+                <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/40 shadow-xl backdrop-blur">
+                  <img src={previewImage} alt="Skannad vinetikett" className="h-full w-full object-cover" />
+                </div>
+              </aside>
             )}
-          </div>
-
-          <div className="pb-6 text-center text-xs text-slate-500">
-            Resultatet sparas lokalt i historiken tillsammans med etikettbilden.
           </div>
         </div>
+
+        <ActionBar onNewScan={handleReset} />
       </div>
     );
   }
@@ -617,6 +464,12 @@ const WineSnap = () => {
             }`}
           >
             {banner.text}
+          </div>
+        )}
+
+        {isProcessing && !results && !previewImage && (
+          <div className="mb-8 w-full rounded-3xl border border-white/10 bg-white/5 p-6 text-left">
+            <ResultSkeleton />
           </div>
         )}
 
