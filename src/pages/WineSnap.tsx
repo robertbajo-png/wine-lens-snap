@@ -169,11 +169,16 @@ const WineSnap = () => {
           sockerhalt: data.sockerhalt || "–",
           syra: data.syra || "–",
           källa: data.källa || "–",
-          meters: data.meters || { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
+          // Behåll inkomna meters oförändrade; ingen client-side påhitt
+          meters:
+            data.meters && typeof data.meters === "object"
+              ? data.meters
+              : { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
           evidence: data.evidence || { etiketttext: "", webbträffar: [] },
-          _meta: data._meta,
           detekterat_språk: data.detekterat_språk,
           originaltext: data.originaltext,
+          // @ts-ignore – backend kan skicka _meta (proveniens)
+          _meta: data._meta,
         };
 
         setResults(result);
