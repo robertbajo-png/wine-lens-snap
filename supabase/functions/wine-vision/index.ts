@@ -6,7 +6,12 @@ import {
   getFromSupabaseCache,
   setSupabaseCache
 } from "./cache.ts";
-import { getOcrFromServerCache, upsertOcrServerCache } from "./db.ts";
+import {
+  getAnalysisFromServerCache,
+  getOcrFromServerCache,
+  upsertAnalysisServerCache,
+  upsertOcrServerCache,
+} from "./db.ts";
 import type { WineSearchResult, WineSummary } from "./types.ts";
 
 const CFG = {
@@ -24,7 +29,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
@@ -41,6 +46,17 @@ const isBlank = (value: unknown): boolean => {
     return value.length === 0 || value.every((item) => isBlank(item));
   }
   return false;
+};
+
+const normalizeForAnalysisKey = (s: string) =>
+  stripDiacritics(String(s || ""))
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 160);
+
+const detectVintage = (text?: string): string | null => {
+  const match = String(text ?? "").match(/\b(19[0-9]{2}|20[0-9]{2})\b/);
+  return match ? match[1] : null;
 };
 
 function withTimeout<T>(promise: Promise<T>, ms: number, reason: string): Promise<T> {
@@ -725,6 +741,55 @@ function enrichFallback(ocrText: string, data: WineSummary): WineSummary {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  if (req.method === "GET") {
+    try {
+      const url = new URL(req.url);
+      const key = url.searchParams.get("key")?.trim();
+      if (!key) {
+        return new Response(JSON.stringify({ ok: false, error: "missing key" }), {
+          status: 400,
+          headers: { ...cors, "content-type": "application/json" },
+        });
+      }
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        return new Response(JSON.stringify({ ok: false, error: "server not configured" }), {
+          status: 500,
+          headers: { ...cors, "content-type": "application/json" },
+        });
+      }
+      const cachedPayload = await getAnalysisFromServerCache(
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY,
+        key,
+      );
+      if (!cachedPayload) {
+        return new Response(JSON.stringify({ ok: false, error: "not found" }), {
+          status: 404,
+          headers: {
+            ...cors,
+            "content-type": "application/json",
+            "Cache-Control": "public, max-age=60",
+          },
+        });
+      }
+      const cacheHeaders = {
+        "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+        Vary: "Accept-Encoding",
+      };
+      return new Response(JSON.stringify({ ok: true, data: cachedPayload, note: "hit_analysis_cache_get" }), {
+        status: 200,
+        headers: { ...cors, ...cacheHeaders, "content-type": "application/json" },
+      });
+    } catch (error) {
+      return new Response(
+        JSON.stringify({ ok: false, error: error instanceof Error ? error.message : "GET failed" }),
+        {
+          status: 500,
+          headers: { ...cors, "content-type": "application/json" },
+        },
+      );
+    }
+  }
   if (req.method !== "POST")
     return new Response(JSON.stringify({ ok: false, error: "Use POST" }), {
       status: 405,
@@ -757,6 +822,7 @@ Deno.serve(async (req) => {
     const clientWantsHeuristics = Boolean(reqJson?.allowHeuristics === true);
     const ocrTextFromClient = typeof reqJson?.ocrText === "string" ? reqJson.ocrText : "";
     const ocrImageHash = typeof reqJson?.ocr_image_hash === "string" ? reqJson.ocr_image_hash : null;
+    const vintageHint = typeof reqJson?.vintage === "string" && reqJson.vintage.trim() ? reqJson.vintage.trim() : null;
 
     if (!imageBase64) {
       return new Response(JSON.stringify({ ok: false, error: "Missing image data" }), {
@@ -767,6 +833,8 @@ Deno.serve(async (req) => {
 
     const startTime = Date.now();
     console.log(`[${new Date().toISOString()}] Wine analysis started`);
+
+    let analysisKey = "";
 
     // Step 1: OCR (try client/server cache before Gemini)
     let ocrText = ocrTextFromClient;
@@ -818,7 +886,11 @@ Deno.serve(async (req) => {
 
     // Check cache (memory first, then Supabase)
     const cacheKey = getCacheKey(ocrText);
-    
+
+    const resolvedVintage = vintageHint || detectVintage(ocrText) || "NV";
+    const analysisKeyBase = normalizeForAnalysisKey(ocrText);
+    analysisKey = analysisKeyBase ? `${analysisKeyBase}.y${resolvedVintage}` : "";
+
     // Try memory cache
     const memoryHit = getFromMemoryCache(cacheKey);
     if (memoryHit) {
@@ -838,18 +910,49 @@ Deno.serve(async (req) => {
     if (supabaseHit) {
       const cacheTime = Date.now() - startTime;
       console.log(`[${new Date().toISOString()}] Supabase cache hit! (${cacheTime}ms)`);
-      
+
       setMemoryCache(cacheKey, supabaseHit.data);
-      
-      return new Response(JSON.stringify({ 
-        ok: true, 
-        data: supabaseHit.data, 
-        note: "hit_supabase" 
+
+      return new Response(JSON.stringify({
+        ok: true,
+        data: supabaseHit.data,
+        note: "hit_supabase"
       }), {
         headers: { ...cors, "content-type": "application/json" },
       });
     }
-    
+
+    if (analysisKey && analysisKey.length >= 6) {
+      try {
+        const cachedPayload = await getAnalysisFromServerCache(
+          SUPABASE_URL,
+          SUPABASE_SERVICE_ROLE_KEY,
+          analysisKey,
+        );
+        if (cachedPayload && typeof cachedPayload === "object") {
+          const totalTime = Date.now() - startTime;
+          console.log(`[CACHE] hit analysis cache key=${analysisKey} total=${totalTime}ms`);
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              data: cachedPayload,
+              note: "hit_analysis_cache",
+              timings: { t_preprocess: 0, t_ocr: 0, t_search: 0, t_llm: 0, t_total: totalTime },
+            }),
+            {
+              headers: {
+                ...cors,
+                "content-type": "application/json",
+                "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+              },
+            },
+          );
+        }
+      } catch (error) {
+        console.warn("Analysis cache lookup failed:", error);
+      }
+    }
+
     console.log(`[${new Date().toISOString()}] Cache miss, proceeding with analysis...`);
 
     // Step 2: Web search (Perplexity/Gemini fast-path)
@@ -1018,6 +1121,19 @@ WEB_JSON:
     setMemoryCache(cacheKey, finalData);
     await setSupabaseCache(cacheKey, finalData, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+    if (analysisKey && analysisKey.length >= 6) {
+      try {
+        await upsertAnalysisServerCache(
+          SUPABASE_URL,
+          SUPABASE_SERVICE_ROLE_KEY,
+          analysisKey,
+          finalData,
+        );
+      } catch (error) {
+        console.warn("Analysis cache upsert failed:", error);
+      }
+    }
+
     if (ocrImageHash && ocrText && ocrText.length >= 5) {
       try {
         await upsertOcrServerCache(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ocrImageHash, ocrText);
@@ -1027,12 +1143,18 @@ WEB_JSON:
     }
 
     return new Response(
-      JSON.stringify({ 
-        ok: true, 
-        data: finalData, 
-        note: cacheNote || "success" 
+      JSON.stringify({
+        ok: true,
+        data: finalData,
+        note: cacheNote || "success"
       }),
-      { headers: { ...cors, "content-type": "application/json" } }
+      {
+        headers: {
+          ...cors,
+          "content-type": "application/json",
+          "Cache-Control": "public, s-maxage=60",
+        },
+      }
     );
 
   } catch (error) {
