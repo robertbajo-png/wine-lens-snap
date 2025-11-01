@@ -142,7 +142,10 @@ const WineSnap = () => {
         throw new Error(errorData?.error || `HTTP ${response.status}`);
       }
 
-      const { ok, data, note } = await response.json();
+      const { ok, data, note, timings } = await response.json();
+      if (import.meta.env.DEV && timings) {
+        console.debug("WineSnap analysis timings", timings);
+      }
 
       if (!ok) {
         throw new Error("Analys misslyckades");
@@ -178,6 +181,8 @@ const WineSnap = () => {
 
         if (note === "hit_memory" || note === "hit_supabase") {
           setBanner({ type: "info", text: "Hämtade sparad profil för snabbare upplevelse." });
+        } else if (note === "hit_analysis_cache" || note === "hit_analysis_cache_get") {
+          setBanner({ type: "info", text: "⚡ Hämtade färdig vinprofil från global cache." });
         } else if (note === "perplexity_timeout") {
           setBanner({ type: "info", text: "Webbsökning tog för lång tid – använder endast etikett-info." });
         } else if (note === "perplexity_failed") {
