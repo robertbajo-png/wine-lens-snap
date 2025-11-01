@@ -74,6 +74,14 @@ export interface WineAnalysisResult {
     etiketttext: string;
     webbträffar: string[];
   };
+  _meta?: {
+    meters_source?: "web" | "derived";
+    confidence?: {
+      meters?: number;
+      [key: string]: number | undefined;
+    };
+    [key: string]: unknown;
+  };
   detekterat_språk?: string;
   originaltext?: string;
 }
