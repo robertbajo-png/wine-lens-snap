@@ -688,6 +688,15 @@ function fillMissingFields(
     webbträffar: ensureStringArray(finalData.evidence.webbträffar),
   };
 
+  const meterKeys: Array<keyof WineSummary["meters"]> = ["sötma", "fyllighet", "fruktighet", "fruktsyra"];
+  const webMetersProvided =
+    !!webData?.meters && meterKeys.some((key) => typeof webData.meters?.[key] === "number");
+
+  finalData._meta = finalData._meta || {};
+  finalData._meta.meters_source = webMetersProvided ? "web" : "derived";
+  finalData._meta.confidence = finalData._meta.confidence || {};
+  finalData._meta.confidence.meters = webMetersProvided ? 0.9 : 0.5;
+
   return finalData;
 }
 

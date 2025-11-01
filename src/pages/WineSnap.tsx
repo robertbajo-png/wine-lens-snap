@@ -171,6 +171,7 @@ const WineSnap = () => {
           källa: data.källa || "–",
           meters: data.meters || { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
           evidence: data.evidence || { etiketttext: "", webbträffar: [] },
+          _meta: data._meta,
           detekterat_språk: data.detekterat_språk,
           originaltext: data.originaltext,
         };
@@ -337,7 +338,10 @@ const WineSnap = () => {
                 typ={results.typ}
               />
 
-              <MetersRow meters={results.meters} />
+              <MetersRow
+                meters={results.meters}
+                estimated={results?._meta?.meters_source === "derived"}
+              />
 
               <KeyFacts
                 druvor={results.druvor}
