@@ -693,9 +693,10 @@ function fillMissingFields(
     !!webData?.meters && meterKeys.some((key) => typeof webData.meters?.[key] === "number");
 
   finalData._meta = finalData._meta || {};
-  finalData._meta.meters_source = webMetersProvided ? "web" : "derived";
-  finalData._meta.confidence = finalData._meta.confidence || {};
-  finalData._meta.confidence.meters = webMetersProvided ? 0.9 : 0.5;
+  const meta = finalData._meta as Record<string, any>;
+  meta.meters_source = webMetersProvided ? "web" : "derived";
+  meta.confidence = meta.confidence || {};
+  meta.confidence.meters = webMetersProvided ? 0.9 : 0.5;
 
   return finalData;
 }
