@@ -174,7 +174,7 @@ const History = () => {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
+    <div className="app-bg relative min-h-screen overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-16 top-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
         <div className="absolute -right-10 bottom-0 h-80 w-80 rounded-full bg-accent/15 blur-[120px]" />
@@ -248,40 +248,40 @@ const History = () => {
           </div>
         </div>
 
-        <Card className="border-none bg-card/80 shadow-xl backdrop-blur">
+        <Card className="border-none bg-transparent shadow-none">
           <CardHeader className="space-y-4 pb-0">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-2">
-                <CardTitle className="flex items-center gap-2 text-3xl font-semibold">
+                <CardTitle className="heading flex items-center gap-2 text-3xl font-semibold">
                   <Sparkles className="h-6 w-6 text-primary" />
                   Dina vinminnen
                 </CardTitle>
-                <CardDescription className="max-w-2xl text-base">
-                  Utforska dina tidigare analyser, upptäck återkommande favoriter och hoppa snabbt tillbaka in i WineSnap när inspirationen slår till.
+                <CardDescription className="muted max-w-2xl text-base">
+                  Utforska dina tidigare analyser, upptäck favoriter och hoppa snabbt tillbaka in i WineSnap.
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="pb-6">
-            <div className="grid gap-6 pt-4 sm:grid-cols-3">
-              <div className="rounded-2xl border bg-secondary/60 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Totalt sparade</p>
-                <p className="mt-2 text-3xl font-semibold text-foreground">{entries.length}</p>
-                <p className="text-sm text-muted-foreground">Alla analyser finns sparade lokalt på din enhet.</p>
+            <div className="grid gap-4 pt-4 sm:grid-cols-3">
+              <div className="card-surface p-5 shadow-app">
+                <p className="muted text-xs font-semibold uppercase tracking-wide">Totalt sparade</p>
+                <p className="heading mt-2 text-3xl font-semibold">{entries.length}</p>
+                <p className="muted text-sm">Alla analyser finns sparade lokalt på din enhet.</p>
               </div>
-              <div className="rounded-2xl border bg-accent/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Senaste analys</p>
-                <p className="mt-2 text-lg font-semibold text-foreground">
+              <div className="card-surface p-5 shadow-app">
+                <p className="muted text-xs font-semibold uppercase tracking-wide">Senaste analys</p>
+                <p className="heading mt-2 text-lg font-semibold">
                   {lastTimestamp ? formatRelativeTime(lastTimestamp) : "–"}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="muted text-sm">
                   {lastTimestamp ? formatDate(lastTimestamp) : "Gör en skanning för att komma igång."}
                 </p>
               </div>
-              <div className="rounded-2xl border bg-primary/10 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ursprung representerade</p>
-                <p className="mt-2 text-3xl font-semibold text-primary">{regionsCount}</p>
-                <p className="text-sm text-muted-foreground">Ett smakbibliotek fyllt av olika regioner.</p>
+              <div className="card-surface p-5 shadow-app">
+                <p className="muted text-xs font-semibold uppercase tracking-wide">Ursprung representerade</p>
+                <p className="heading mt-2 text-3xl font-semibold">{regionsCount}</p>
+                <p className="muted text-sm">Ett smakbibliotek fyllt av olika regioner.</p>
               </div>
             </div>
           </CardContent>
