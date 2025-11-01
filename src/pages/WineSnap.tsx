@@ -266,18 +266,38 @@ const WineSnap = () => {
     handleReset();
   };
 
-  // --- helpers i komponenten, ovanför return ---
-  const hasNumeric = (value: unknown): value is number =>
-    typeof value === "number" && Number.isFinite(value);
-  const metersOk = Boolean(
+  // --- helpers ---
+  const hasNumeric = (value: unknown) => typeof value === "number" && Number.isFinite(value);
+  const metersOk =
     results?.meters &&
-      hasNumeric(results.meters.sötma) &&
-      hasNumeric(results.meters.fyllighet) &&
-      hasNumeric(results.meters.fruktighet) &&
-      hasNumeric(results.meters.fruktsyra)
-  );
+    hasNumeric(results.meters.sötma) &&
+    hasNumeric(results.meters.fyllighet) &&
+    hasNumeric(results.meters.fruktighet) &&
+    hasNumeric(results.meters.fruktsyra);
   const hasWebEvidence = (results?.evidence?.webbträffar?.length ?? 0) > 0;
   const showVerifiedMeters = Boolean(metersOk && hasWebEvidence);
+
+  // --- save to history on each completed scan ---
+  useEffect(() => {
+    if (!results) return;
+    try {
+      const prev = JSON.parse(localStorage.getItem("wine_history") || "[]");
+      const entry = {
+        ts: new Date().toISOString(),
+        vin: results.vin,
+        producent: results.producent,
+        land_region: results.land_region,
+        årgång: results.årgång,
+        meters: results.meters,
+        evidence: results.evidence,
+        _meta: results._meta,
+      };
+      const updated = [entry, ...prev].slice(0, 20);
+      localStorage.setItem("wine_history", JSON.stringify(updated));
+    } catch (error) {
+      console.warn("Kunde inte spara i historiken:", error);
+    }
+  }, [results]);
 
   // Show results view if we have results
   if (results && !isProcessing) {
@@ -367,28 +387,36 @@ const WineSnap = () => {
                 typ={results.typ}
               />
 
-              {showVerifiedMeters ? (
-                <MetersRow
-                  meters={results.meters}
-                  estimated={results?._meta?.meters_source === "derived"}
-                />
-              ) : (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200">
-                  <p className="mb-1 text-sm font-medium text-white">Smakprofil</p>
-                  <p className="text-sm opacity-80">
-                    Smakprofil kunde inte fastställas utan webbkällor.
-                    {!hasWebEvidence &&
-                      (results?.källa === "–" || results?.källa?.toLowerCase() === "etikett") && (
-                        <> Prova igen när uppkoppling finns eller fota etiketten rakare.</>
-                      )}
-                  </p>
-                  <div className="mt-3">
-                    <Button variant="outline" size="sm" onClick={handleRetryScan}>
-                      Försök igen
-                    </Button>
-                  </div>
+              <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 backdrop-blur-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-white">Smakprofil</h3>
+                  {!showVerifiedMeters && (
+                    <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
+                      Etikettinfo
+                    </span>
+                  )}
                 </div>
-              )}
+                {showVerifiedMeters ? (
+                  <MetersRow
+                    meters={results.meters}
+                    estimated={results?._meta?.meters_source === "derived"}
+                  />
+                ) : (
+                  <div className="text-sm text-slate-300">
+                    <p className="opacity-80">Smakprofil kunde inte fastställas utan webbkällor.</p>
+                    <div className="mt-3">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="rounded-xl bg-white/10 text-white transition-colors hover:bg-white/20"
+                        onClick={handleRetryScan}
+                      >
+                        Försök igen
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </section>
 
               <KeyFacts
                 druvor={results.druvor}
