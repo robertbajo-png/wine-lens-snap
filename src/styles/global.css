@@ -36,7 +36,8 @@ body.app-theme {
    i mörkt tema – utan att ändra JSX. */
 body.app-theme .bg-white,
 body.app-theme .bg-gray-50,
-body.app-theme .bg-slate-50 {
+body.app-theme .bg-slate-50,
+body.app-theme .bg-neutral-50 {
   background-color: hsl(var(--surface-2)) !important;
 }
 /* Hög kontrast på rubriker/primär text */
@@ -44,14 +45,18 @@ body.app-theme .text-slate-900,
 body.app-theme .text-gray-900,
 body.app-theme .text-black,
 body.app-theme .text-slate-800,
-body.app-theme .text-gray-800 {
+body.app-theme .text-gray-800,
+body.app-theme .text-neutral-900,
+body.app-theme .text-neutral-800 {
   color: hsl(var(--text)) !important;
 }
 /* Låt sekundär text vara läsbar – inte för mörk */
 body.app-theme .text-slate-600,
 body.app-theme .text-gray-600,
 body.app-theme .text-slate-500,
-body.app-theme .text-gray-500 {
+body.app-theme .text-gray-500,
+body.app-theme .text-neutral-600,
+body.app-theme .text-neutral-500 {
   color: hsl(var(--text-soft)) !important;
 }
 body.app-theme .border,
