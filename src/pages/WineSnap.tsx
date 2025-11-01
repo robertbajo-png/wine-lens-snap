@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
 import { autoCropLabel } from "@/lib/autoCrop";
-import { getOcrCache, setOcrCache, sha1Base64 } from "@/lib/ocrCache";
+import { sha1Base64, getOcrCache, setOcrCache } from "@/lib/ocrCache";
 import { ProgressBanner } from "@/components/ProgressBanner";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { SystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
@@ -133,6 +133,7 @@ const WineSnap = () => {
           imageBase64: processedImage,
           noTextFound,
           uiLang,
+          ocr_image_hash: ocrKey,
         }),
       });
 
