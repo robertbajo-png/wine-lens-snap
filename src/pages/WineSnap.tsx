@@ -255,6 +255,24 @@ const WineSnap = () => {
     }, 0);
   };
 
+  const handleRetryScan = () => {
+    if (isProcessing) return;
+    handleReset();
+  };
+
+  // --- helpers i komponenten, ovanför return ---
+  const hasNumeric = (value: unknown): value is number =>
+    typeof value === "number" && Number.isFinite(value);
+  const metersOk = Boolean(
+    results?.meters &&
+      hasNumeric(results.meters.sötma) &&
+      hasNumeric(results.meters.fyllighet) &&
+      hasNumeric(results.meters.fruktighet) &&
+      hasNumeric(results.meters.fruktsyra)
+  );
+  const hasWebEvidence = (results?.evidence?.webbträffar?.length ?? 0) > 0;
+  const showVerifiedMeters = Boolean(metersOk && hasWebEvidence);
+
   // Show results view if we have results
   if (results && !isProcessing) {
     const showInstallCTA = isInstallable && !isInstalled;
@@ -343,10 +361,28 @@ const WineSnap = () => {
                 typ={results.typ}
               />
 
-              <MetersRow
-                meters={results.meters}
-                estimated={results?._meta?.meters_source === "derived"}
-              />
+              {showVerifiedMeters ? (
+                <MetersRow
+                  meters={results.meters}
+                  estimated={results?._meta?.meters_source === "derived"}
+                />
+              ) : (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-slate-200">
+                  <p className="mb-1 text-sm font-medium text-white">Smakprofil</p>
+                  <p className="text-sm opacity-80">
+                    Smakprofil kunde inte fastställas utan webbkällor.
+                    {!hasWebEvidence &&
+                      (results?.källa === "–" || results?.källa?.toLowerCase() === "etikett") && (
+                        <> Prova igen när uppkoppling finns eller fota etiketten rakare.</>
+                      )}
+                  </p>
+                  <div className="mt-3">
+                    <Button variant="outline" size="sm" onClick={handleRetryScan}>
+                      Försök igen
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <KeyFacts
                 druvor={results.druvor}
