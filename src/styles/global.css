@@ -2,17 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ========= App Theme Tokens (Dark) ========= */
+/* ========= App Theme Tokens (Dark, lighter surfaces) ========= */
 :root {
   /* Brand (lila) i HSL för flexibel opacitet */
   --brand: 266 79% 59%;
-  --surface: 258 30% 12%;
-  --surface-2: 258 26% 16%;
-  --outline: 260 18% 35%;
-  --text: 260 20% 96%;
-  --text-soft: 260 16% 80%;
-  --bg-start: 270 42% 6%;
-  --bg-end: 266 48% 12%;
+  /* Ljusare bakgrunder för bättre läsbarhet i kort */
+  --surface: 258 22% 18%;
+  --surface-2: 258 20% 22%;
+  --outline: 260 16% 40%;
+  --text: 260 20% 97%;
+  --text-soft: 260 12% 88%;
+  /* Något ljusare gradient */
+  --bg-start: 270 36% 10%;
+  --bg-end:   266 42% 18%;
 }
 
 /* ========= Global Dark Background ========= */
@@ -30,18 +32,22 @@ body.app-theme {
 }
 
 /* ========= Theming-overrides för “ljusa” utilities =========
-   Gör att sidor som råkar använda bg-white/border/text-slate
-   ändå följer appens mörka tema utan att ändra JSX. */
+   Gör att sidor som använder bg-white/border etc. ändå ser bra ut
+   i mörkt tema – utan att ändra JSX. */
 body.app-theme .bg-white,
 body.app-theme .bg-gray-50,
 body.app-theme .bg-slate-50 {
-  background-color: hsl(var(--surface)) !important;
+  background-color: hsl(var(--surface-2)) !important;
 }
+/* Hög kontrast på rubriker/primär text */
 body.app-theme .text-slate-900,
 body.app-theme .text-gray-900,
-body.app-theme .text-black {
+body.app-theme .text-black,
+body.app-theme .text-slate-800,
+body.app-theme .text-gray-800 {
   color: hsl(var(--text)) !important;
 }
+/* Låt sekundär text vara läsbar – inte för mörk */
 body.app-theme .text-slate-600,
 body.app-theme .text-gray-600,
 body.app-theme .text-slate-500,
@@ -59,13 +65,13 @@ body.app-theme .divide-gray-200 {
 body.app-theme .shadow,
 body.app-theme .shadow-md,
 body.app-theme .shadow-lg {
-  box-shadow: 0 30px 60px -30px rgba(123,63,228,0.35) !important;
+  box-shadow: 0 28px 48px -26px rgba(123,63,228,0.28) !important;
 }
 
 /* Knappar/”pill”-chips i ljus stil får mörka ytor */
 body.app-theme .bg-white\/70,
 body.app-theme .bg-white\/80 {
-  background-color: hsl(var(--surface-2)) !important;
+  background-color: hsl(var(--surface)) !important;
 }
 body.app-theme .ring-1,
 body.app-theme .ring {
