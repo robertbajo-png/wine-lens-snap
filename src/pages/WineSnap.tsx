@@ -12,6 +12,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
+import { autoCropLabel } from "@/lib/autoCrop";
+import { getOcrCache, setOcrCache, sha1Base64 } from "@/lib/ocrCache";
 import { ProgressBanner } from "@/components/ProgressBanner";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { SystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
@@ -64,7 +66,8 @@ const WineSnap = () => {
     setProgressNote("Förbereder bilden…");
 
     try {
-      const processedImage = await preprocessImage(imageData, {
+      const croppedImage = await autoCropLabel(imageData);
+      const processedImage = await preprocessImage(croppedImage, {
         maxSide: 1200,
         quality: 0.68,
         grayscale: true,
@@ -73,7 +76,14 @@ const WineSnap = () => {
 
       setProgressStep("ocr");
       setProgressNote("Läser text (OCR) …");
-      const ocrText = await ocrRecognize(processedImage, uiLang);
+      const ocrKey = await sha1Base64(processedImage);
+      let ocrText = getOcrCache(ocrKey);
+      if (!ocrText) {
+        ocrText = await ocrRecognize(processedImage, uiLang);
+        if (ocrText && ocrText.length >= 3) {
+          setOcrCache(ocrKey, ocrText);
+        }
+      }
 
       const noTextFound = !ocrText || ocrText.length < 10;
       if (noTextFound) {
@@ -83,7 +93,7 @@ const WineSnap = () => {
         });
       }
 
-      const cacheLookupKey = !noTextFound && ocrText ? ocrText : imageData;
+      const cacheLookupKey = !noTextFound && ocrText ? ocrText : processedImage;
       const cached = getCachedAnalysis(cacheLookupKey);
       if (cached) {
         setResults(cached);
