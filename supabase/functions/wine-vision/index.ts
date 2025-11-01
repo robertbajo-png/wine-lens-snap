@@ -6,6 +6,7 @@ import {
   getFromSupabaseCache,
   setSupabaseCache
 } from "./cache.ts";
+import { getOcrFromServerCache, upsertOcrServerCache } from "./db.ts";
 import type { WineSearchResult, WineSummary } from "./types.ts";
 
 const CFG = {
@@ -754,6 +755,8 @@ Deno.serve(async (req) => {
     const reqJson = await req.json();
     const imageBase64 = typeof reqJson?.imageBase64 === "string" ? reqJson.imageBase64 : null;
     const clientWantsHeuristics = Boolean(reqJson?.allowHeuristics === true);
+    const ocrTextFromClient = typeof reqJson?.ocrText === "string" ? reqJson.ocrText : "";
+    const ocrImageHash = typeof reqJson?.ocr_image_hash === "string" ? reqJson.ocr_image_hash : null;
 
     if (!imageBase64) {
       return new Response(JSON.stringify({ ok: false, error: "Missing image data" }), {
@@ -765,25 +768,43 @@ Deno.serve(async (req) => {
     const startTime = Date.now();
     console.log(`[${new Date().toISOString()}] Wine analysis started`);
 
-    // Step 1: OCR with Gemini
-    const ocrStart = Date.now();
-    console.log(`[${new Date().toISOString()}] Starting OCR...`);
-    
-    let ocrText = "";
-    try {
-      ocrText = await aiClient.gemini("Läs exakt all text på vinflasketiketten och returnera endast ren text.", {
-        imageUrl: imageBase64,
-        timeoutMs: CFG.GEMINI_TIMEOUT_MS,
-      });
-      const ocrTime = Date.now() - ocrStart;
-      console.log(`[${new Date().toISOString()}] OCR success (${ocrTime}ms), text length: ${ocrText.length}`);
-    } catch (error) {
-      const ocrTime = Date.now() - ocrStart;
-      console.error(`[${new Date().toISOString()}] OCR error (${ocrTime}ms):`, error);
-      return new Response(
-        JSON.stringify({ ok: false, error: "OCR misslyckades" }),
-        { status: 500, headers: { ...cors, "content-type": "application/json" } }
-      );
+    // Step 1: OCR (try client/server cache before Gemini)
+    let ocrText = ocrTextFromClient;
+    let ocrSource: "client" | "server_cache" | "gemini" | "unknown" = ocrText ? "client" : "unknown";
+
+    if ((!ocrText || ocrText.length < 5) && ocrImageHash) {
+      try {
+        const cached = await getOcrFromServerCache(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ocrImageHash);
+        if (cached && cached.length >= 5) {
+          ocrText = cached;
+          ocrSource = "server_cache";
+          console.log(`[${new Date().toISOString()}] Server OCR cache hit (length: ${cached.length}).`);
+        }
+      } catch (error) {
+        console.warn("[wine-vision] Server OCR cache lookup failed", error);
+      }
+    }
+
+    if (!ocrText || ocrText.length < 5) {
+      const ocrStart = Date.now();
+      console.log(`[${new Date().toISOString()}] Starting OCR via Gemini...`);
+
+      try {
+        ocrText = await aiClient.gemini("Läs exakt all text på vinflasketiketten och returnera endast ren text.", {
+          imageUrl: imageBase64,
+          timeoutMs: CFG.GEMINI_TIMEOUT_MS,
+        });
+        const ocrTime = Date.now() - ocrStart;
+        ocrSource = "gemini";
+        console.log(`[${new Date().toISOString()}] OCR success (${ocrTime}ms), text length: ${ocrText.length}`);
+      } catch (error) {
+        const ocrTime = Date.now() - ocrStart;
+        console.error(`[${new Date().toISOString()}] OCR error (${ocrTime}ms):`, error);
+        return new Response(
+          JSON.stringify({ ok: false, error: "OCR misslyckades" }),
+          { status: 500, headers: { ...cors, "content-type": "application/json" } }
+        );
+      }
     }
 
     if (!ocrText || ocrText.length < 5) {
@@ -792,6 +813,8 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...cors, "content-type": "application/json" } }
       );
     }
+
+    console.log(`[${new Date().toISOString()}] OCR source: ${ocrSource}`);
 
     // Check cache (memory first, then Supabase)
     const cacheKey = getCacheKey(ocrText);
@@ -994,6 +1017,14 @@ WEB_JSON:
     // Store in both caches
     setMemoryCache(cacheKey, finalData);
     await setSupabaseCache(cacheKey, finalData, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    if (ocrImageHash && ocrText && ocrText.length >= 5) {
+      try {
+        await upsertOcrServerCache(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ocrImageHash, ocrText);
+      } catch (error) {
+        console.warn("[wine-vision] Server OCR cache upsert failed", error);
+      }
+    }
 
     return new Response(
       JSON.stringify({ 
