@@ -277,12 +277,11 @@ const WineSnap = () => {
   const hasWebEvidence = (results?.evidence?.webbträffar?.length ?? 0) > 0;
   const showVerifiedMeters = Boolean(metersOk && hasWebEvidence);
 
-  // --- save to history on each completed scan ---
+  // --- spara historik (lokalt + supabase) när resultat finns ---
   useEffect(() => {
     if (!results) return;
-    try {
-      const prev = JSON.parse(localStorage.getItem("wine_history") || "[]");
-      const entry = {
+    import("../lib/history").then(({ saveHistory }) => {
+      saveHistory({
         ts: new Date().toISOString(),
         vin: results.vin,
         producent: results.producent,
@@ -290,13 +289,9 @@ const WineSnap = () => {
         årgång: results.årgång,
         meters: results.meters,
         evidence: results.evidence,
-        _meta: results._meta,
-      };
-      const updated = [entry, ...prev].slice(0, 20);
-      localStorage.setItem("wine_history", JSON.stringify(updated));
-    } catch (error) {
-      console.warn("Kunde inte spara i historiken:", error);
-    }
+        _meta: (results as any)?._meta ?? null,
+      });
+    });
   }, [results]);
 
   // Show results view if we have results
