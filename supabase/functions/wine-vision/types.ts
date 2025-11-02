@@ -52,3 +52,32 @@ export interface WineSearchResult {
   evidence?: WineEvidence;
   [key: string]: unknown;
 }
+
+export interface TasteProfile {
+  sotma: number; // 1..5 (0.5 steg ok)
+  fyllighet: number; // 1..5
+  fruktighet: number; // 1..5
+  syra: number; // 1..5
+  tannin: number; // 1..5
+  ek: number; // 1..5
+}
+
+export type WineStyle = "white" | "red" | "rosé" | "sparkling" | "dessert";
+
+export interface TasteAIResponse {
+  tasteProfile: TasteProfile;
+  confidence: Partial<Record<keyof TasteProfile, number>>;
+  rationale: string[];
+  assumptions: string[];
+  usedSignals: {
+    grapes: string[];
+    region: string | null;
+    country: string | null;
+    style: WineStyle | null;
+    abv: string | null;
+    sweetness: "dry" | "off-dry" | "medium" | "sweet" | null;
+    oakMentioned: boolean | null;
+    labelNotes: string;
+  };
+  summary: string; // praktiskt alias till tasteProfile-beskrivning
+}
