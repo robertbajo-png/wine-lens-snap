@@ -1107,6 +1107,44 @@ async function buildTasteWithAI(
   }
 }
 
+/***** BEGIN PATCH: liten hjälp-prompt för 3 matparningar vid behov *****/
+
+async function buildFoodPairingIfMissing(
+  ai: GoogleGenAI,
+  analysis: WineAnalysisResult
+): Promise<string[] | null> {
+  if (analysis.foodPairing && analysis.foodPairing.length === 3) return null;
+
+  const model = ai.models.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const ask = `
+Suggest EXACTLY three specific food pairings as a strict JSON array of strings.
+Use the wine's grapes/region/style if given. No prose, no markdown, JSON array only.
+  `.trim();
+
+  const promptObj = {
+    name: analysis.wineName || "",
+    producer: analysis.producer || "",
+    grapes: analysis.grapeVariety || [],
+    region: analysis.region || "",
+    country: analysis.country || "",
+  };
+
+  const res = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: ask }, { text: "\nINPUT:\n" + JSON.stringify(promptObj) }]}],
+    generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
+  });
+  const raw = res.response?.text()?.trim() || "";
+  try {
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr) && arr.length === 3 && arr.every((x) => typeof x === "string")) {
+      return arr as string[];
+    }
+  } catch {}
+  return null;
+}
+
+/***** END PATCH *****/
+
 function sanitizeTaste(t: TasteAIResponse): TasteAIResponse {
   const clamp = (v: number) => Math.max(1, Math.min(5, Math.round(v * 2) / 2)); // 0.5-steg
   const p = t.tasteProfile;
