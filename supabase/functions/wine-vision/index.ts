@@ -24,6 +24,7 @@ const CFG = {
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
+const PERPLEXITY_GATEWAY_URL = Deno.env.get("PERPLEXITY_GATEWAY_URL");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -58,6 +59,34 @@ const isBlank = (value: unknown): boolean => {
   }
   return false;
 };
+
+function weightSource(url: string | undefined | null): number {
+  if (!url) return 0;
+  const lower = url.toLowerCase();
+  if (lower.includes("systembolaget.se")) return 5;
+  if (
+    lower.includes("vinmonopolet.no") ||
+    lower.includes("alko.fi") ||
+    lower.includes("saq.com") ||
+    lower.includes("lcbo.com")
+  )
+    return 4;
+  if (
+    lower.includes("wine-searcher.com") ||
+    lower.includes("wine.com") ||
+    lower.includes("totalwine.com")
+  )
+    return 3;
+  if (
+    lower.includes("decanter.com") ||
+    lower.includes("winemag.com") ||
+    lower.includes("jancisrobinson.com") ||
+    lower.includes("falstaff.com")
+  )
+    return 2;
+  if (lower.includes("vivino.com") || lower.includes("cellartracker.com")) return 1;
+  return 0;
+}
 
 const normalizeForAnalysisKey = (s: string) =>
   stripDiacritics(String(s || ""))
@@ -136,16 +165,8 @@ ${schemaJSON}
   const sources = normalized.källor ?? [];
   normalized.källor = Array.from(new Set(sources))
     .filter((u) => u.startsWith("http"))
-    .slice(0, CFG.MAX_WEB_URLS)
-    .sort((a, b) => {
-      const score = (u: string) =>
-        u.includes("systembolaget.se") ? 5 :
-        u.includes("vinmonopolet.no") || u.includes("alko.fi") || u.includes("saq.com") || u.includes("lcbo.com") ? 4 :
-        u.includes("wine-searcher.com") || u.includes("wine.com") || u.includes("totalwine.com") ? 3 :
-        u.includes("decanter.com") || u.includes("winemag.com") || u.includes("jancisrobinson.com") ? 2 :
-        u.includes("vivino.com") || u.includes("cellartracker.com") ? 1 : 0;
-      return score(b) - score(a);
-    });
+    .sort((a, b) => weightSource(b) - weightSource(a))
+    .slice(0, CFG.MAX_WEB_URLS);
 
   return normalized;
 }
@@ -398,6 +419,60 @@ function normalizeSearchResult(value: unknown): WineSearchResult {
   }
 
   return result;
+}
+
+function normalizeGatewayResult(payload: unknown): WineSearchResult | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  const candidates = Array.isArray(record.webbträffar)
+    ? record.webbträffar
+    : Array.isArray(record.hits)
+      ? record.hits
+      : [];
+
+  const hits = candidates
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const hit = item as Record<string, unknown>;
+      const url = ensureString(hit.url, "");
+      if (!url) return null;
+      const fields =
+        hit.fields && typeof hit.fields === "object" && !Array.isArray(hit.fields)
+          ? (hit.fields as Record<string, unknown>)
+          : {};
+      return { url, fields };
+    })
+    .filter((entry): entry is { url: string; fields: Record<string, unknown> } => Boolean(entry));
+
+  if (!hits.length) return null;
+
+  hits.sort((a, b) => weightSource(b.url) - weightSource(a.url));
+  const primary = hits[0];
+  const fields = primary.fields;
+
+  const result: WineSearchResult = {
+    vin: ensureString(fields.vin ?? fields.namn ?? fields.name ?? fields.title, "-"),
+    producent: ensureString(fields.producent ?? fields.producer ?? fields.tillverkare, "-"),
+    druvor: ensureString(fields.druvor ?? fields.grapes ?? fields.sortiment, "-"),
+    land_region: ensureString(fields.land_region ?? fields.region ?? fields.ursprung, "-"),
+    årgång: ensureString(fields.årgång ?? fields.vintage, "-"),
+    alkoholhalt: ensureString(fields.alkoholhalt ?? fields.abv ?? fields.alcohol, "-"),
+    volym: ensureString(fields.volym ?? fields.volume ?? fields.bottle_size, "-"),
+    klassificering: ensureString(fields.klassificering ?? fields.classification, "-"),
+    karaktär: ensureString(fields.karaktär ?? fields.karakter ?? fields.character ?? fields.style, "-"),
+    smak: ensureString(fields.smak ?? fields.smaksprofil ?? fields.taste ?? fields.notes, "-"),
+    servering: ensureString(fields.servering ?? fields.serve ?? fields.serveringstips, "-"),
+    passar_till: ensureStringArray(fields.passar_till ?? fields.food ?? fields.matchningar),
+    källor: hits.map((h) => h.url).slice(0, CFG.MAX_WEB_URLS),
+    källa: ensureString(fields.källa ?? fields.source, hits[0]?.url ?? "-"),
+    fallback_mode: false,
+  };
+
+  if (fields.meters !== undefined) {
+    result.meters = ensureMeters(fields.meters);
+  }
+
+  return normalizeSearchResult(result);
 }
 
 function detectColour(data: Partial<WineSummary>, ocrText: string) {
@@ -792,12 +867,116 @@ function fillMissingFields(
     !!webData?.meters && meterKeys.some((key) => typeof webData.meters?.[key] === "number");
 
   finalData._meta = finalData._meta || {};
-  const meta = finalData._meta as Record<string, any>;
+  const meta = finalData._meta as {
+    meters_source?: string;
+    confidence?: Record<string, number>;
+    [key: string]: unknown;
+  };
   meta.meters_source = webMetersProvided ? "web" : "derived";
-  meta.confidence = meta.confidence || {};
-  meta.confidence.meters = webMetersProvided ? 0.9 : 0.5;
+  const confidenceMeta =
+    meta.confidence && typeof meta.confidence === "object" && !Array.isArray(meta.confidence)
+      ? { ...meta.confidence }
+      : {};
+  confidenceMeta.meters = webMetersProvided ? 0.9 : 0.5;
+  meta.confidence = confidenceMeta;
 
   return finalData;
+}
+
+function selectAuthoritative(webData: WineSearchResult | null) {
+  const picked: Partial<WineSummary> = {};
+  const confidence: Record<string, number> = {};
+  const hits = ensureStringArray(webData?.källor)
+    .map((url) => ({ url, _w: weightSource(url) }))
+    .filter((hit) => !!hit.url)
+    .sort((a, b) => b._w - a._w);
+
+  const topWeight = hits[0]?._w ?? 0;
+  const fallbackMode = webData?.fallback_mode === true;
+  const baseConfidence = fallbackMode
+    ? 0.25
+    : topWeight >= 5
+      ? 0.95
+      : topWeight >= 4
+        ? 0.9
+        : topWeight >= 3
+          ? 0.8
+          : topWeight >= 2
+            ? 0.65
+            : topWeight >= 1
+              ? 0.45
+              : 0.25;
+  const textConfidence = fallbackMode
+    ? 0.25
+    : topWeight >= 4
+      ? 0.9
+      : topWeight >= 3
+        ? 0.75
+        : topWeight >= 2
+          ? 0.55
+          : topWeight >= 1
+            ? 0.35
+            : 0.2;
+
+  const stringFields: Array<keyof WineSummary> = [
+    "vin",
+    "land_region",
+    "producent",
+    "druvor",
+    "årgång",
+    "typ",
+    "färgtyp",
+    "klassificering",
+    "alkoholhalt",
+    "volym",
+    "karaktär",
+    "smak",
+    "servering",
+    "källa",
+  ];
+
+  for (const field of stringFields) {
+    const value = webData?.[field];
+    if (typeof value === "string" && !isBlank(value)) {
+      picked[field] = value;
+      confidence[field] = field === "karaktär" || field === "smak" || field === "servering" ? textConfidence : baseConfidence;
+    }
+  }
+
+  if (Array.isArray(webData?.passar_till) && webData.passar_till.length > 0) {
+    const pairings = ensureStringArray(webData.passar_till).filter((item) => !isBlank(item));
+    if (pairings.length) {
+      picked.passar_till = pairings;
+      confidence.passar_till = baseConfidence;
+    }
+  }
+
+  if (webData?.meters) {
+    const meters: Partial<WineSummary["meters"]> = {};
+    if (typeof webData.meters.sötma === "number") meters.sötma = webData.meters.sötma;
+    if (typeof webData.meters.fyllighet === "number") meters.fyllighet = webData.meters.fyllighet;
+    if (typeof webData.meters.fruktighet === "number") meters.fruktighet = webData.meters.fruktighet;
+    if (typeof webData.meters.fruktsyra === "number") meters.fruktsyra = webData.meters.fruktsyra;
+    if (Object.keys(meters).length) {
+      picked.meters = {
+        sötma: meters.sötma ?? null,
+        fyllighet: meters.fyllighet ?? null,
+        fruktighet: meters.fruktighet ?? null,
+        fruktsyra: meters.fruktsyra ?? null,
+      };
+      confidence.meters = baseConfidence;
+      if (typeof meters.fruktsyra === "number") {
+        confidence.syra = baseConfidence;
+      }
+    }
+  }
+
+  if (!picked.källa && hits.length > 0) {
+    picked.källa = hits[0].url;
+    confidence.källa = baseConfidence;
+  }
+
+  return { picked, confidence, hits };
 }
 
 function buildSearchVariants(ocr: string) {
@@ -1084,7 +1263,39 @@ Deno.serve(async (req) => {
     };
 
     const { web: webResult, meta: webMeta } = await parallelWeb(ocrText);
-    const WEB_JSON: WineSearchResult = webResult ? { ...webResult, fallback_mode: false } : { ...defaultWeb };
+    let webJson: WineSearchResult | null = webResult ? { ...webResult, fallback_mode: false } : null;
+
+    if (!webJson && PERPLEXITY_GATEWAY_URL && PERPLEXITY_API_KEY) {
+      try {
+        const fast = await safeWebFetch(
+          PERPLEXITY_GATEWAY_URL,
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/json",
+              authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+            },
+            body: JSON.stringify({ q: ocrText, max_results: CFG.MAX_WEB_URLS }),
+          },
+          CFG.FAST_TIMEOUT_MS,
+        );
+
+        if (fast?.ok) {
+          const gatewayJson = await fast.json().catch(() => null);
+          const normalizedFast = normalizeGatewayResult(gatewayJson);
+          if (normalizedFast) {
+            webJson = { ...normalizedFast, fallback_mode: false };
+            console.log(
+              `[${new Date().toISOString()}] Fast gateway search success – using ${webJson.källor?.[0] ?? "unknown source"}`,
+            );
+          }
+        }
+      } catch (fastError) {
+        console.warn("[wine-vision] Fast gateway search failed", fastError);
+      }
+    }
+
+    const WEB_JSON: WineSearchResult = webJson ? { ...webJson } : { ...defaultWeb };
 
     if (!webResult && PERPLEXITY_API_KEY) {
       if (webMeta.pplx_status === "timeout") {
@@ -1094,7 +1305,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (!webResult) {
+    if (!webJson) {
       console.log(`[${new Date().toISOString()}] No web data found – falling back to heuristics.`);
     }
 
@@ -1196,14 +1407,75 @@ WEB_JSON:
       throw new Error(errorMsg);
     }
 
-    // Post-process
+    // Post-process med auktoritativt källval
+    const { picked: fromTrusted, confidence: conf, hits } = selectAuthoritative(webJson);
+
+    for (const [key, value] of Object.entries(fromTrusted)) {
+      if (key === "passar_till" && Array.isArray(value)) {
+        if (!Array.isArray(finalData.passar_till) || finalData.passar_till.length === 0) {
+          finalData.passar_till = ensureStringArray(value);
+        }
+        continue;
+      }
+      if (key === "meters" && value && typeof value === "object") {
+        const meters = finalData.meters ?? { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null };
+        const trusted = value as WineSummary["meters"];
+        finalData.meters = {
+          sötma: typeof meters.sötma === "number" ? meters.sötma : trusted.sötma ?? null,
+          fyllighet: typeof meters.fyllighet === "number" ? meters.fyllighet : trusted.fyllighet ?? null,
+          fruktighet: typeof meters.fruktighet === "number" ? meters.fruktighet : trusted.fruktighet ?? null,
+          fruktsyra: typeof meters.fruktsyra === "number" ? meters.fruktsyra : trusted.fruktsyra ?? null,
+        };
+        continue;
+      }
+
+      if (key in finalData && !isBlank(value)) {
+        const field = key as keyof WineSummary;
+        if (isBlank(finalData[field])) {
+          finalData[field] = value as WineSummary[typeof field];
+        }
+      }
+    }
+
+    finalData._meta = finalData._meta || {};
+    finalData._meta.confidence_per_field = {
+      ...(finalData._meta.confidence_per_field || {}),
+      ...conf,
+    };
+    finalData._meta.source_breakdown = hits?.map((h) => ({ url: h.url, weight: h._w })) || [];
+
+    const hasTrustedTaste =
+      (conf?.smak ?? 0) >= 0.85 ||
+      (conf?.karaktär ?? 0) >= 0.85 ||
+      (conf?.syra ?? 0) >= 0.85;
+    if (!hasTrustedTaste) {
+      const drt = computeTasteFromDRT(finalData?.druvor, finalData?.land_region, finalData?.typ);
+      if (drt) {
+        if (isBlank(finalData.karaktär)) finalData.karaktär = drt.text;
+        if (!finalData.meters) {
+          finalData.meters = { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null };
+        }
+        const m = finalData.meters;
+        if (m.sötma == null) m.sötma = drt.sötma;
+        if (m.fyllighet == null) m.fyllighet = drt.fyllighet;
+        if (m.fruktighet == null) m.fruktighet = drt.fruktighet;
+        if (m.fruktsyra == null) m.fruktsyra = drt.fruktsyra;
+        finalData._meta.fallback = "drt";
+      }
+    }
+
+    // Vanlig sanity & icke-kritiska texter
     finalData = enrichFallback(ocrText, finalData);
     finalData = sanitize(finalData);
 
-    const heuristicsAuto = !clientWantsHeuristics && (webMeta.fastPathHit || !webResult);
-    const allowHeuristics = clientWantsHeuristics || webMeta.fastPathHit || !webResult;
+    const heuristicsAuto = !clientWantsHeuristics && (webMeta.fastPathHit || !webJson);
+    const allowHeuristics = clientWantsHeuristics || webMeta.fastPathHit || !webJson;
 
-    finalData = fillMissingFields(finalData, WEB_JSON, ocrText, allowHeuristics);
+    const combinedWeb = webJson
+      ? ({ ...webJson, ...fromTrusted } as WineSearchResult)
+      : (Object.keys(fromTrusted).length ? (fromTrusted as unknown as WineSearchResult) : null);
+
+    finalData = fillMissingFields(finalData, combinedWeb ?? WEB_JSON, ocrText, allowHeuristics);
 
     if (!cacheNote && heuristicsAuto) {
       cacheNote = webMeta.fastPathHit ? "fastpath" : "fastpath_heuristic";
