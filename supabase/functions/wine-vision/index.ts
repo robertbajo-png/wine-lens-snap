@@ -1,3 +1,4 @@
+import { GoogleGenAI as GoogleGenAIClient, Type, type Schema } from "npm:@google/genai";
 import { aiClient } from "./lib/aiClient.ts";
 import {
   getCacheKey,
@@ -13,7 +14,6 @@ import {
   upsertOcrServerCache,
 } from "./db.ts";
 import type {
-  GoogleGenAI,
   TasteAIResponse,
   WineAnalysisResult,
   WineSearchResult,
@@ -24,6 +24,7 @@ import {
   TASTE_PRIMARY_PROMPT,
   TASTE_REPAIR_PROMPT,
   inferStyleFromGrapes,
+  isWeakNotes,
 } from "./prompts.ts";
 
 const CFG = {
@@ -45,6 +46,85 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const GEMINI_KEY_ENV_VARS = [
+  "GOOGLE_API_KEY",
+  "GEMINI_API_KEY",
+  "GOOGLE_GENAI_API_KEY",
+  "GENAI_API_KEY",
+];
+
+function getApiKey(): string {
+  const key = GEMINI_KEY_ENV_VARS
+    .map((name) => Deno.env.get(name)?.trim())
+    .find((value) => value && value.length > 0);
+
+  if (!key) {
+    throw new Error("Missing Gemini API key – set GOOGLE_API_KEY or GEMINI_API_KEY");
+  }
+
+  return key;
+}
+
+const wineAnalysisSchema: Schema = {
+  type: Type.OBJECT,
+  description: "Structured wine analysis derived from label text and imagery.",
+  properties: {
+    wineName: { type: Type.STRING, description: "Primary wine name" },
+    producer: { type: Type.STRING, nullable: true },
+    grapeVariety: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Detected grape varieties",
+    },
+    region: { type: Type.STRING, nullable: true },
+    country: { type: Type.STRING, nullable: true },
+    tastingNotes: { type: Type.STRING, nullable: true },
+    foodPairing: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Exactly three recommended food pairings",
+    },
+    vin: { type: Type.STRING, nullable: true },
+    land_region: { type: Type.STRING, nullable: true },
+    producent: { type: Type.STRING, nullable: true },
+    druvor: { type: Type.STRING, nullable: true },
+    årgång: { type: Type.STRING, nullable: true },
+    typ: { type: Type.STRING, nullable: true },
+    färgtyp: { type: Type.STRING, nullable: true },
+    klassificering: { type: Type.STRING, nullable: true },
+    alkoholhalt: { type: Type.STRING, nullable: true },
+    volym: { type: Type.STRING, nullable: true },
+    karaktär: { type: Type.STRING, nullable: true },
+    smak: { type: Type.STRING, nullable: true },
+    servering: { type: Type.STRING, nullable: true },
+    passar_till: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      nullable: true,
+    },
+  },
+  required: ["wineName", "foodPairing"],
+};
+
+function toJsonSafe(raw: string): Record<string, unknown> {
+  const trimmed = raw.trim();
+  try {
+    return JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    const start = trimmed.indexOf("{");
+    const end = trimmed.lastIndexOf("}");
+    if (start !== -1 && end !== -1 && end > start) {
+      const candidate = trimmed.slice(start, end + 1);
+      try {
+        return JSON.parse(candidate) as Record<string, unknown>;
+      } catch {
+        // fallthrough
+      }
+    }
+  }
+  throw new Error("Gemini returned non-JSON response");
+}
 
 // --- Helpers: timed fetch (abort) för snabb första-sökning ---
 async function safeWebFetch(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
@@ -1039,15 +1119,84 @@ function enrichFallback(ocrText: string, data: WineSummary): WineSummary {
   return data;
 }
 
+export async function analyzeWineLabel(
+  base64Image: string,
+  mimeType: string,
+): Promise<WineAnalysisResult> {
+  const ai = new GoogleGenAIClient({ apiKey: getApiKey() });
+
+  const imagePart = {
+    inlineData: {
+      data: base64Image,
+      mimeType,
+    },
+  };
+
+  const textPart = {
+    text:
+      "You are a world-class sommelier. Analyze the image of this wine label and return a JSON object with its details, following the provided schema. Be as accurate as possible based on the visual information.",
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: { parts: [imagePart, textPart] },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: wineAnalysisSchema,
+        temperature: 0.2,
+      },
+    });
+
+    const rawText = response.text?.trim();
+    if (!rawText) throw new Error("Empty response from Gemini");
+
+    const json = toJsonSafe(rawText);
+
+    if (!json.wineName || !Array.isArray(json.foodPairing)) {
+      throw new Error("Analysis JSON missing required fields");
+    }
+
+    const result = json as WineAnalysisResult;
+
+    if (isWeakNotes(result.tastingNotes)) {
+      const taste = await buildTasteWithAI(ai, result);
+      if (taste?.summary) {
+        result.tastingNotes = taste.summary;
+        if (!result.smak || isWeakNotes(result.smak)) {
+          result.smak = taste.summary;
+        }
+      }
+    }
+
+    if (!result.foodPairing || result.foodPairing.length !== 3) {
+      const fp = await buildFoodPairingIfMissing(ai, result);
+      if (fp) {
+        result.foodPairing = fp;
+      }
+    }
+
+    if ((!Array.isArray(result.passar_till) || result.passar_till.length === 0) && Array.isArray(result.foodPairing)) {
+      result.passar_till = [...result.foodPairing];
+    }
+
+    return result;
+  } catch (error) {
+    console.error("Error in analyzeWineLabel:", error);
+    if (error instanceof Error && error.message.toLowerCase().includes("json")) {
+      throw new Error("The AI failed to return a valid analysis. The label might be unclear or unreadable.");
+    }
+    throw error;
+  }
+}
+
 /***** BEGIN PATCH: AI-anrop för smakfallback (lägg under analyzeWineLabel, men före createWineChat) *****/
 
 async function buildTasteWithAI(
-  ai: GoogleGenAI,
+  ai: GoogleGenAIClient,
   analysis: WineAnalysisResult,
   ocrText?: string,
 ): Promise<TasteAIResponse | null> {
-  const model = ai.models.getGenerativeModel({ model: "gemini-2.5-flash" });
-
   // Plocka signaler
   const grapes = (analysis.grapeVariety || []).filter(Boolean);
   const region = analysis.region || null;
@@ -1070,15 +1219,16 @@ async function buildTasteWithAI(
   };
 
   // Primärförsök
-  const primary = await model.generateContent({
+  const primary = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
     contents: [{
       role: "user",
       parts: [{ text: TASTE_PRIMARY_PROMPT }, { text: "\nINPUT:\n" + JSON.stringify(input) }],
     }],
-    generationConfig: { temperature: 0.3, responseMimeType: "application/json" },
+    config: { temperature: 0.3, responseMimeType: "application/json" },
   });
 
-  let raw = primary.response?.text()?.trim();
+  let raw = primary.text?.trim();
   if (!raw) return null;
 
   // Reparationsrunda vid felaktig JSON
@@ -1086,7 +1236,8 @@ async function buildTasteWithAI(
     const obj = JSON.parse(raw) as TasteAIResponse;
     return sanitizeTaste(obj);
   } catch {
-    const repair = await model.generateContent({
+    const repair = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
       contents: [{
         role: "user",
         parts: [
@@ -1095,9 +1246,9 @@ async function buildTasteWithAI(
           { text: "\nPREVIOUS:\n" + raw },
         ],
       }],
-      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+      config: { temperature: 0.2, responseMimeType: "application/json" },
     });
-    raw = repair.response?.text()?.trim() || "";
+    raw = repair.text?.trim() || "";
     try {
       const obj = JSON.parse(raw) as TasteAIResponse;
       return sanitizeTaste(obj);
@@ -1110,12 +1261,11 @@ async function buildTasteWithAI(
 /***** BEGIN PATCH: liten hjälp-prompt för 3 matparningar vid behov *****/
 
 async function buildFoodPairingIfMissing(
-  ai: GoogleGenAI,
+  ai: GoogleGenAIClient,
   analysis: WineAnalysisResult
 ): Promise<string[] | null> {
   if (analysis.foodPairing && analysis.foodPairing.length === 3) return null;
 
-  const model = ai.models.getGenerativeModel({ model: "gemini-2.5-flash" });
   const ask = `
 Suggest EXACTLY three specific food pairings as a strict JSON array of strings.
 Use the wine's grapes/region/style if given. No prose, no markdown, JSON array only.
@@ -1129,17 +1279,20 @@ Use the wine's grapes/region/style if given. No prose, no markdown, JSON array o
     country: analysis.country || "",
   };
 
-  const res = await model.generateContent({
+  const res = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
     contents: [{ role: "user", parts: [{ text: ask }, { text: "\nINPUT:\n" + JSON.stringify(promptObj) }]}],
-    generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
+    config: { temperature: 0.4, responseMimeType: "application/json" },
   });
-  const raw = res.response?.text()?.trim() || "";
+  const raw = res.text?.trim() || "";
   try {
     const arr = JSON.parse(raw);
     if (Array.isArray(arr) && arr.length === 3 && arr.every((x) => typeof x === "string")) {
       return arr as string[];
     }
-  } catch {}
+  } catch (_error) {
+    // ignore JSON parse issues and fall back to null
+  }
   return null;
 }
 

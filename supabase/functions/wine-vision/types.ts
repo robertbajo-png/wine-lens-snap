@@ -40,6 +40,7 @@ export type WineAnalysisResult = WineSummary & {
   wineName?: string;
   producer?: string;
   foodPairing?: string[];
+  tastingNotes?: string;
 };
 
 export interface WineSearchResult {
@@ -93,23 +94,3 @@ export interface TasteAIResponse {
   summary: string; // praktiskt alias till tasteProfile-beskrivning
 }
 
-export interface GoogleGenAI {
-  models: {
-    getGenerativeModel(config: { model: string }): {
-      generateContent(input: {
-        contents: Array<{
-          role: "user" | "model";
-          parts: Array<{ text: string }>;
-        }>;
-        generationConfig?: {
-          temperature?: number;
-          responseMimeType?: string;
-        };
-      }): Promise<{
-        response?: {
-          text(): string | undefined;
-        };
-      }>;
-    };
-  };
-}
