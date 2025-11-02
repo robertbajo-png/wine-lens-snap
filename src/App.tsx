@@ -7,6 +7,7 @@ import About from "./pages/About";
 import WineSnap from "./pages/WineSnap";
 import NotFound from "./pages/NotFound";
 import History from "./pages/History";
+import GithubConnector from "./pages/GithubConnector";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
           <Route path="/" element={<WineSnap />} />
           <Route path="/om" element={<About />} />
           <Route path="/historik" element={<History />} />
+          <Route path="/github-connector" element={<GithubConnector />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
