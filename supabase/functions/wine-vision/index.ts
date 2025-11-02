@@ -1722,12 +1722,13 @@ WEB_JSON:
       }
     }
 
-    finalData._meta = finalData._meta || {};
-    finalData._meta.confidence_per_field = {
-      ...(finalData._meta.confidence_per_field || {}),
+    const meta = (finalData._meta || {}) as any;
+    meta.confidence_per_field = {
+      ...(meta.confidence_per_field || {}),
       ...conf,
     };
-    finalData._meta.source_breakdown = hits?.map((h) => ({ url: h.url, weight: h._w })) || [];
+    meta.source_breakdown = hits?.map((h) => ({ url: h.url, weight: h._w })) || [];
+    finalData._meta = meta;
 
     const hasTrustedTaste =
       (conf?.smak ?? 0) >= 0.85 ||
@@ -1745,7 +1746,9 @@ WEB_JSON:
         if (m.fyllighet == null) m.fyllighet = drt.fyllighet;
         if (m.fruktighet == null) m.fruktighet = drt.fruktighet;
         if (m.fruktsyra == null) m.fruktsyra = drt.fruktsyra;
-        finalData._meta.fallback = "drt";
+        const meta = (finalData._meta || {}) as any;
+        meta.fallback = "drt";
+        finalData._meta = meta;
       }
     }
 

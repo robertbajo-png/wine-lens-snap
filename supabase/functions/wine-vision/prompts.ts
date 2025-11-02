@@ -1,4 +1,4 @@
-import type { WineStyle } from "./types";
+import type { WineStyle } from "./types.ts";
 
 export const TASTE_PRIMARY_PROMPT = `
 You are an oenology expert. Build a realistic taste profile from grape(s), region, country, style and label hints ONLY.
