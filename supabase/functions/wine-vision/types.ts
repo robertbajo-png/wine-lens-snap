@@ -31,6 +31,14 @@ export interface WineSummary {
   [key: string]: unknown;
 }
 
+export type WineAnalysisResult = WineSummary & {
+  sockerhalt?: string;
+  syra?: string;
+  grapeVariety?: string[];
+  region?: string | null;
+  country?: string | null;
+};
+
 export interface WineSearchResult {
   vin?: string;
   producent?: string;
@@ -80,4 +88,25 @@ export interface TasteAIResponse {
     labelNotes: string;
   };
   summary: string; // praktiskt alias till tasteProfile-beskrivning
+}
+
+export interface GoogleGenAI {
+  models: {
+    getGenerativeModel(config: { model: string }): {
+      generateContent(input: {
+        contents: Array<{
+          role: "user" | "model";
+          parts: Array<{ text: string }>;
+        }>;
+        generationConfig?: {
+          temperature?: number;
+          responseMimeType?: string;
+        };
+      }): Promise<{
+        response?: {
+          text(): string | undefined;
+        };
+      }>;
+    };
+  };
 }
