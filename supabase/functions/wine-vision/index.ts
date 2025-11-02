@@ -12,7 +12,19 @@ import {
   upsertAnalysisServerCache,
   upsertOcrServerCache,
 } from "./db.ts";
-import type { WineSearchResult, WineSummary } from "./types.ts";
+import type {
+  GoogleGenAI,
+  TasteAIResponse,
+  WineAnalysisResult,
+  WineSearchResult,
+  WineStyle,
+  WineSummary,
+} from "./types.ts";
+import {
+  TASTE_PRIMARY_PROMPT,
+  TASTE_REPAIR_PROMPT,
+  inferStyleFromGrapes,
+} from "./prompts.ts";
 
 const CFG = {
   PPLX_TIMEOUT_MS: 12000,   // max PPLX-tid
@@ -1026,6 +1038,88 @@ function enrichFallback(ocrText: string, data: WineSummary): WineSummary {
   }
   return data;
 }
+
+/***** BEGIN PATCH: AI-anrop för smakfallback (lägg under analyzeWineLabel, men före createWineChat) *****/
+
+async function buildTasteWithAI(
+  ai: GoogleGenAI,
+  analysis: WineAnalysisResult,
+  ocrText?: string,
+): Promise<TasteAIResponse | null> {
+  const model = ai.models.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+  // Plocka signaler
+  const grapes = (analysis.grapeVariety || []).filter(Boolean);
+  const region = analysis.region || null;
+  const country = analysis.country || null;
+  const style: WineStyle = inferStyleFromGrapes(grapes);
+  const abv = null; // valfritt: extrahera via OCR om du har
+  const sweetness = null; // valfritt: mappa "dry/sec/trocken" etc. om du har OCR
+  const oakMentioned = null; // valfritt: från OCR
+  const labelNotes = (ocrText || "").slice(0, 800);
+
+  const input = {
+    grapes,
+    region,
+    country,
+    style,
+    abv,
+    sweetness,
+    oakMentioned,
+    labelNotes,
+  };
+
+  // Primärförsök
+  const primary = await model.generateContent({
+    contents: [{
+      role: "user",
+      parts: [{ text: TASTE_PRIMARY_PROMPT }, { text: "\nINPUT:\n" + JSON.stringify(input) }],
+    }],
+    generationConfig: { temperature: 0.3, responseMimeType: "application/json" },
+  });
+
+  let raw = primary.response?.text()?.trim();
+  if (!raw) return null;
+
+  // Reparationsrunda vid felaktig JSON
+  try {
+    const obj = JSON.parse(raw) as TasteAIResponse;
+    return sanitizeTaste(obj);
+  } catch {
+    const repair = await model.generateContent({
+      contents: [{
+        role: "user",
+        parts: [
+          { text: TASTE_REPAIR_PROMPT },
+          { text: "\nINPUT:\n" + JSON.stringify(input) },
+          { text: "\nPREVIOUS:\n" + raw },
+        ],
+      }],
+      generationConfig: { temperature: 0.2, responseMimeType: "application/json" },
+    });
+    raw = repair.response?.text()?.trim() || "";
+    try {
+      const obj = JSON.parse(raw) as TasteAIResponse;
+      return sanitizeTaste(obj);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function sanitizeTaste(t: TasteAIResponse): TasteAIResponse {
+  const clamp = (v: number) => Math.max(1, Math.min(5, Math.round(v * 2) / 2)); // 0.5-steg
+  const p = t.tasteProfile;
+  p.sotma = clamp(p.sotma);
+  p.fyllighet = clamp(p.fyllighet);
+  p.fruktighet = clamp(p.fruktighet);
+  p.syra = clamp(p.syra);
+  p.tannin = clamp(p.tannin);
+  p.ek = clamp(p.ek);
+  return t;
+}
+
+/***** END PATCH *****/
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
