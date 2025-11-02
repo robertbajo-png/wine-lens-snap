@@ -1,3 +1,5 @@
+import type { WineStyle } from "./types";
+
 export const TASTE_PRIMARY_PROMPT = `
 You are an oenology expert. Build a realistic taste profile from grape(s), region, country, style and label hints ONLY.
 NO web search. Use oenology priors:
@@ -36,3 +38,35 @@ Your previous output did not match the required schema.
 Return ONLY valid JSON that matches exactly the provided keys and numeric ranges.
 Do NOT add prose or markdown.
 `.trim();
+
+/***** BEGIN PATCH: utils för signaler (lägg strax under prompts) *****/
+
+// Enkel heuristik för stil om du inte redan har den någon annanstans:
+export function inferStyleFromGrapes(grapes: string[]): WineStyle {
+  const g = (grapes[0] || "").toLowerCase();
+  const redish = [
+    "kékfrankos",
+    "blaufränkisch",
+    "cabernet",
+    "merlot",
+    "pinot noir",
+    "syrah",
+    "sangiovese",
+    "tempranillo",
+    "nebbiolo",
+    "kadarka",
+  ];
+  if (redish.some((r) => g.includes(r))) return "red";
+  return "white"; // default
+}
+
+// Snabb kontroll om tastingNotes är ”för svag”/tom:
+export function isWeakNotes(s?: string) {
+  if (!s) return true;
+  const t = s.trim();
+  if (t.length < 20) return true;
+  // väldigt generiska fraser? (liten spärr)
+  return /balanced|fruity|nice|good|pleasant/i.test(t) && t.length < 60;
+}
+
+/***** END PATCH *****/
