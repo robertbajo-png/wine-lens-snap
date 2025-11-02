@@ -17,7 +17,7 @@ import type { WineSearchResult, WineSummary } from "./types.ts";
 const CFG = {
   PPLX_TIMEOUT_MS: 12000,   // max PPLX-tid
   GEMINI_TIMEOUT_MS: 45000, // max Gemini-tid
-  FAST_TIMEOUT_MS: 3000,    // efter 3s: gå “fast path” (heuristik) om inget svar
+  FAST_TIMEOUT_MS: 4000,    // snabb “fail-fast” för initial sök
   MAX_WEB_URLS: 3,
   PPLX_MODEL: "sonar",
 };
@@ -32,6 +32,17 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// --- Helpers: timed fetch (abort) för snabb första-sökning ---
+async function safeWebFetch(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // Helper functions
 const stripDiacritics = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -597,6 +608,91 @@ function defaultTaste(colour: string, body: string, sweetness: string) {
   return "Harmonisk smakbild med fruktiga toner och balanserad syra.";
 }
 
+// --- Druva/Region/Typ-modell för förbättrade fallback-smaker & meters ---
+type DRT = { sötma: number; fyllighet: number; fruktighet: number; fruktsyra: number; text: string };
+const GRAPE_BASE: Record<string, Omit<DRT, "text">> = {
+  // Vitt
+  furmint:            { sötma: 1.0, fyllighet: 3.0, fruktighet: 3.5, fruktsyra: 4.0 },
+  riesling:           { sötma: 1.0, fyllighet: 2.5, fruktighet: 3.5, fruktsyra: 4.5 },
+  chardonnay:         { sötma: 1.0, fyllighet: 3.5, fruktighet: 3.2, fruktsyra: 3.0 },
+  "sauvignon blanc":  { sötma: 1.0, fyllighet: 2.6, fruktighet: 3.8, fruktsyra: 4.2 },
+  olaszrizling:       { sötma: 1.0, fyllighet: 2.5, fruktighet: 3.0, fruktsyra: 3.5 },
+  welschriesling:     { sötma: 1.0, fyllighet: 2.5, fruktighet: 3.0, fruktsyra: 3.5 },
+  // Rött
+  kékfrankos:         { sötma: 1.0, fyllighet: 3.0, fruktighet: 4.0, fruktsyra: 3.5 },
+  "pinot noir":      { sötma: 1.0, fyllighet: 2.4, fruktighet: 3.6, fruktsyra: 3.6 },
+  "cabernet sauvignon": { sötma: 1.0, fyllighet: 4.2, fruktighet: 3.5, fruktsyra: 3.0 },
+};
+
+function regionAdjust(base: Omit<DRT, "text">, region: string, colour: string): Omit<DRT, "text"> {
+  const r = (region || "").toLowerCase();
+  let { sötma, fyllighet, fruktighet, fruktsyra } = base;
+
+  if (/tokaj|tokaji|eger|balaton|somlo|mátra|matra|badacsony/.test(r)) {
+    fruktsyra += 0.3;
+    fruktighet += 0.1;
+  }
+  if (/tuscany|toscana|rioja|priorat|rhone|languedoc|sud/.test(r)) {
+    fyllighet += 0.2;
+    fruktsyra -= 0.2;
+  }
+  if (colour === "mousserande") {
+    fruktsyra += 0.2;
+    sötma = Math.max(1.0, sötma);
+  }
+
+  const clampNum = (n: number) => Math.max(0, Math.min(5, Math.round(n * 10) / 10));
+  return {
+    sötma: clampNum(sötma),
+    fyllighet: clampNum(fyllighet),
+    fruktighet: clampNum(fruktighet),
+    fruktsyra: clampNum(fruktsyra),
+  };
+}
+
+function drtText(grape: string, region: string, colour: string, vals: Omit<DRT, "text">): string {
+  const parts: string[] = [];
+
+  if (colour === "vitt") {
+    parts.push("Torr, frisk stil");
+    if (vals.fruktsyra >= 3.8) parts.push("hög syra");
+    if (vals.fyllighet >= 3.4) parts.push("medelfyllig till fyllig");
+    parts.push("toner av citrus, gul frukt och mineralitet");
+  } else if (colour === "rött") {
+    parts.push("Torr, balanserad stil");
+    if (vals.fyllighet >= 3.8) parts.push("fyllig kropp");
+    parts.push(vals.fruktighet >= 3.6 ? "röd/mörk frukt" : "diskret frukt");
+    if (vals.fruktsyra >= 3.6) parts.push("frisk avslutning");
+  } else if (colour === "mousserande") {
+    parts.push("Livligt mousserande, frisk syra, citrus och äpple");
+  } else if (colour === "dessert") {
+    parts.push("Uttalad sötma med honung och torkad frukt");
+  } else {
+    parts.push("Fruktig och balanserad stil");
+  }
+
+  return parts.join(", ") + ".";
+}
+
+function computeTasteFromDRT(druvorRaw?: string, land_region?: string, typ?: string): DRT | null {
+  const grape = (druvorRaw || "").toLowerCase();
+  const region = land_region || "";
+  const colour = (() => {
+    const t = (typ || "").toLowerCase();
+    if (/mousserande|sparkling|cava|crémant|champagne|prosecco/.test(t)) return "mousserande";
+    if (/ros[eéáå]|rosado|rosato/.test(t)) return "rosé";
+    if (/rött|rosso|rouge|tinto/.test(t)) return "rött";
+    if (/vitt|white|blanc|bianco|weiß|weiss/.test(t)) return "vitt";
+    return "okänt";
+  })();
+
+  const baseKey = Object.keys(GRAPE_BASE).find((key) => grape.includes(key));
+  if (!baseKey) return null;
+
+  const adjusted = regionAdjust(GRAPE_BASE[baseKey], region, colour);
+  return { ...adjusted, text: drtText(baseKey, region, colour, adjusted) };
+}
+
 function defaultMeters(colour: string, body: string, sweetness: string) {
   const sötma = sweetness === "söt" ? 4.2 : sweetness === "halvsöt" ? 2.8 : colour === "mousserande" ? 1.2 : 1.0;
   const fyllighet = body === "kraftfull" ? 4.0 : body === "lätt" ? 2.2 : 3.2;
@@ -649,6 +745,7 @@ function fillMissingFields(
     const colour = detectColour(finalData, ocrText);
     const body = detectBody(finalData, ocrText);
     const sweetness = detectSweetness(finalData, ocrText);
+    const drt = computeTasteFromDRT(finalData.druvor, finalData.land_region, finalData.typ);
 
     if (finalData.passar_till.length < 3) {
       finalData.passar_till = defaultPairings(colour, body, sweetness);
@@ -663,10 +760,12 @@ function fillMissingFields(
     }
 
     if (isBlank(finalData.smak)) {
-      finalData.smak = defaultTaste(colour, body, sweetness);
+      finalData.smak = drt ? drt.text : defaultTaste(colour, body, sweetness);
     }
 
-    const defaults = defaultMeters(colour, body, sweetness);
+    const defaults = drt
+      ? { sötma: drt.sötma, fyllighet: drt.fyllighet, fruktighet: drt.fruktighet, fruktsyra: drt.fruktsyra }
+      : defaultMeters(colour, body, sweetness);
     finalData.meters = {
       sötma: typeof meters.sötma === "number" ? meters.sötma : defaults.sötma,
       fyllighet: typeof meters.fyllighet === "number" ? meters.fyllighet : defaults.fyllighet,
