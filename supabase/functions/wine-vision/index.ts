@@ -263,9 +263,54 @@ ${schemaJSON}
   return normalized;
 }
 
-async function runGeminiFast(_ocrText: string, _imageHint?: string): Promise<WebJson> {
-  if (!LOVABLE_API_KEY) return null;
-  return null;
+async function runGeminiFast(ocrText: string, imageUrl?: string): Promise<WebJson> {
+  if (!LOVABLE_API_KEY || !imageUrl) return null;
+
+  console.log(`[${new Date().toISOString()}] Gemini Vision fallback: analyzing label image directly...`);
+
+  const prompt = `
+Analysera denna vinflaska-etikett och extrahera följande information:
+
+KRITISKT: Returnera ENBART ett giltigt JSON-objekt utan markdown, backticks eller kommentarer.
+ALL text MÅSTE vara på SVENSKA.
+
+Schema:
+{
+  "vin": "vinets namn",
+  "producent": "producent",
+  "druvor": "druvsort(er)",
+  "land_region": "land, region",
+  "årgång": "årgång eller -",
+  "alkoholhalt": "X% eller -",
+  "volym": "Xml eller -",
+  "klassificering": "t.ex. DOC, Reserva eller -",
+  "karaktär": "kort beskrivning eller -",
+  "smak": "smaker och dofter eller -",
+  "servering": "temperatur eller -",
+  "passar_till": ["maträtt1", "maträtt2", "maträtt3"],
+  "källor": []
+}
+
+Om ett fält saknas: använd "-". Max 3 passar_till-maträtter.
+  `.trim();
+
+  try {
+    const result = await aiClient.gemini(prompt, {
+      imageUrl,
+      timeoutMs: CFG.GEMINI_TIMEOUT_MS,
+      json: true,
+    }) as Record<string, unknown>;
+
+    const normalized = normalizeSearchResult(result);
+    normalized.fallback_mode = false;
+    normalized.källor = ["gemini-vision"];
+
+    console.log(`[${new Date().toISOString()}] Gemini Vision success:`, JSON.stringify(normalized, null, 2));
+    return normalized;
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] Gemini Vision error:`, error);
+    return null;
+  }
 }
 
 type WebMeta = {
@@ -276,7 +321,7 @@ type WebMeta = {
   gemini_status: "ok" | "timeout" | "error" | "skipped" | "empty";
 };
 
-async function parallelWeb(ocrText: string): Promise<{ web: WebJson; meta: WebMeta }> {
+async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: WebJson; meta: WebMeta }> {
   let pplx_ms: number | null = null;
   let gemini_ms: number | null = null;
   let fastPathHit = false;
@@ -315,47 +360,48 @@ async function parallelWeb(ocrText: string): Promise<{ web: WebJson; meta: WebMe
     tasks.push(pplxPromise);
   }
 
-  if (LOVABLE_API_KEY) {
-    const gemPromise = (async () => {
-      const start = Date.now();
-      try {
-        const res = await withTimeout(runGeminiFast(ocrText), CFG.GEMINI_TIMEOUT_MS, "gemini");
-        gemini_ms = Date.now() - start;
-        gemini_status = res ? "ok" : "empty";
-        return res;
-      } catch (error) {
-        gemini_ms = Date.now() - start;
-        if (error instanceof Error && error.name === "TimeoutError") {
-          gemini_status = "timeout";
-        } else {
-          gemini_status = "error";
-          console.error(`[${new Date().toISOString()}] Gemini fast-path error (${gemini_ms}ms):`, error);
-        }
-        return null;
-      }
-    })();
-    tasks.push(gemPromise);
-  }
+  // Don't run Gemini Vision in parallel initially - use it as fallback only
+  // This saves on API costs and only uses it when Perplexity fails
 
   let web: WebJson = null;
 
   if (tasks.length > 0) {
-    try {
-      web = await withTimeout(Promise.any(tasks), CFG.FAST_TIMEOUT_MS, "fastpath");
-    } catch (error) {
-      fastPathHit = true;
-      if (error instanceof Error && error.name === "TimeoutError") {
-        console.log(`[${new Date().toISOString()}] Fast-path timeout (${CFG.FAST_TIMEOUT_MS}ms) – enabling heuristics.`);
+    const settled = await Promise.allSettled(tasks);
+    for (const result of settled) {
+      if (result.status === "fulfilled" && result.value) {
+        web = result.value;
+        break;
       }
     }
+  }
 
-    if (!web) {
-      const settled = await Promise.allSettled(tasks);
-      for (const result of settled) {
-        if (result.status === "fulfilled" && result.value) {
-          web = result.value;
-          break;
-        }
+  // FALLBACK: If Perplexity failed or returned 0 sources, use Gemini Vision
+  if ((!web || !web.källor || web.källor.length === 0) && LOVABLE_API_KEY && imageUrl) {
+    console.log(`[${new Date().toISOString()}] Perplexity returned no sources – activating Gemini Vision fallback`);
+    const gemStart = Date.now();
+    try {
+      const geminiResult = await withTimeout(
+        runGeminiFast(ocrText, imageUrl), 
+        CFG.GEMINI_TIMEOUT_MS, 
+        "gemini-vision-fallback"
+      );
+      gemini_ms = Date.now() - gemStart;
+      if (geminiResult) {
+        web = geminiResult;
+        gemini_status = "ok";
+        console.log(`[${new Date().toISOString()}] Gemini Vision fallback success (${gemini_ms}ms)`);
+      } else {
+        gemini_status = "empty";
+        console.log(`[${new Date().toISOString()}] Gemini Vision fallback returned empty (${gemini_ms}ms)`);
+      }
+    } catch (error) {
+      gemini_ms = Date.now() - gemStart;
+      if (error instanceof Error && error.name === "TimeoutError") {
+        gemini_status = "timeout";
+        console.log(`[${new Date().toISOString()}] Gemini Vision fallback timeout (${gemini_ms}ms)`);
+      } else {
+        gemini_status = "error";
+        console.error(`[${new Date().toISOString()}] Gemini Vision fallback error (${gemini_ms}ms):`, error);
       }
     }
   }
@@ -1547,7 +1593,7 @@ Deno.serve(async (req) => {
       fallback_mode: true,
     };
 
-    const { web: webResult, meta: webMeta } = await parallelWeb(ocrText);
+    const { web: webResult, meta: webMeta } = await parallelWeb(ocrText, imageBase64);
     let webJson: WineSearchResult | null = webResult ? { ...webResult, fallback_mode: false } : null;
 
     if (!webJson && PERPLEXITY_GATEWAY_URL && PERPLEXITY_API_KEY) {
