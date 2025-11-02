@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      label_history: {
+        Row: {
+          argang: string | null
+          created_at: string | null
+          device_id: string
+          evidence: Json | null
+          id: string
+          land_region: string | null
+          meta: Json | null
+          meters: Json | null
+          producent: string | null
+          ts: string
+          user_id: string | null
+          vin: string | null
+        }
+        Insert: {
+          argang?: string | null
+          created_at?: string | null
+          device_id: string
+          evidence?: Json | null
+          id?: string
+          land_region?: string | null
+          meta?: Json | null
+          meters?: Json | null
+          producent?: string | null
+          ts?: string
+          user_id?: string | null
+          vin?: string | null
+        }
+        Update: {
+          argang?: string | null
+          created_at?: string | null
+          device_id?: string
+          evidence?: Json | null
+          id?: string
+          land_region?: string | null
+          meta?: Json | null
+          meters?: Json | null
+          producent?: string | null
+          ts?: string
+          user_id?: string | null
+          vin?: string | null
+        }
+        Relationships: []
+      }
       winesnap_cache: {
         Row: {
           created_at: string | null

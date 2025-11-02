@@ -17,33 +17,7 @@ const cors = {
   "Access-Control-Allow-Headers": "content-type, authorization, x-device-id",
 };
 
-async function ensureTable() {
-  const sql = `
-  create table if not exists public.label_history (
-    id uuid primary key default gen_random_uuid(),
-    ts timestamptz not null default now(),
-    user_id text null,
-    device_id text not null,
-    vin text,
-    producent text,
-    land_region text,
-    argang text,
-    meters jsonb,
-    evidence jsonb,
-    meta jsonb
-  );
-  `;
-  await fetch(`${SUPABASE_URL}/rest/v1/rpc/execute`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
-    },
-    body: JSON.stringify({ query: sql }),
-  }).catch(() => {});
-}
+// Table created via migration - no need for ensureTable()
 
 async function insertRow(payload: any) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/label_history`, {
@@ -67,8 +41,6 @@ serve(async (req) => {
     return new Response("ok", { headers: cors });
   }
   try {
-    await ensureTable();
-
     const deviceHeader = req.headers.get("x-device-id") || undefined;
     const body = await req.json().catch(() => ({}));
 
