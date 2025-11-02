@@ -37,6 +37,9 @@ export type WineAnalysisResult = WineSummary & {
   grapeVariety?: string[];
   region?: string | null;
   country?: string | null;
+  wineName?: string;
+  producer?: string;
+  foodPairing?: string[];
 };
 
 export interface WineSearchResult {
