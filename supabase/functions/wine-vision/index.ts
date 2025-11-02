@@ -269,29 +269,45 @@ async function runGeminiFast(ocrText: string, imageUrl?: string): Promise<WebJso
   console.log(`[${new Date().toISOString()}] Gemini Vision fallback: analyzing label image directly...`);
 
   const prompt = `
-Analysera denna vinflaska-etikett och extrahera följande information:
+Analysera denna vinflaska-etikett MYCKET NOGGRANT och extrahera följande information.
+
+INSTRUKTIONER:
+1. Läs HELA etiketten, inklusive liten text längst ner/bak
+2. Alkoholhalt hittas ofta som: "13% vol", "12.5% alc", "14%" - leta NOGA efter detta
+3. Volym hittas ofta som: "750ml", "75cl", "0.75L" - ofta i nedre kanten
+4. Årgång är ofta 4 siffror (2019, 2021, etc.) - kan stå på framsidan eller backsidan
+5. Producent och vinnamn står oftast störst på etiketten
+6. Druvsort kan stå som "Sauvignon Blanc", "Chardonnay", etc.
+7. Land/region kan vara "France", "Bordeaux", "Italy", "Toscana" etc.
 
 KRITISKT: Returnera ENBART ett giltigt JSON-objekt utan markdown, backticks eller kommentarer.
-ALL text MÅSTE vara på SVENSKA.
+ALL text MÅSTE vara på SVENSKA (utom vinnamn och producent som ska vara original).
+
+OCR-text från etiketten (använd som referens):
+${ocrText}
 
 Schema:
 {
-  "vin": "vinets namn",
-  "producent": "producent",
-  "druvor": "druvsort(er)",
-  "land_region": "land, region",
-  "årgång": "årgång eller -",
-  "alkoholhalt": "X% eller -",
-  "volym": "Xml eller -",
-  "klassificering": "t.ex. DOC, Reserva eller -",
-  "karaktär": "kort beskrivning eller -",
-  "smak": "smaker och dofter eller -",
-  "servering": "temperatur eller -",
+  "vin": "vinets namn (original språk)",
+  "producent": "producent (original språk)",
+  "druvor": "druvsort(er) på svenska",
+  "land_region": "land, region på svenska",
+  "årgång": "YYYY eller -",
+  "alkoholhalt": "X% vol eller X% eller -",
+  "volym": "XXXml eller XXcl eller -",
+  "klassificering": "t.ex. DOC, Reserva, AOC eller -",
+  "karaktär": "kort beskrivning baserad på druva och region eller -",
+  "smak": "typiska smaker för denna vintyp eller -",
+  "servering": "rekommenderad serveringstemperatur eller -",
   "passar_till": ["maträtt1", "maträtt2", "maträtt3"],
   "källor": []
 }
 
-Om ett fält saknas: använd "-". Max 3 passar_till-maträtter.
+VIKTIGT: 
+- Om du INTE kan hitta alkoholhalt eller volym på bilden: använd "-"
+- Fyll i karaktär och smak baserat på druva och region även om det inte står på etiketten
+- passar_till: ge 3-5 lämpliga maträtter baserat på vintyp och druva
+- Max 5 maträtter i passar_till
   `.trim();
 
   try {
