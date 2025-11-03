@@ -1188,41 +1188,46 @@ export async function analyzeWineLabel(
   const ai = new GoogleGenAIClient({ apiKey: getApiKey() });
 
   const imagePart = {
-    inlineData: {
-      data: base64Image,
-      mimeType,
-    },
-  };
-
-  const textPart = {
-    text:
-      "You are a world-class sommelier. Analyze the image of this wine label and return a JSON object with its details, following the provided schema. Be as accurate as possible based on the visual information.",
+    inlineData: { data: base64Image, mimeType },
   };
 
   try {
+    // 1) Skapa modellen här (stabilt mönster)
     const model = ai.models.getGenerativeModel({
       model: "gemini-2.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
-        responseSchema: wineAnalysisSchema,
+        // responseSchema: wineAnalysisSchema,
         temperature: 0.2,
       },
     });
 
+    // 2) Kör generateContent med korrekt contents-format
     const gen = await model.generateContent({
       contents: [
         {
           role: "user",
-          parts: [imagePart, textPart],
+          parts: [
+            imagePart,
+            {
+              text:
+                "You are a world-class sommelier. Analyze this wine label image and return a JSON object " +
+                "with: wineName, producer, grapeVariety[], region, country, vintage ('N/V' if unknown), tastingNotes (1 short paragraph), " +
+                "foodPairing (exactly 3 items). Return STRICT JSON. No markdown.",
+            },
+          ],
         },
       ],
     });
 
+    // 3) Läs svaret via gen.response.text()
     const rawText = gen.response?.text()?.trim();
-    if (!rawText) throw new Error("Empty response from Gemini");
+    if (!rawText) throw new Error("Empty response from Gemini (no text).");
 
+    // 4) Försök parsea JSON robust
     const json = toJsonSafe(rawText);
 
+    // 5) Basvalidering (behåll stram)
     if (!json.wineName || !Array.isArray(json.foodPairing)) {
       throw new Error("Analysis JSON missing required fields");
     }
