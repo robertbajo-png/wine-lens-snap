@@ -1200,17 +1200,25 @@ export async function analyzeWineLabel(
   };
 
   try {
-    const response = await ai.models.generateContent({
+    const model = ai.models.getGenerativeModel({
       model: "gemini-2.5-flash",
-      contents: { parts: [imagePart, textPart] },
-      config: {
+      generationConfig: {
         responseMimeType: "application/json",
         responseSchema: wineAnalysisSchema,
         temperature: 0.2,
       },
     });
 
-    const rawText = response.text?.trim();
+    const gen = await model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [imagePart, textPart],
+        },
+      ],
+    });
+
+    const rawText = gen.response?.text()?.trim();
     if (!rawText) throw new Error("Empty response from Gemini");
 
     const json = toJsonSafe(rawText);
