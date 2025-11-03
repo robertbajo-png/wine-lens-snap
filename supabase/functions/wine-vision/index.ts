@@ -1293,26 +1293,31 @@ async function buildTasteWithAI(
     labelNotes,
   };
 
-  // Primärförsök
-  const primary = await ai.models.generateContent({
+  const model = ai.models.getGenerativeModel({
     model: "gemini-2.5-flash",
+    generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+  });
+
+  const gen = await model.generateContent({
     contents: [{
       role: "user",
       parts: [{ text: TASTE_PRIMARY_PROMPT }, { text: "\nINPUT:\n" + JSON.stringify(input) }],
     }],
-    config: { temperature: 0.3, responseMimeType: "application/json" },
   });
 
-  let raw = primary.text?.trim();
+  let raw = gen.response?.text()?.trim() || "";
   if (!raw) return null;
 
-  // Reparationsrunda vid felaktig JSON
   try {
     const obj = JSON.parse(raw) as TasteAIResponse;
     return sanitizeTaste(obj);
   } catch {
-    const repair = await ai.models.generateContent({
+    const repairModel = ai.models.getGenerativeModel({
       model: "gemini-2.5-flash",
+      generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
+    });
+
+    const repair = await repairModel.generateContent({
       contents: [{
         role: "user",
         parts: [
@@ -1321,9 +1326,8 @@ async function buildTasteWithAI(
           { text: "\nPREVIOUS:\n" + raw },
         ],
       }],
-      config: { temperature: 0.2, responseMimeType: "application/json" },
     });
-    raw = repair.text?.trim() || "";
+    raw = repair.response?.text()?.trim() || "";
     try {
       const obj = JSON.parse(raw) as TasteAIResponse;
       return sanitizeTaste(obj);
@@ -1354,12 +1358,16 @@ Use the wine's grapes/region/style if given. No prose, no markdown, JSON array o
     country: analysis.country || "",
   };
 
-  const res = await ai.models.generateContent({
+  const model = ai.models.getGenerativeModel({
     model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: ask }, { text: "\nINPUT:\n" + JSON.stringify(promptObj) }]}],
-    config: { temperature: 0.4, responseMimeType: "application/json" },
+    generationConfig: { responseMimeType: "application/json", temperature: 0.35 },
   });
-  const raw = res.text?.trim() || "";
+
+  const res = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: ask }, { text: "\nINPUT:\n" + JSON.stringify(promptObj) }]}],
+  });
+
+  const raw = res.response?.text()?.trim() || "";
   try {
     const arr = JSON.parse(raw);
     if (Array.isArray(arr) && arr.length === 3 && arr.every((x) => typeof x === "string")) {
