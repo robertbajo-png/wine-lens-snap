@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, Wine, Loader2, Download, Sparkles } from "lucide-react";
@@ -20,6 +20,7 @@ import ActionBar from "@/components/result/ActionBar";
 import ResultSkeleton from "@/components/result/ResultSkeleton";
 import { preprocessImage } from "@/lib/preprocess";
 import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
+import { inferMetrics } from "@/lib/inferMetrics";
 
 const INTRO_ROUTE = "/";
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
@@ -277,6 +278,56 @@ const WineSnap = () => {
   const hasWebEvidence = (results?.evidence?.webbträffar?.length ?? 0) > 0;
   const showVerifiedMeters = Boolean(metersOk && hasWebEvidence);
 
+  const derivedMeters = useMemo(() => {
+    if (!results || showVerifiedMeters) return null;
+
+    const sanitize = (value: unknown): string => {
+      if (typeof value !== "string") return "";
+      const trimmed = value.trim();
+      return trimmed === "–" ? "" : trimmed;
+    };
+
+    const descriptiveText = [
+      sanitize(results.vin),
+      sanitize(results.karaktär),
+      sanitize(results.smak),
+      sanitize(results.druvor),
+      sanitize(results.land_region),
+      sanitize(results.sockerhalt),
+      sanitize(results.syra),
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    if (!descriptiveText || descriptiveText.length < 12) {
+      return null;
+    }
+
+    const pairings = Array.isArray(results.passar_till)
+      ? results.passar_till
+          .map((item) => sanitize(item))
+          .filter((item): item is string => item.length > 0)
+      : [];
+
+    return inferMetrics({
+      vin: sanitize(results.vin),
+      land_region: sanitize(results.land_region),
+      producent: sanitize(results.producent),
+      druvor: sanitize(results.druvor),
+      karaktär: sanitize(results.karaktär),
+      smak: sanitize(results.smak),
+      passar_till: pairings,
+      servering: sanitize(results.servering),
+      årgång: sanitize(results.årgång),
+      alkoholhalt: sanitize(results.alkoholhalt),
+      volym: sanitize(results.volym),
+      sockerhalt: sanitize(results.sockerhalt),
+      syra: sanitize(results.syra),
+    });
+  }, [results, showVerifiedMeters]);
+
+  const showEstimatedMeters = Boolean(!showVerifiedMeters && derivedMeters);
+
   // --- spara historik (lokalt + supabase) när resultat finns ---
   useEffect(() => {
     if (!results) return;
@@ -298,7 +349,7 @@ const WineSnap = () => {
   if (results && !isProcessing) {
     const showInstallCTA = isInstallable && !isInstalled;
     const pairings = Array.isArray(results.passar_till)
-      ? (results.passar_till.filter(Boolean) as string[])
+      ? results.passar_till.filter((item) => item && item !== "–")
       : [];
     const ocrText = results.originaltext && results.originaltext !== "–"
       ? results.originaltext
@@ -382,36 +433,47 @@ const WineSnap = () => {
                 typ={results.typ}
               />
 
-              <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 backdrop-blur-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-white">Smakprofil</h3>
-                  {!showVerifiedMeters && (
+              {showVerifiedMeters ? (
+                <MetersRow
+                  meters={results.meters}
+                  estimated={results?._meta?.meters_source === "derived"}
+                  contextLabel="Webbkällor"
+                />
+              ) : showEstimatedMeters ? (
+                <MetersRow meters={derivedMeters ?? undefined} estimated contextLabel="Etikettanalys">
+                  <p className="opacity-80">
+                    Smakprofilen är uppskattad utifrån etikettens beskrivning och kan avvika från verkligheten.
+                  </p>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="rounded-xl bg-white/10 text-white transition-colors hover:bg-white/20"
+                    onClick={handleRetryScan}
+                  >
+                    Försök igen
+                  </Button>
+                </MetersRow>
+              ) : (
+                <section className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 text-sm text-slate-300 backdrop-blur-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-white">Smakprofil</h3>
                     <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-300">
                       Etikettinfo
                     </span>
-                  )}
-                </div>
-                {showVerifiedMeters ? (
-                  <MetersRow
-                    meters={results.meters}
-                    estimated={results?._meta?.meters_source === "derived"}
-                  />
-                ) : (
-                  <div className="text-sm text-slate-300">
-                    <p className="opacity-80">Smakprofil kunde inte fastställas utan webbkällor.</p>
-                    <div className="mt-3">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="rounded-xl bg-white/10 text-white transition-colors hover:bg-white/20"
-                        onClick={handleRetryScan}
-                      >
-                        Försök igen
-                      </Button>
-                    </div>
                   </div>
-                )}
-              </section>
+                  <p className="opacity-80">Smakprofil kunde inte fastställas utan webbkällor.</p>
+                  <div className="mt-3">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="rounded-xl bg-white/10 text-white transition-colors hover:bg-white/20"
+                      onClick={handleRetryScan}
+                    >
+                      Försök igen
+                    </Button>
+                  </div>
+                </section>
+              )}
 
               <KeyFacts
                 druvor={results.druvor}
