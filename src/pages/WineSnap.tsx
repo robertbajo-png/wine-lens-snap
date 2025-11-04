@@ -487,7 +487,16 @@ const WineSnap = () => {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <ClampTextCard title="Karaktär" text={results.karaktär} />
-                <ClampTextCard title="Smak" text={results.smak} />
+                {results.smak && results.smak !== "–" ? (
+                  <ClampTextCard title="Smak" text={results.smak} />
+                ) : (
+                  <section className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+                    <h3 className="text-sm font-semibold text-white">Smak</h3>
+                    <p className="mt-2 text-sm text-slate-200">
+                      Ingen smaktext kunde hämtas denna gång. Tryck ”Försök igen” eller fota etiketten tydligare.
+                    </p>
+                  </section>
+                )}
               </div>
 
               <Pairings items={pairings} />

@@ -2,8 +2,10 @@ import type { WineStyle } from "./types.ts";
 
 export const TASTE_PRIMARY_PROMPT = `
 You are an oenology expert. Build a realistic taste profile from grape(s), region, country, style and label hints ONLY.
-NO web search. Use oenology priors (cool vs warm climate; varietal archetypes).
-If oak/barrique is mentioned → raise "ek" moderately; if not mentioned → keep "ek" ≤ 2 unless style suggests otherwise.
+NO web search. Use oenology priors:
+- Cool climate → higher acidity, lighter body; warm climate → lower acidity, fuller body.
+- Varietal archetypes (examples): Furmint high acid/mineral; Olaszrizling herbal/almond; Kékfrankos red-fruited/moderate tannin; Kadarka light-bodied red with red cherry, spice, low tannin, crisp acidity; Cabernet Franc herbal/structured; Chardonnay flexible with oak; Riesling high acid; Nebbiolo high acid & tannin.
+If oak/barrique mentioned → raise "ek" moderately; if not mentioned → keep "ek" ≤ 2 unless style suggests otherwise.
 Sweetness: "dry/sec/trocken/brut" → 1–1.5; "off-dry/halbtrocken/demi-sec" → 2–3; "sweet" → ≥3.5.
 If style = dessert → raise "sotma" ≥3 and body slightly. If style = sparkling → raise acidity, lower tannin/body slightly.
 Multiple grapes → average.
@@ -26,13 +28,12 @@ Return STRICT JSON with EXACT keys:
   },
   "summary": "string"
 }
-Numbers must be within [1..5], 0.5 increments allowed. JSON only, no markdown.
+All numbers must be within [1..5], 0.5 increments allowed. JSON only, no markdown, no extra keys.
 `.trim();
 
 export const TASTE_REPAIR_PROMPT = `
 Your previous output did not match the required schema.
-Return ONLY valid JSON that matches exactly the provided keys and numeric ranges.
-Do NOT add prose or markdown.
+Return ONLY valid JSON that matches exactly the required keys and numeric ranges. No prose.
 `.trim();
 
 /***** BEGIN PATCH: utils för signaler (lägg strax under prompts) *****/
