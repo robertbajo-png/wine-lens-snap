@@ -1223,13 +1223,22 @@ export async function analyzeWineLabel(
 
     const rawText = gen.response?.text()?.trim();
     devLog("VISION RAW", rawText?.slice(0, 600));
-    if (!rawText) throw new Error("Empty response from Gemini (no text).");
+    if (!rawText) throw new Error("FORMAT_INVALID_JSON: Empty response from Gemini (no text).");
 
     const json = toJsonSafe(rawText);
     devLog("PARSED JSON", json);
 
+    const noName = !json.wineName || String(json.wineName).trim().length === 0;
+    const noGrapes = !Array.isArray(json.grapeVariety) || json.grapeVariety.length === 0;
+    const noRegion = !json.region || String(json.region).trim().length === 0;
+    if (noName && noGrapes && noRegion) {
+      throw new Error(
+        "CONTENT_UNREADABLE: Label could not be reliably read (name/grapes/region empty).",
+      );
+    }
+
     if (!json.wineName || !Array.isArray(json.foodPairing)) {
-      throw new Error("Analysis JSON missing required fields");
+      throw new Error("FORMAT_INVALID_JSON: Analysis JSON missing required fields");
     }
 
     const result = json as WineAnalysisResult;
@@ -1274,8 +1283,15 @@ export async function analyzeWineLabel(
     return result;
   } catch (error) {
     console.error("Error in analyzeWineLabel:", error);
-    if (error instanceof Error && error.message.toLowerCase().includes("json")) {
-      throw new Error("The AI failed to return a valid analysis. The label might be unclear or unreadable.");
+    if (
+      error instanceof Error &&
+      !error.message.includes("CONTENT_UNREADABLE") &&
+      !error.message.includes("FORMAT_INVALID_JSON") &&
+      error.message.toLowerCase().includes("json")
+    ) {
+      throw new Error(
+        "FORMAT_INVALID_JSON: The AI failed to return a valid analysis. The label might be unclear or unreadable.",
+      );
     }
     throw error;
   }

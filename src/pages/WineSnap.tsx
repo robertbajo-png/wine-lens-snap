@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, Wine, Loader2, Download, Sparkles } from "lucide-react";
@@ -24,6 +24,7 @@ import { inferMetrics } from "@/lib/inferMetrics";
 
 const INTRO_ROUTE = "/";
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
+type ErrorType = "FORMAT" | "CONTENT" | "UNKNOWN";
 
 const WineSnap = () => {
   const { toast } = useToast();
@@ -35,10 +36,13 @@ const WineSnap = () => {
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
   const [progressNote, setProgressNote] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<ErrorType | null>(null);
+  const [lastAnalyzedImage, setLastAnalyzedImage] = useState<string | null>(null);
 
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
   const cameraOpenedRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     const lang = navigator.language || "sv-SE";
     prewarmOcr(lang).catch(() => {
@@ -52,10 +56,18 @@ const WineSnap = () => {
     autoOpenedRef.current = true;
     const t = setTimeout(() => {
       cameraOpenedRef.current = true;
-      document.getElementById("wineImageUpload")?.click();
+      fileInputRef.current?.click();
     }, 0);
     return () => clearTimeout(t);
   }, [results, previewImage]);
+
+  const classifyError = useCallback((msg: string): ErrorType => {
+    if (msg.includes("CONTENT_UNREADABLE")) return "CONTENT";
+    if (msg.includes("FORMAT_INVALID_JSON") || msg.toLowerCase().includes("json") || msg.includes("Empty response")) {
+      return "FORMAT";
+    }
+    return "UNKNOWN";
+  }, []);
 
   const processWineImage = async (imageData: string) => {
     const uiLang = navigator.language || "sv-SE";
@@ -64,6 +76,8 @@ const WineSnap = () => {
     setBanner(null);
     setProgressStep("prep");
     setProgressNote("Förbereder bilden…");
+    setErrorType(null);
+    setLastAnalyzedImage(imageData);
 
     try {
       const croppedImage = await autoCropLabel(imageData);
@@ -204,6 +218,7 @@ const WineSnap = () => {
         } else {
           setBanner({ type: "success", text: "Klart! Din vinprofil är uppdaterad." });
         }
+        setErrorType(null);
       }
     } catch (error) {
       const errorMessage =
@@ -212,6 +227,7 @@ const WineSnap = () => {
           : "Kunde inte analysera bilden – försök igen i bättre ljus.";
 
       setBanner({ type: "error", text: errorMessage });
+      setErrorType(classifyError(errorMessage));
 
       toast({
         title: "Skanningen misslyckades",
@@ -243,7 +259,8 @@ const WineSnap = () => {
   };
 
   const handleTakePhoto = () => {
-    document.getElementById("wineImageUpload")?.click();
+    cameraOpenedRef.current = true;
+    fileInputRef.current?.click();
   };
 
   const handleReset = () => {
@@ -253,18 +270,27 @@ const WineSnap = () => {
     setProgressStep(null);
     setBanner(null);
     setProgressNote(null);
+    setErrorType(null);
+    setLastAnalyzedImage(null);
     autoOpenedRef.current = false;
     cameraOpenedRef.current = false;
 
     // Re-open the camera/input on the next tick så användaren slipper tom skärm
     setTimeout(() => {
-      document.getElementById("wineImageUpload")?.click();
+      cameraOpenedRef.current = true;
+      fileInputRef.current?.click();
     }, 0);
   };
 
   const handleRetryScan = () => {
     if (isProcessing) return;
     handleReset();
+  };
+
+  const handleRetrySameImage = () => {
+    if (!lastAnalyzedImage || isProcessing) return;
+    setPreviewImage(lastAnalyzedImage);
+    void processWineImage(lastAnalyzedImage);
   };
 
   // --- helpers ---
@@ -365,6 +391,7 @@ const WineSnap = () => {
 
         <input
           id="wineImageUpload"
+          ref={fileInputRef}
           type="file"
           accept="image/*"
           capture="environment"
@@ -618,16 +645,36 @@ const WineSnap = () => {
           </div>
         )}
 
-        {banner?.type === "error" && previewImage && (
-          <div className="mb-6 flex w-full justify-center">
-            <Button
-              size="lg"
-              onClick={() => processWineImage(previewImage)}
-              className="h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold shadow-lg hover:opacity-90 transition"
-              disabled={isProcessing}
-            >
-              Försök igen
-            </Button>
+        {banner?.type === "error" && (
+          <div className="mb-6 flex w-full flex-col items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              {(errorType === "FORMAT" || errorType === "UNKNOWN") && lastAnalyzedImage && (
+                <Button
+                  size="lg"
+                  onClick={handleRetrySameImage}
+                  className="h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold shadow-lg hover:opacity-90 transition"
+                  disabled={isProcessing}
+                >
+                  🔁 Försök igen med samma bild
+                </Button>
+              )}
+              {(errorType === "CONTENT" || errorType === "UNKNOWN") && (
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={handleReset}
+                  className="h-12 rounded-full border-white/30 bg-white/10 text-white shadow-lg backdrop-blur transition hover:bg-white/20"
+                  disabled={isProcessing}
+                >
+                  📸 Ta nytt foto
+                </Button>
+              )}
+            </div>
+            {errorType === "CONTENT" && (
+              <p className="text-sm text-slate-300">
+                Tips: undvik blänk, fyll rutan med etiketten och håll flaskan rakt.
+              </p>
+            )}
           </div>
         )}
 
