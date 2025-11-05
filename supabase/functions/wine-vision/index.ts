@@ -1686,7 +1686,12 @@ REGLER:
 - Typ/färg: härled endast från tydliga ord (Prosecco/Cava/Champagne/Spumante/Frizzante => "mousserande"; Rosé/Rosato/Rosado => "rosé"; Bianco/Blanc/White => "vitt"; Rosso/Rouge/Red => "rött").
 - karaktär/smak/servering${hasWebData ? ': fyll bara om uttryckligen i källan' : ': använd din kunskap om vintyp, druva och region för att ge rimliga värden'}; undantag: för mousserande får "sötma" mappas deterministiskt:
   Brut Nature/Pas Dosé/Dosage Zéro=0; Extra Brut=0.5; Brut=1; Extra Dry=1.5; Dry/Sec=2.2; Demi-Sec/Semi-Seco=3.4; Dolce/Sweet=4.5.
-- meters (sötma/fyllighet/fruktighet/fruktsyra): ${hasWebData ? 'fyll bara om uttryckligen i källan' : 'ge rimliga värden baserat på vintyp och druva (0-5 skala)'}.
+- **METERS (OBLIGATORISKT - ALLTID FYLL I)**: Baserat på druva, region, alkoholhalt, och smakbeskrivning, generera ALLTID exakta värden 1-5:
+  * **sötma**: 1=torrt (t.ex. Bordeaux, Chianti, Barolo), 2=halvtorrt (vissa Riesling), 3=medelsött (Liebfraumilch), 4=sött (Sauternes), 5=mycket sött (Tokaji Aszú). För mousserande: Brut Nature=1, Extra Brut=1, Brut=1, Extra Dry=2, Dry/Sec=2, Demi-Sec=3, Dolce/Sweet=5.
+  * **fyllighet**: 1=lätt kropp (Pinot Grigio, Vinho Verde), 2=lätt-medel (Beaujolais, Grüner Veltliner), 3=medelfylligt (Chianti, Côtes du Rhône, 12-13% alkohol), 4=fylligt (Bordeaux, Rioja, Chardonnay med fat, 13.5-14% alkohol), 5=mycket fylligt (Amarone, Barolo, 14.5%+ alkohol). Använd alkoholhalt som vägledning.
+  * **fruktighet**: 1=låg (mineraldrivna viner, Chablis), 2=låg-medel (Pinot Noir från Bourgogne), 3=medelfruktigt (Chianti, Rioja Crianza), 4=fruktig (Malbec, Zinfandel, Shiraz, "fruktig" i beskrivningen), 5=mycket fruktig (New World Shiraz, fruktbomb-stilar).
+  * **fruktsyra**: 1=låg syra (Amarone, Valpolicella Ripasso), 2=låg-medel (Merlot, Grenache), 3=medelsyra (Bordeaux, Rioja), 4=frisk syra (Chianti, Pinot Noir, Riesling), 5=hög syra (Sangiovese, Nebbiolo, mycket friska vita viner).
+  ${hasWebData ? 'Använd WEB_JSON som utgångspunkt men KORRIGERA om värdena verkar felaktiga baserat på vintyp.' : ''} Om inga exakta värden finns, HÄRLED logiskt från druva + region + alkoholhalt + smakbeskrivning. Meters får ALDRIG vara null!
 - MATPARNINGAR (passar_till): GENERERA ALLTID 3-5 lämpliga maträtter baserat på vinets druva, region, stil och karaktär. Använd klassiska sommelierregler:
   * Vitt vin (lätt & friskt): skaldjur, vitfisk, kyckling, sallader, milda ostar
   * Vitt vin (fylligt): grillad fisk, fläskkött, krämiga pastarätter, svamprätter
@@ -1707,7 +1712,7 @@ SCHEMA:
   "vin": "", "land_region": "", "producent": "", "druvor": "", "årgång": "",
   "typ": "", "färgtyp": "", "klassificering": "", "alkoholhalt": "", "volym": "",
   "karaktär": "", "smak": "", "passar_till": [], "servering": "", "källa": "",
-  "meters": { "sötma": null, "fyllighet": null, "fruktighet": null, "fruktsyra": null },
+  "meters": { "sötma": 1-5, "fyllighet": 1-5, "fruktighet": 1-5, "fruktsyra": 1-5 },
   "evidence": { "etiketttext": "", "webbträffar": [] }
 }
 
