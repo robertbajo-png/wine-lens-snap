@@ -573,6 +573,7 @@ const WineSnap = () => {
 
       <input
         id="wineImageUpload"
+        ref={fileInputRef}
         type="file"
         accept="image/*"
         capture="environment"
