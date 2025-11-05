@@ -1684,7 +1684,11 @@ ${hasWebData ? '' : 'VIKTIGT: Eftersom inga webbkällor finns tillgängliga, anv
 REGLER:
 - "Egri" = region "Eger" (översätt).
 - Typ/färg: härled endast från tydliga ord (Prosecco/Cava/Champagne/Spumante/Frizzante => "mousserande"; Rosé/Rosato/Rosado => "rosé"; Bianco/Blanc/White => "vitt"; Rosso/Rouge/Red => "rött").
-- karaktär/smak/servering${hasWebData ? ': fyll bara om uttryckligen i källan' : ': använd din kunskap om vintyp, druva och region för att ge rimliga värden'}; undantag: för mousserande får "sötma" mappas deterministiskt:
+- **alkoholhalt & volym**: Försök ALLTID extrahera från OCR_TEXT först (sök efter "%" och "ml/cl/L"). Om saknas och webbdata finns, använd det. Om helt saknas, sätt "-".
+- **karaktär**: ${hasWebData ? 'Använd webbdata om finns, annars' : 'Använd'} din kunskap om druva, region och stil för att beskriva vinet kort (max 15 ord). Aldrig "-".
+- **smak**: ${hasWebData ? 'Använd webbdata om uttrycklig smakbeskrivning finns. Om saknas eller vag' : 'Använd din kunskap om druva och region för att'}, generera en detaljerad smakprofil baserat på druva + region + alkoholhalt + karaktär. Inkludera frukt, kryddor, och struktur. Minst 10 ord, aldrig "-".
+- **servering**: ${hasWebData ? 'Använd webbdata om finns, annars g' : 'G'}enerera ALLTID serveringstemperatur och matchtips baserat på vintyp (vitt 8-12°C, rosé 10-12°C, lätt rött 14-16°C, fylligt rött 16-18°C). Aldrig "-".
+- undantag: för mousserande får "sötma" mappas deterministiskt:
   Brut Nature/Pas Dosé/Dosage Zéro=0; Extra Brut=0.5; Brut=1; Extra Dry=1.5; Dry/Sec=2.2; Demi-Sec/Semi-Seco=3.4; Dolce/Sweet=4.5.
 - **METERS (OBLIGATORISKT - ALLTID FYLL I)**: Baserat på druva, region, alkoholhalt, och smakbeskrivning, generera ALLTID exakta värden 1-5:
   * **sötma**: 1=torrt (t.ex. Bordeaux, Chianti, Barolo), 2=halvtorrt (vissa Riesling), 3=medelsött (Liebfraumilch), 4=sött (Sauternes), 5=mycket sött (Tokaji Aszú). För mousserande: Brut Nature=1, Extra Brut=1, Brut=1, Extra Dry=2, Dry/Sec=2, Demi-Sec=3, Dolce/Sweet=5.
