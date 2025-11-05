@@ -228,6 +228,9 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
   };
 
   if (json) {
+    // Add explicit JSON instruction to prompt
+    const jsonPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanations, just pure JSON.`;
+    parts[parts.length - 1] = { text: jsonPrompt };
     body.generationConfig!.responseMimeType = "application/json";
   }
 
@@ -265,9 +268,24 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
 
     if (json) {
       try {
-        const cleaned = rawContent.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
+        // Try multiple cleaning strategies
+        let cleaned = rawContent.trim();
+        
+        // Remove markdown code blocks
+        cleaned = cleaned.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/g, "");
+        
+        // Try to extract JSON object if embedded in text
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          cleaned = jsonMatch[0];
+        }
+        
         return parseJsonObject(cleaned);
-      } catch {
+      } catch (parseError) {
+        // Log the actual content for debugging
+        console.error("[aiClient.gemini] Failed to parse JSON from Gemini response");
+        console.error("[aiClient.gemini] Raw content (first 500 chars):", rawContent.substring(0, 500));
+        console.error("[aiClient.gemini] Parse error:", parseError);
         throw new Error("Gemini did not return valid JSON");
       }
     }
