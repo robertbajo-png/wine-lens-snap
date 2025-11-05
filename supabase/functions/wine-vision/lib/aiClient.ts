@@ -180,7 +180,7 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
     model = "google/gemini-2.5-flash",
     json = false,
     temperature = 0.1,
-    maxTokens = 1200,
+    maxTokens = 2500,
     imageUrl,
     timeoutMs = 20000,
   } = options;
