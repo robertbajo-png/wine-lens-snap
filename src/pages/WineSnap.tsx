@@ -22,7 +22,7 @@ import { preprocessImage } from "@/lib/preprocess";
 import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
 import { inferMetrics } from "@/lib/inferMetrics";
 
-const INTRO_ROUTE = "/";
+const INTRO_ROUTE = "/"; // Landing page
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
 type ErrorType = "FORMAT" | "CONTENT" | "UNKNOWN";
 
