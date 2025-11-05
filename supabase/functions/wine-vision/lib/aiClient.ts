@@ -265,9 +265,13 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
     // Log the full response for debugging
     console.log("[aiClient.gemini] Full Gemini response:", JSON.stringify(data, null, 2));
     
-    const rawContent = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const partsArr = data?.candidates?.[0]?.content?.parts ?? [];
+    const rawContent = partsArr
+      .map((p) => (typeof p?.text === "string" ? p.text : ""))
+      .join("\n")
+      .trim();
 
-    if (typeof rawContent !== "string") {
+    if (!rawContent) {
       console.error("[aiClient.gemini] Response structure:", {
         hasCandidates: !!data?.candidates,
         candidatesLength: data?.candidates?.length,
@@ -292,11 +296,17 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
         
         return parseJsonObject(cleaned);
       } catch (parseError) {
-        // Log the actual content for debugging
-        console.error("[aiClient.gemini] Failed to parse JSON from Gemini response");
-        console.error("[aiClient.gemini] Raw content (first 500 chars):", rawContent.substring(0, 500));
-        console.error("[aiClient.gemini] Parse error:", parseError);
-        throw new Error("Gemini did not return valid JSON");
+        // Try automatic repair with Gemini itself
+        try {
+          const repaired = await forceJson(rawContent, "Return a valid minified JSON object with the same structure as provided.");
+          return repaired;
+        } catch (repairError) {
+          console.error("[aiClient.gemini] Failed to parse and repair JSON.");
+          console.error("[aiClient.gemini] Raw content (first 500 chars):", rawContent.substring(0, 500));
+          console.error("[aiClient.gemini] Parse error:", parseError);
+          console.error("[aiClient.gemini] Repair error:", repairError);
+          throw new Error("Gemini did not return valid JSON");
+        }
       }
     }
 

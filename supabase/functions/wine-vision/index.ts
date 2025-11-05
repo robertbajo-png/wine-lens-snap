@@ -1762,7 +1762,17 @@ WEB_JSON:
         );
       }
       
-      throw new Error(errorMsg);
+      // Graceful fallback: use WEB_JSON (from Perplexity or Vision) if available
+      try {
+        console.warn("[wine-vision] Falling back to WEB_JSON-only summary due to Gemini failure");
+        const fallback = normalizeWineSummary(WEB_JSON || createEmptySummary());
+        finalData = fallback;
+      } catch (e) {
+        console.error("[wine-vision] Fallback normalization failed:", e);
+        // If even fallback fails, return minimal but valid payload to avoid 500s
+        finalData = createEmptySummary();
+        finalData.evidence = { etiketttext: clamp(ocrText), webbträffar: [] };
+      }
     }
 
     // Post-process med auktoritativt källval
