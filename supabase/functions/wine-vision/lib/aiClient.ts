@@ -227,11 +227,12 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
     },
   };
 
+  // Note: We explicitly ask for JSON in the prompt instead of using responseMimeType
+  // because direct Gemini API handles this differently than the gateway
   if (json) {
     // Add explicit JSON instruction to prompt
     const jsonPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanations, just pure JSON.`;
     parts[parts.length - 1] = { text: jsonPrompt };
-    body.generationConfig!.responseMimeType = "application/json";
   }
 
   const url = `${GEMINI_API}/${modelName}:generateContent?key=${googleApiKey}`;
@@ -260,9 +261,18 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
     }
 
     const data = (await response.json()) as GeminiResponse;
+    
+    // Log the full response for debugging
+    console.log("[aiClient.gemini] Full Gemini response:", JSON.stringify(data, null, 2));
+    
     const rawContent = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (typeof rawContent !== "string") {
+      console.error("[aiClient.gemini] Response structure:", {
+        hasCandidates: !!data?.candidates,
+        candidatesLength: data?.candidates?.length,
+        firstCandidate: data?.candidates?.[0],
+      });
       throw new Error("Gemini response missing content");
     }
 
