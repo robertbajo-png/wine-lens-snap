@@ -7,59 +7,361 @@ import {
   useRef,
   useState,
 } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { GoogleGenAI, Type, type Schema } from "@google/genai";
 
 type ErrorType = "FORMAT" | "CONTENT" | "UNKNOWN";
 
-interface WineAnalysisResult {
-  vin: string;
-  producent: string;
-  druvor: string;
-  land_region: string;
-  årgång: string;
-  typ: string;
-  färgtyp: string;
-  klassificering: string;
-  alkoholhalt: string;
-  volym: string;
-  karaktär: string;
-  smak: string;
-  servering: string;
-  passar_till: string[];
-  meters?: {
-    sötma: number | null;
-    fyllighet: number | null;
-    fruktighet: number | null;
-    fruktsyra: number | null;
-  };
-  evidence?: {
-    etiketttext: string;
-    webbträffar: string[];
-  };
+interface WineMetadata {
+  wineName: string;
+  producer: string;
+  grapeVariety: string[];
+  region: string;
+  country: string;
+  vintage: string;
 }
 
+interface TasteProfile {
+  sweetness: number;
+  body: number;
+  fruit: number;
+  acidity: number;
+  tannin?: number;
+  oak?: number;
+}
+
+interface TasteResult {
+  tasteProfile: TasteProfile;
+  summary: string;
+  foodPairing: string[];
+  usedSignals: string[];
+}
+
+interface WineAnalysisResult extends WineMetadata, TasteResult {}
+
 interface ChatMessage {
-  role: "user" | "assistant";
+  role: "user" | "model";
   text: string;
 }
 
 const DEV_LOG = import.meta.env.VITE_DEV_LOG === "true";
 
-async function analyzeWineImage(imageBase64: string): Promise<WineAnalysisResult> {
-  const { data, error } = await supabase.functions.invoke("wine-vision", {
-    body: { imageBase64 },
+function getGeminiApiKey() {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) throw new Error("VITE_GEMINI_API_KEY is not set");
+  return apiKey;
+}
+
+function getPerplexityApiKey() {
+  const apiKey = import.meta.env.VITE_PERPLEXITY_API_KEY;
+  if (!apiKey) throw new Error("VITE_PERPLEXITY_API_KEY is not set");
+  return apiKey;
+}
+
+const ai = new GoogleGenAI({ apiKey: getGeminiApiKey() });
+
+function toJsonSafe(text: string): any {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/m) || text.match(/\[[\s\S]*\]/m);
+    if (match && match[0]) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        // fallthrough
+      }
+    }
+    throw new Error("FORMAT_INVALID_JSON: Model did not return valid JSON");
+  }
+}
+
+const clampSlider = (n: unknown) => {
+  const x = typeof n === "number" ? n : parseFloat(String(n));
+  if (Number.isNaN(x)) return 3;
+  const clamped = Math.min(5, Math.max(1, x));
+  return Math.round(clamped * 2) / 2;
+};
+
+const isVague = (s: string) => {
+  const t = (s || "").toLowerCase();
+  if (t.length < 20) return true;
+  const vagueWords = ["nice", "pleasant", "balanced", "good", "tasty", "lovely"];
+  return vagueWords.some((w) => t.includes(w)) && t.length < 50;
+};
+
+const visionSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    wineName: { type: Type.STRING },
+    producer: { type: Type.STRING },
+    grapeVariety: { type: Type.ARRAY, items: { type: Type.STRING } },
+    region: { type: Type.STRING },
+    country: { type: Type.STRING },
+    vintage: { type: Type.STRING },
+  },
+  required: ["wineName", "producer", "grapeVariety", "region", "country", "vintage"],
+};
+
+const tasteSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    tasteProfile: {
+      type: Type.OBJECT,
+      properties: {
+        sweetness: { type: Type.NUMBER },
+        body: { type: Type.NUMBER },
+        fruit: { type: Type.NUMBER },
+        acidity: { type: Type.NUMBER },
+        tannin: { type: Type.NUMBER },
+        oak: { type: Type.NUMBER },
+      },
+      required: ["sweetness", "body", "fruit", "acidity"],
+    },
+    summary: { type: Type.STRING },
+    foodPairing: { type: Type.ARRAY, items: { type: Type.STRING } },
+    usedSignals: { type: Type.ARRAY, items: { type: Type.STRING } },
+  },
+  required: ["tasteProfile", "summary", "foodPairing", "usedSignals"],
+};
+
+async function fetchPerplexityFacts(meta: WineMetadata): Promise<{ summary: string; sources: string[] }> {
+  const t0 = performance.now();
+  const body = {
+    model: "sonar-small-online",
+    messages: [
+      {
+        role: "user",
+        content: `Sök snabbt på webben och ge en mycket kort faktasammanfattning om detta vin eller producent (2–3 meningar på svenska) samt lista 2–4 källor (URL).
+VIN: ${meta.wineName}
+PRODUCENT: ${meta.producer}
+REGION: ${meta.region}, ${meta.country}
+ÅRGÅNG: ${meta.vintage}`,
+      },
+    ],
+    temperature: 0.2,
+    max_tokens: 400,
+  };
+
+  const res = await fetch("https://api.perplexity.ai/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getPerplexityApiKey()}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
 
-  if (error) {
-    console.error("Wine vision error:", error);
-    throw new Error(`Analys misslyckades: ${error.message}`);
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Perplexity error (${res.status}): ${txt || res.statusText}`);
   }
 
-  if (!data?.ok || !data?.data) {
-    throw new Error("Analys misslyckades: Inget data returnerades");
+  const json = await res.json();
+  const text: string = json?.choices?.[0]?.message?.content ?? "";
+  const urls = Array.from(
+    new Set(
+      (text.match(/https?:\/\/\S+/g) || [])
+        .map((u: string) => u.replace(/[)\],.]+$/, ""))
+        .slice(0, 4),
+    ),
+  );
+
+  if (DEV_LOG) {
+    const dt = Math.round(performance.now() - t0);
+    console.log("[DEV_LOG] Perplexity facts ms:", dt, { urls, preview: text.slice(0, 180) });
   }
 
-  return data.data as WineAnalysisResult;
+  const summary = text.replace(/https?:\/\/\S+/g, "").trim();
+  return { summary, sources: urls };
+}
+
+async function extractMetadataWithGemini(base64Image: string, mimeType: string): Promise<WineMetadata> {
+  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const t0 = performance.now();
+
+  const img = { inlineData: { data: base64Image, mimeType } };
+  const prompt =
+    "Analysera vin-etiketten och returnera ENBART JSON enligt schema.\nSvenska fält. vintage = \"N/V\" om okänt. Inga markdown.";
+
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [img, { text: prompt }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: visionSchema,
+      temperature: 0.2,
+    },
+  });
+
+  const raw = result.response.text().trim();
+  const json = toJsonSafe(raw);
+
+  const noName = !json.wineName || String(json.wineName).trim().length === 0;
+  const noGrapes = !Array.isArray(json.grapeVariety) || json.grapeVariety.length === 0;
+  const noRegion = !json.region || String(json.region).trim().length === 0;
+  if (noName && noGrapes && noRegion) {
+    throw new Error(
+      "CONTENT_UNREADABLE: Label could not be reliably read (name/grapes/region empty).",
+    );
+  }
+
+  const meta: WineMetadata = {
+    wineName: String(json.wineName || "").trim(),
+    producer: String(json.producer || "").trim(),
+    grapeVariety: Array.isArray(json.grapeVariety)
+      ? json.grapeVariety.map((g: unknown) => String(g).trim()).filter(Boolean)
+      : [],
+    region: String(json.region || "").trim(),
+    country: String(json.country || "").trim(),
+    vintage: String(json.vintage || "N/V").trim() || "N/V",
+  };
+
+  if (!meta.wineName || !meta.producer || !meta.region || !meta.country) {
+    throw new Error("FORMAT_INVALID_JSON: Missing required fields after parse");
+  }
+
+  if (DEV_LOG) {
+    const dt = Math.round(performance.now() - t0);
+    console.log("[DEV_LOG] Vision (Gemini) ms:", dt, meta);
+  }
+
+  return meta;
+}
+
+async function generateTasteWithGemini(
+  meta: WineMetadata,
+  facts: { summary: string; sources: string[] },
+): Promise<TasteResult> {
+  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const t0 = performance.now();
+
+  const sys =
+    "Du är sommelier. Baserat på etikettmetadata och kort faktasammanfattning ska du returnera ENBART JSON (svenska):\n- tasteProfile: sweetness, body, fruit, acidity, tannin?, oak? (1..5, halva steg ok)\n- summary: exakt EN svensk mening (20–28 ord) som speglar siffrorna tydligt (inte vag).\n- foodPairing: exakt 3 svenska rätter (JSON-array).\n- usedSignals: 3–5 korta punkter (svenska) som anger vilka ledtrådar du använde (druvor, region, etikettord, ev. fakta).";
+
+  const user = `METADATA:
+- Namn: ${meta.wineName}
+- Producent: ${meta.producer}
+- Druvor: ${meta.grapeVariety.join(", ") || "okänt"}
+- Region: ${meta.region}, ${meta.country}
+- Årgång: ${meta.vintage}
+
+FAKTA (kort):
+${facts.summary || "(ingen explicit fakta tillgänglig)"}
+Källor: ${(facts.sources || []).join(", ") || "saknas"}
+
+Returnera ENBART JSON enligt schema. Inga markdown.`;
+
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: sys }, { text: user }] }],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: tasteSchema,
+      temperature: 0.25,
+    },
+  });
+
+  const raw = result.response.text().trim();
+  const json = toJsonSafe(raw);
+
+  const tp = json.tasteProfile || {};
+  const tasteProfile: TasteProfile = {
+    sweetness: clampSlider(tp.sweetness),
+    body: clampSlider(tp.body),
+    fruit: clampSlider(tp.fruit),
+    acidity: clampSlider(tp.acidity),
+    tannin: tp.tannin != null ? clampSlider(tp.tannin) : undefined,
+    oak: tp.oak != null ? clampSlider(tp.oak) : undefined,
+  };
+
+  let summary: string = String(json.summary || "").trim();
+  if (isVague(summary)) {
+    const repair = await model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `Omformulera följande smakmening till exakt en svensk mening (20–28 ord) som speglar dessa siffror. Använd inga nya fakta.
+Siffror: ${JSON.stringify(tasteProfile)}
+Mening: "${summary}"`,
+            },
+          ],
+        },
+      ],
+      generationConfig: { responseMimeType: "text/plain", temperature: 0.25 },
+    });
+    const fixed = (repair.response.text() || "").trim();
+    if (!isVague(fixed)) summary = fixed;
+  }
+
+  let food: string[] = Array.isArray(json.foodPairing)
+    ? json.foodPairing.map((s: unknown) => String(s).trim()).filter(Boolean)
+    : [];
+
+  if (food.length !== 3) {
+    const fixFood = await model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `Skapa EXAKT 3 svenska maträtter i JSON-array baserat på denna smakprofil (inga andra nycklar, ingen markdown):
+${JSON.stringify(tasteProfile)}`,
+            },
+          ],
+        },
+      ],
+      generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+    });
+    try {
+      const reparsed = toJsonSafe((fixFood.response.text() || "").trim());
+      if (Array.isArray(reparsed) && reparsed.length === 3) {
+        food = reparsed.map((s: unknown) => String(s).trim());
+      }
+    } catch {
+      // ignore repair failure
+    }
+  }
+
+  const usedSignals: string[] = Array.isArray(json.usedSignals)
+    ? json.usedSignals.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 5)
+    : [];
+
+  const resultObj: TasteResult = {
+    tasteProfile,
+    summary,
+    foodPairing: food.slice(0, 3),
+    usedSignals,
+  };
+
+  if (resultObj.foodPairing.length !== 3 || !resultObj.summary || isVague(resultObj.summary)) {
+    throw new Error("FORMAT_INVALID_JSON: Taste block failed quality gate");
+  }
+
+  if (DEV_LOG) {
+    const dt = Math.round(performance.now() - t0);
+    console.log("[DEV_LOG] Taste (Gemini) ms:", dt, {
+      summary: resultObj.summary,
+      foodPairing: resultObj.foodPairing,
+      usedSignals: resultObj.usedSignals,
+    });
+  }
+
+  return resultObj;
+}
+
+function createWineChat(analysis: WineAnalysisResult) {
+  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+  const systemInstruction = `Du är en hjälpsam sommelier. Svara på svenska, kort och tydligt, om just detta vin:
+- Namn: ${analysis.wineName} (${analysis.vintage}), producent: ${analysis.producer}
+- Druvor: ${analysis.grapeVariety.join(", ")}
+- Ursprung: ${analysis.region}, ${analysis.country}
+- Smak (skala 1–5): ${JSON.stringify(analysis.tasteProfile)}
+- Sammanfattning: ${analysis.summary}
+- Mat: ${analysis.foodPairing.join("; ")}
+Om användaren ber om källor: förklara att smakdelen är AI-bedömd och fakta förädlas via webbsök. Ge inte påhittade länkar.`;
+
+  return model.startChat({ systemInstruction, generationConfig: { temperature: 0.7 } });
 }
 
 type IconProps = { className?: string };
@@ -260,38 +562,39 @@ const ResultCard = ({
 const WineAnalysisDisplay = ({ result }: { result: WineAnalysisResult }) => (
   <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
     <div className="lg:col-span-2">
-      <ResultCard title={`${result.vin} (${result.årgång})`} icon={<WineBottleIcon />}>
+      <ResultCard title={`${result.wineName} (${result.vintage})`} icon={<WineBottleIcon />}>
         <p className="text-lg text-gray-300">
-          av <span className="font-semibold">{result.producent}</span>
+          by <span className="font-semibold">{result.producer}</span>
         </p>
       </ResultCard>
     </div>
-    <ResultCard title="Druvor" icon={<GrapeIcon />}>
+    <ResultCard title="Grape Variety" icon={<GrapeIcon />}>
       <div className="flex flex-wrap gap-2">
-        {result.druvor.split(',').map((grape, idx) => (
+        {result.grapeVariety.map((grape, idx) => (
           <span
             key={`${grape}-${idx}`}
             className="rounded-full bg-gray-900/50 px-3 py-1 font-mono text-sm text-cyan-400"
           >
-            {grape.trim()}
+            {grape}
           </span>
         ))}
       </div>
     </ResultCard>
-    <ResultCard title="Ursprung" icon={<MapPinIcon />}>
-      <p className="text-gray-300">{result.land_region}</p>
+    <ResultCard title="Origin" icon={<MapPinIcon />}>
+      <p className="text-gray-300">
+        {result.region}, {result.country}
+      </p>
     </ResultCard>
     <div className="lg:col-span-2">
-      <ResultCard title="Karaktär & Smak" icon={<TastingIcon />}>
-        <p className="text-gray-300 mb-2"><strong>Karaktär:</strong> {result.karaktär}</p>
-        <p className="text-gray-300">{result.smak}</p>
-        <div className="mt-3 text-xs uppercase tracking-wide text-cyan-400">AI-genererad analys</div>
+      <ResultCard title="Tasting Notes" icon={<TastingIcon />}>
+        <p className="text-gray-300">{result.summary}</p>
+        <div className="mt-3 text-xs uppercase tracking-wide text-cyan-400">Uppskattning (AI)</div>
       </ResultCard>
     </div>
     <div className="lg:col-span-2">
-      <ResultCard title="Matförslag" icon={<FoodIcon />}>
+      <ResultCard title="Food Pairing Suggestions" icon={<FoodIcon />}>
         <ul className="space-y-3">
-          {result.passar_till.map((pair, idx) => (
+          {result.foodPairing.map((pair, idx) => (
             <li key={`${pair}-${idx}`} className="flex items-start">
               <span className="mr-3 mt-1 text-cyan-400">&#10148;</span>
               <span className="text-gray-300">{pair}</span>
@@ -351,7 +654,7 @@ const ImageInputForm = ({
           className="flex flex-1 items-center justify-center gap-3 rounded-md bg-cyan-600 px-6 py-3 text-lg font-semibold text-white transition-colors duration-300 hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-gray-600"
         >
           <UploadIcon className="h-6 w-6" />
-          Ladda upp bild
+          Upload Image
         </button>
         <button
           onClick={() => fileInputRef.current?.click()}
@@ -359,7 +662,7 @@ const ImageInputForm = ({
           className="flex flex-1 items-center justify-center gap-3 rounded-md bg-gray-700 px-6 py-3 text-lg font-semibold text-white transition-colors duration-300 hover:bg-gray-600 disabled:cursor-not-allowed disabled:bg-gray-600"
         >
           <CameraIcon className="h-6 w-6" />
-          Använd kamera
+          Use Camera
         </button>
       </div>
     </div>
@@ -404,7 +707,7 @@ const ChatInterface = ({
     <div className="flex min-h-[420px] max-h-[720px] h-[60vh] flex-col rounded-lg border border-gray-700 bg-gray-800/70 shadow-md backdrop-blur-sm">
       <div className="flex flex-shrink-0 items-center border-b border-gray-700 p-4">
         <SparklesIcon className="mr-3 h-6 w-6 text-yellow-400" />
-        <h3 className="text-xl font-semibold text-white">Fråga om vinet</h3>
+        <h3 className="text-xl font-semibold text-white">Ask about this wine</h3>
       </div>
       <div className="flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite" aria-busy={isLoading}>
         {messages.map((msg, index) => (
@@ -439,7 +742,7 @@ const ChatInterface = ({
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ställ en fråga…"
+              placeholder="Ask a follow-up question…"
               className="w-full bg-transparent px-2 text-lg text-gray-200 placeholder-gray-500 focus:outline-none"
               disabled={isLoading}
             />
@@ -447,7 +750,7 @@ const ChatInterface = ({
               type="submit"
               disabled={isLoading || !input.trim()}
               className="flex items-center justify-center rounded-md bg-cyan-600 p-3 font-semibold text-white transition-colors duration-300 hover:bg-cyan-500 disabled:cursor-not-allowed disabled:bg-gray-600"
-              aria-label="Skicka meddelande"
+              aria-label="Send message"
             >
               <SendIcon className="h-5 w-5" />
             </button>
@@ -466,14 +769,15 @@ const WineSnap = () => {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [lastAnalyzedImage, setLastAnalyzedImage] = useState<{ data: string; mime: string } | null>(null);
 
+  const [chat, setChat] = useState<ReturnType<typeof createWineChat> | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [isChatLoading] = useState(false);
+  const [isChatLoading, setIsChatLoading] = useState(false);
 
   const [openPicker, setOpenPicker] = useState<(() => void) | null>(null);
 
   const classifyError = useCallback((msg: string): ErrorType => {
-    if (msg.includes("CONTENT_UNREADABLE") || msg.includes("Ingen text hittades")) return "CONTENT";
-    if (msg.toLowerCase().includes("json") || msg.includes("FORMAT")) {
+    if (msg.includes("CONTENT_UNREADABLE")) return "CONTENT";
+    if (msg.includes("FORMAT_INVALID_JSON") || msg.toLowerCase().includes("json") || msg.includes("Perplexity error") || msg.includes("Taste block failed")) {
       return "FORMAT";
     }
     return "UNKNOWN";
@@ -486,14 +790,32 @@ const WineSnap = () => {
       setErrorType(null);
       setAnalysis(null);
       setChatHistory([]);
+      setChat(null);
       setLastAnalyzedImage({ data: imageData, mime: mimeType });
 
       try {
-        setLoadingMessage("Analyserar vinet…");
-        const result = await analyzeWineImage(imageData);
+        setLoadingMessage("Analyserar etiketten…");
+        const meta = await extractMetadataWithGemini(imageData, mimeType);
+
+        setLoadingMessage("Hämtar kort fakta från webben…");
+        let facts = { summary: "", sources: [] as string[] };
+        try {
+          facts = await fetchPerplexityFacts(meta);
+        } catch (pf) {
+          if (DEV_LOG) console.warn("[DEV_LOG] Perplexity failed – fortsätter utan enrichment", pf);
+        }
+
+        setLoadingMessage("Skapar smakprofil och parningar…");
+        const taste = await generateTasteWithGemini(meta, facts);
+
+        const result: WineAnalysisResult = { ...meta, ...taste };
         setAnalysis(result);
+
+        setLoadingMessage("Startar sommelier-chat…");
+        const newChat = createWineChat(result);
+        setChat(newChat);
         setChatHistory([
-          { role: "assistant", text: `✅ Jag har analyserat ${result.vin}. Vad vill du veta?` },
+          { role: "model", text: `✅ Jag har analyserat ${result.wineName}. Vad vill du veta?` },
         ]);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Okänt fel vid analys.";
@@ -516,8 +838,21 @@ const WineSnap = () => {
   }, [lastAnalyzedImage, isLoading, handleImageAnalysis]);
 
   const handleSendMessage = async (message: string) => {
-    // Chat functionality disabled for now - wine-vision doesn't support chat yet
-    console.log("Chat message:", message);
+    if (!message.trim() || !chat) return;
+
+    setChatHistory((prev) => [...prev, { role: "user", text: message }]);
+    setIsChatLoading(true);
+
+    try {
+      const res = await chat.sendMessage(message);
+      const text = res.response.text();
+      setChatHistory((prev) => [...prev, { role: "model", text }]);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Okänt chattfel.";
+      setChatHistory((prev) => [...prev, { role: "model", text: `Sorry, jag fick ett fel: ${errorMessage}` }]);
+    } finally {
+      setIsChatLoading(false);
+    }
   };
 
   return (
@@ -526,7 +861,7 @@ const WineSnap = () => {
         <header className="mb-8 text-center">
           <div className="mb-2 flex items-center justify-center gap-4">
             <WineBottleIcon className="h-12 w-12 text-white" />
-            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">WineSnap Etikett-analys</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">WineSnap Label Analyzer</h1>
           </div>
           <p className="flex items-center justify-center gap-2 text-lg text-gray-400">
             Din personliga sommelier <SparklesIcon className="h-5 w-5 text-yellow-400" />
