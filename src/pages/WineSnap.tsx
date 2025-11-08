@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { GoogleGenAI, Type, type Schema } from "@google/genai";
+import { supabase } from "@/integrations/supabase/client";
 
 type ErrorType = "FORMAT" | "CONTENT" | "UNKNOWN";
 
@@ -45,20 +45,6 @@ interface ChatMessage {
 
 const DEV_LOG = import.meta.env.VITE_DEV_LOG === "true";
 
-function getGeminiApiKey() {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error("VITE_GEMINI_API_KEY is not set");
-  return apiKey;
-}
-
-function getPerplexityApiKey() {
-  const apiKey = import.meta.env.VITE_PERPLEXITY_API_KEY;
-  if (!apiKey) throw new Error("VITE_PERPLEXITY_API_KEY is not set");
-  return apiKey;
-}
-
-const ai = new GoogleGenAI({ apiKey: getGeminiApiKey() });
-
 function toJsonSafe(text: string): any {
   try {
     return JSON.parse(text);
@@ -82,286 +68,27 @@ const clampSlider = (n: unknown) => {
   return Math.round(clamped * 2) / 2;
 };
 
-const isVague = (s: string) => {
-  const t = (s || "").toLowerCase();
-  if (t.length < 20) return true;
-  const vagueWords = ["nice", "pleasant", "balanced", "good", "tasty", "lovely"];
-  return vagueWords.some((w) => t.includes(w)) && t.length < 50;
-};
-
-const visionSchema: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    wineName: { type: Type.STRING },
-    producer: { type: Type.STRING },
-    grapeVariety: { type: Type.ARRAY, items: { type: Type.STRING } },
-    region: { type: Type.STRING },
-    country: { type: Type.STRING },
-    vintage: { type: Type.STRING },
-  },
-  required: ["wineName", "producer", "grapeVariety", "region", "country", "vintage"],
-};
-
-const tasteSchema: Schema = {
-  type: Type.OBJECT,
-  properties: {
-    tasteProfile: {
-      type: Type.OBJECT,
-      properties: {
-        sweetness: { type: Type.NUMBER },
-        body: { type: Type.NUMBER },
-        fruit: { type: Type.NUMBER },
-        acidity: { type: Type.NUMBER },
-        tannin: { type: Type.NUMBER },
-        oak: { type: Type.NUMBER },
-      },
-      required: ["sweetness", "body", "fruit", "acidity"],
-    },
-    summary: { type: Type.STRING },
-    foodPairing: { type: Type.ARRAY, items: { type: Type.STRING } },
-    usedSignals: { type: Type.ARRAY, items: { type: Type.STRING } },
-  },
-  required: ["tasteProfile", "summary", "foodPairing", "usedSignals"],
-};
-
-async function fetchPerplexityFacts(meta: WineMetadata): Promise<{ summary: string; sources: string[] }> {
+async function analyzeWineWithEdgeFunction(imageBase64: string): Promise<WineAnalysisResult> {
   const t0 = performance.now();
-  const body = {
-    model: "sonar-small-online",
-    messages: [
-      {
-        role: "user",
-        content: `Sök snabbt på webben och ge en mycket kort faktasammanfattning om detta vin eller producent (2–3 meningar på svenska) samt lista 2–4 källor (URL).
-VIN: ${meta.wineName}
-PRODUCENT: ${meta.producer}
-REGION: ${meta.region}, ${meta.country}
-ÅRGÅNG: ${meta.vintage}`,
-      },
-    ],
-    temperature: 0.2,
-    max_tokens: 400,
-  };
-
-  const res = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${getPerplexityApiKey()}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
+  
+  const { data, error } = await supabase.functions.invoke('wine-analysis-lovable', {
+    body: { imageBase64 }
   });
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`Perplexity error (${res.status}): ${txt || res.statusText}`);
+  if (error) {
+    throw new Error(`Edge function error: ${error.message}`);
   }
 
-  const json = await res.json();
-  const text: string = json?.choices?.[0]?.message?.content ?? "";
-  const urls = Array.from(
-    new Set(
-      (text.match(/https?:\/\/\S+/g) || [])
-        .map((u: string) => u.replace(/[)\],.]+$/, ""))
-        .slice(0, 4),
-    ),
-  );
-
-  if (DEV_LOG) {
-    const dt = Math.round(performance.now() - t0);
-    console.log("[DEV_LOG] Perplexity facts ms:", dt, { urls, preview: text.slice(0, 180) });
-  }
-
-  const summary = text.replace(/https?:\/\/\S+/g, "").trim();
-  return { summary, sources: urls };
-}
-
-async function extractMetadataWithGemini(base64Image: string, mimeType: string): Promise<WineMetadata> {
-  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-  const t0 = performance.now();
-
-  const img = { inlineData: { data: base64Image, mimeType } };
-  const prompt =
-    "Analysera vin-etiketten och returnera ENBART JSON enligt schema.\nSvenska fält. vintage = \"N/V\" om okänt. Inga markdown.";
-
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [img, { text: prompt }] }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: visionSchema,
-      temperature: 0.2,
-    },
-  });
-
-  const raw = result.response.text().trim();
-  const json = toJsonSafe(raw);
-
-  const noName = !json.wineName || String(json.wineName).trim().length === 0;
-  const noGrapes = !Array.isArray(json.grapeVariety) || json.grapeVariety.length === 0;
-  const noRegion = !json.region || String(json.region).trim().length === 0;
-  if (noName && noGrapes && noRegion) {
-    throw new Error(
-      "CONTENT_UNREADABLE: Label could not be reliably read (name/grapes/region empty).",
-    );
-  }
-
-  const meta: WineMetadata = {
-    wineName: String(json.wineName || "").trim(),
-    producer: String(json.producer || "").trim(),
-    grapeVariety: Array.isArray(json.grapeVariety)
-      ? json.grapeVariety.map((g: unknown) => String(g).trim()).filter(Boolean)
-      : [],
-    region: String(json.region || "").trim(),
-    country: String(json.country || "").trim(),
-    vintage: String(json.vintage || "N/V").trim() || "N/V",
-  };
-
-  if (!meta.wineName || !meta.producer || !meta.region || !meta.country) {
-    throw new Error("FORMAT_INVALID_JSON: Missing required fields after parse");
+  if (!data) {
+    throw new Error("No data returned from edge function");
   }
 
   if (DEV_LOG) {
     const dt = Math.round(performance.now() - t0);
-    console.log("[DEV_LOG] Vision (Gemini) ms:", dt, meta);
+    console.log("[DEV_LOG] Edge function total ms:", dt, data);
   }
 
-  return meta;
-}
-
-async function generateTasteWithGemini(
-  meta: WineMetadata,
-  facts: { summary: string; sources: string[] },
-): Promise<TasteResult> {
-  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-  const t0 = performance.now();
-
-  const sys =
-    "Du är sommelier. Baserat på etikettmetadata och kort faktasammanfattning ska du returnera ENBART JSON (svenska):\n- tasteProfile: sweetness, body, fruit, acidity, tannin?, oak? (1..5, halva steg ok)\n- summary: exakt EN svensk mening (20–28 ord) som speglar siffrorna tydligt (inte vag).\n- foodPairing: exakt 3 svenska rätter (JSON-array).\n- usedSignals: 3–5 korta punkter (svenska) som anger vilka ledtrådar du använde (druvor, region, etikettord, ev. fakta).";
-
-  const user = `METADATA:
-- Namn: ${meta.wineName}
-- Producent: ${meta.producer}
-- Druvor: ${meta.grapeVariety.join(", ") || "okänt"}
-- Region: ${meta.region}, ${meta.country}
-- Årgång: ${meta.vintage}
-
-FAKTA (kort):
-${facts.summary || "(ingen explicit fakta tillgänglig)"}
-Källor: ${(facts.sources || []).join(", ") || "saknas"}
-
-Returnera ENBART JSON enligt schema. Inga markdown.`;
-
-  const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: sys }, { text: user }] }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: tasteSchema,
-      temperature: 0.25,
-    },
-  });
-
-  const raw = result.response.text().trim();
-  const json = toJsonSafe(raw);
-
-  const tp = json.tasteProfile || {};
-  const tasteProfile: TasteProfile = {
-    sweetness: clampSlider(tp.sweetness),
-    body: clampSlider(tp.body),
-    fruit: clampSlider(tp.fruit),
-    acidity: clampSlider(tp.acidity),
-    tannin: tp.tannin != null ? clampSlider(tp.tannin) : undefined,
-    oak: tp.oak != null ? clampSlider(tp.oak) : undefined,
-  };
-
-  let summary: string = String(json.summary || "").trim();
-  if (isVague(summary)) {
-    const repair = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `Omformulera följande smakmening till exakt en svensk mening (20–28 ord) som speglar dessa siffror. Använd inga nya fakta.
-Siffror: ${JSON.stringify(tasteProfile)}
-Mening: "${summary}"`,
-            },
-          ],
-        },
-      ],
-      generationConfig: { responseMimeType: "text/plain", temperature: 0.25 },
-    });
-    const fixed = (repair.response.text() || "").trim();
-    if (!isVague(fixed)) summary = fixed;
-  }
-
-  let food: string[] = Array.isArray(json.foodPairing)
-    ? json.foodPairing.map((s: unknown) => String(s).trim()).filter(Boolean)
-    : [];
-
-  if (food.length !== 3) {
-    const fixFood = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `Skapa EXAKT 3 svenska maträtter i JSON-array baserat på denna smakprofil (inga andra nycklar, ingen markdown):
-${JSON.stringify(tasteProfile)}`,
-            },
-          ],
-        },
-      ],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
-    });
-    try {
-      const reparsed = toJsonSafe((fixFood.response.text() || "").trim());
-      if (Array.isArray(reparsed) && reparsed.length === 3) {
-        food = reparsed.map((s: unknown) => String(s).trim());
-      }
-    } catch {
-      // ignore repair failure
-    }
-  }
-
-  const usedSignals: string[] = Array.isArray(json.usedSignals)
-    ? json.usedSignals.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 5)
-    : [];
-
-  const resultObj: TasteResult = {
-    tasteProfile,
-    summary,
-    foodPairing: food.slice(0, 3),
-    usedSignals,
-  };
-
-  if (resultObj.foodPairing.length !== 3 || !resultObj.summary || isVague(resultObj.summary)) {
-    throw new Error("FORMAT_INVALID_JSON: Taste block failed quality gate");
-  }
-
-  if (DEV_LOG) {
-    const dt = Math.round(performance.now() - t0);
-    console.log("[DEV_LOG] Taste (Gemini) ms:", dt, {
-      summary: resultObj.summary,
-      foodPairing: resultObj.foodPairing,
-      usedSignals: resultObj.usedSignals,
-    });
-  }
-
-  return resultObj;
-}
-
-function createWineChat(analysis: WineAnalysisResult) {
-  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-  const systemInstruction = `Du är en hjälpsam sommelier. Svara på svenska, kort och tydligt, om just detta vin:
-- Namn: ${analysis.wineName} (${analysis.vintage}), producent: ${analysis.producer}
-- Druvor: ${analysis.grapeVariety.join(", ")}
-- Ursprung: ${analysis.region}, ${analysis.country}
-- Smak (skala 1–5): ${JSON.stringify(analysis.tasteProfile)}
-- Sammanfattning: ${analysis.summary}
-- Mat: ${analysis.foodPairing.join("; ")}
-Om användaren ber om källor: förklara att smakdelen är AI-bedömd och fakta förädlas via webbsök. Ge inte påhittade länkar.`;
-
-  return model.startChat({ systemInstruction, generationConfig: { temperature: 0.7 } });
+  return data as WineAnalysisResult;
 }
 
 type IconProps = { className?: string };
@@ -769,7 +496,6 @@ const WineSnap = () => {
   const [loadingMessage, setLoadingMessage] = useState("");
   const [lastAnalyzedImage, setLastAnalyzedImage] = useState<{ data: string; mime: string } | null>(null);
 
-  const [chat, setChat] = useState<ReturnType<typeof createWineChat> | null>(null);
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isChatLoading, setIsChatLoading] = useState(false);
 
@@ -777,7 +503,7 @@ const WineSnap = () => {
 
   const classifyError = useCallback((msg: string): ErrorType => {
     if (msg.includes("CONTENT_UNREADABLE")) return "CONTENT";
-    if (msg.includes("FORMAT_INVALID_JSON") || msg.toLowerCase().includes("json") || msg.includes("Perplexity error") || msg.includes("Taste block failed")) {
+    if (msg.includes("FORMAT_INVALID_JSON") || msg.toLowerCase().includes("json")) {
       return "FORMAT";
     }
     return "UNKNOWN";
@@ -790,30 +516,13 @@ const WineSnap = () => {
       setErrorType(null);
       setAnalysis(null);
       setChatHistory([]);
-      setChat(null);
       setLastAnalyzedImage({ data: imageData, mime: mimeType });
 
       try {
-        setLoadingMessage("Analyserar etiketten…");
-        const meta = await extractMetadataWithGemini(imageData, mimeType);
-
-        setLoadingMessage("Hämtar kort fakta från webben…");
-        let facts = { summary: "", sources: [] as string[] };
-        try {
-          facts = await fetchPerplexityFacts(meta);
-        } catch (pf) {
-          if (DEV_LOG) console.warn("[DEV_LOG] Perplexity failed – fortsätter utan enrichment", pf);
-        }
-
-        setLoadingMessage("Skapar smakprofil och parningar…");
-        const taste = await generateTasteWithGemini(meta, facts);
-
-        const result: WineAnalysisResult = { ...meta, ...taste };
+        setLoadingMessage("Analyserar vinet med AI…");
+        const result = await analyzeWineWithEdgeFunction(imageData);
         setAnalysis(result);
-
-        setLoadingMessage("Startar sommelier-chat…");
-        const newChat = createWineChat(result);
-        setChat(newChat);
+        
         setChatHistory([
           { role: "model", text: `✅ Jag har analyserat ${result.wineName}. Vad vill du veta?` },
         ]);
@@ -838,15 +547,17 @@ const WineSnap = () => {
   }, [lastAnalyzedImage, isLoading, handleImageAnalysis]);
 
   const handleSendMessage = async (message: string) => {
-    if (!message.trim() || !chat) return;
+    if (!message.trim() || !analysis) return;
 
     setChatHistory((prev) => [...prev, { role: "user", text: message }]);
     setIsChatLoading(true);
 
     try {
-      const res = await chat.sendMessage(message);
-      const text = res.response.text();
-      setChatHistory((prev) => [...prev, { role: "model", text }]);
+      // Placeholder för framtida chat-funktion via edge function
+      setChatHistory((prev) => [...prev, { 
+        role: "model", 
+        text: "Chat-funktionen kommer snart att implementeras via edge function!" 
+      }]);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Okänt chattfel.";
       setChatHistory((prev) => [...prev, { role: "model", text: `Sorry, jag fick ett fel: ${errorMessage}` }]);
