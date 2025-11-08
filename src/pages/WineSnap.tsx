@@ -176,23 +176,23 @@ REGION: ${meta.region}, ${meta.country}
 }
 
 async function extractMetadataWithGemini(base64Image: string, mimeType: string): Promise<WineMetadata> {
-  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
   const t0 = performance.now();
 
   const img = { inlineData: { data: base64Image, mimeType } };
   const prompt =
     "Analysera vin-etiketten och returnera ENBART JSON enligt schema.\nSvenska fält. vintage = \"N/V\" om okänt. Inga markdown.";
 
-  const result = await model.generateContent({
+  const result = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
     contents: [{ role: "user", parts: [img, { text: prompt }] }],
-    generationConfig: {
+    config: {
       responseMimeType: "application/json",
       responseSchema: visionSchema,
       temperature: 0.2,
     },
   });
 
-  const raw = result.response.text().trim();
+  const raw = result.text?.trim() || "";
   const json = toJsonSafe(raw);
 
   const noName = !json.wineName || String(json.wineName).trim().length === 0;
@@ -231,7 +231,6 @@ async function generateTasteWithGemini(
   meta: WineMetadata,
   facts: { summary: string; sources: string[] },
 ): Promise<TasteResult> {
-  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
   const t0 = performance.now();
 
   const sys =
@@ -250,16 +249,17 @@ Källor: ${(facts.sources || []).join(", ") || "saknas"}
 
 Returnera ENBART JSON enligt schema. Inga markdown.`;
 
-  const result = await model.generateContent({
+  const result = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
     contents: [{ role: "user", parts: [{ text: sys }, { text: user }] }],
-    generationConfig: {
+    config: {
       responseMimeType: "application/json",
       responseSchema: tasteSchema,
       temperature: 0.25,
     },
   });
 
-  const raw = result.response.text().trim();
+  const raw = result.text?.trim() || "";
   const json = toJsonSafe(raw);
 
   const tp = json.tasteProfile || {};
@@ -274,7 +274,8 @@ Returnera ENBART JSON enligt schema. Inga markdown.`;
 
   let summary: string = String(json.summary || "").trim();
   if (isVague(summary)) {
-    const repair = await model.generateContent({
+    const repair = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
       contents: [
         {
           role: "user",
@@ -287,9 +288,9 @@ Mening: "${summary}"`,
           ],
         },
       ],
-      generationConfig: { responseMimeType: "text/plain", temperature: 0.25 },
+      config: { responseMimeType: "text/plain", temperature: 0.25 },
     });
-    const fixed = (repair.response.text() || "").trim();
+    const fixed = (repair.text || "").trim();
     if (!isVague(fixed)) summary = fixed;
   }
 
@@ -298,7 +299,8 @@ Mening: "${summary}"`,
     : [];
 
   if (food.length !== 3) {
-    const fixFood = await model.generateContent({
+    const fixFood = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
       contents: [
         {
           role: "user",
@@ -310,10 +312,10 @@ ${JSON.stringify(tasteProfile)}`,
           ],
         },
       ],
-      generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+      config: { responseMimeType: "application/json", temperature: 0.3 },
     });
     try {
-      const reparsed = toJsonSafe((fixFood.response.text() || "").trim());
+      const reparsed = toJsonSafe((fixFood.text || "").trim());
       if (Array.isArray(reparsed) && reparsed.length === 3) {
         food = reparsed.map((s: unknown) => String(s).trim());
       }
@@ -350,8 +352,6 @@ ${JSON.stringify(tasteProfile)}`,
 }
 
 function createWineChat(analysis: WineAnalysisResult) {
-  const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-
   const systemInstruction = `Du är en hjälpsam sommelier. Svara på svenska, kort och tydligt, om just detta vin:
 - Namn: ${analysis.wineName} (${analysis.vintage}), producent: ${analysis.producer}
 - Druvor: ${analysis.grapeVariety.join(", ")}
@@ -361,7 +361,24 @@ function createWineChat(analysis: WineAnalysisResult) {
 - Mat: ${analysis.foodPairing.join("; ")}
 Om användaren ber om källor: förklara att smakdelen är AI-bedömd och fakta förädlas via webbsök. Ge inte påhittade länkar.`;
 
-  return model.startChat({ systemInstruction, generationConfig: { temperature: 0.7 } });
+  // Return an object with sendMessage method that uses the new API
+  return {
+    async sendMessage(userMessage: string) {
+      const result = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          { role: "user", parts: [{ text: systemInstruction }] },
+          { role: "user", parts: [{ text: userMessage }] }
+        ],
+        config: { temperature: 0.7 }
+      });
+      return {
+        response: {
+          text: () => result.text || ""
+        }
+      };
+    }
+  };
 }
 
 type IconProps = { className?: string };
