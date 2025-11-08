@@ -5,6 +5,3 @@ verify_jwt = false
 
 [functions.wine-vision]
 verify_jwt = false
-
-[functions.wine-analysis-lovable]
-verify_jwt = false
