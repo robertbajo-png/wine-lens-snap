@@ -1,4 +1,4 @@
-import { GoogleGenAI as GoogleGenAIClient, Type, type Schema } from "npm:@google/genai";
+import { Type, type Schema } from "npm:@google/genai";
 import { aiClient } from "./lib/aiClient.ts";
 import {
   getCacheKey,
@@ -269,45 +269,69 @@ async function runGeminiFast(ocrText: string, imageUrl?: string): Promise<WebJso
   console.log(`[${new Date().toISOString()}] Gemini Vision fallback: analyzing label image directly...`);
 
   const prompt = `
-Analysera denna vinflaska-etikett MYCKET NOGGRANT och extrahera följande information.
+Du är en expert på att läsa vinetiketter. Analysera denna bild EXTREMT NOGGRANT och extrahera ALL synlig information.
+
+KRITISKA SÖKOMRÅDEN (titta på HELA bilden):
+1. **ALKOHOLHALT** - Zooma in på ALLA textsegment! Leta efter:
+   - Siffror följda av "%" eller "vol" eller "alc" eller "alcohol"
+   - Ofta i NEDRE delen av etiketten eller på baksidan
+   - Kan vara liten text: "13%", "12.5% vol", "14% alc/vol"
+   - Exempel: "13.5%", "14% vol", "12.5 alc"
+
+2. **VOLYM** - Leta i HELA bilden:
+   - Ofta längst NER på flaskan eller på baksidan
+   - Format: "750ml", "75cl", "0.75L", "750 ml"
+   - Kan vara mycket liten text!
+
+3. **ÅRGÅNG** - 4 siffror som representerar år:
+   - Ofta framträdande: 2019, 2020, 2021, 2022, 2023
+   - Kan stå separat eller integrerat i designen
+
+4. **KLASSIFICERING** - Kvalitetsbeteckningar:
+   - DOC, DOCG, IGT, AOC, Reserva, Gran Reserva, Crianza
+   - Ofta under vinnamnet eller i nedre delen
+
+5. **PRODUCENT & VINNAMN** - Oftast störst text på etiketten
+
+6. **DRUVOR** - Kan stå som:
+   - Pinot Noir, Chardonnay, Cabernet Sauvignon, etc.
+   - Ibland flera druvor listade
+
+7. **REGION/LAND** - Geografisk information:
+   - Bordeaux, Toscana, Rioja, Napa Valley, etc.
+   - Land kan stå explicit eller underförstått
+
+OCR-text från etiketten (använd detta):
+${ocrText}
 
 INSTRUKTIONER:
-1. Läs HELA etiketten, inklusive liten text längst ner/bak
-2. Alkoholhalt hittas ofta som: "13% vol", "12.5% alc", "14%" - leta NOGA efter detta
-3. Volym hittas ofta som: "750ml", "75cl", "0.75L" - ofta i nedre kanten
-4. Årgång är ofta 4 siffror (2019, 2021, etc.) - kan stå på framsidan eller backsidan
-5. Producent och vinnamn står oftast störst på etiketten
-6. Druvsort kan stå som "Sauvignon Blanc", "Chardonnay", etc.
-7. Land/region kan vara "France", "Bordeaux", "Italy", "Toscana" etc.
-
-KRITISKT: Returnera ENBART ett giltigt JSON-objekt utan markdown, backticks eller kommentarer.
-ALL text MÅSTE vara på SVENSKA (utom vinnamn och producent som ska vara original).
-
-OCR-text från etiketten (använd som referens):
-${ocrText}
+- Skanna HELA bilden metodiskt, inklusive ALL liten text
+- Om du hittar en siffra med % - det är förmodligen alkoholhalt!
+- Om du hittar "ml" eller "cl" - det är volym!
+- Returnera ENDAST giltigt JSON (ingen markdown, inga backticks)
+- ALL beskrivande text på SVENSKA (vinnamn och producent original språk)
 
 Schema:
 {
-  "vin": "vinets namn (original språk)",
-  "producent": "producent (original språk)",
-  "druvor": "druvsort(er) på svenska",
-  "land_region": "land, region på svenska",
-  "årgång": "YYYY eller -",
-  "alkoholhalt": "X% vol eller X% eller -",
-  "volym": "XXXml eller XXcl eller -",
-  "klassificering": "t.ex. DOC, Reserva, AOC eller -",
-  "karaktär": "kort beskrivning baserad på druva och region eller -",
-  "smak": "typiska smaker för denna vintyp eller -",
-  "servering": "rekommenderad serveringstemperatur eller -",
+  "vin": "vinets namn (behåll originalspråk)",
+  "producent": "producentens namn (behåll originalspråk)", 
+  "druvor": "druvsort på svenska (t.ex. 'Pinot Noir', 'Chardonnay')",
+  "land_region": "land och region på svenska (t.ex. 'Frankrike, Bordeaux')",
+  "årgång": "YYYY eller '-' om inte hittas",
+  "alkoholhalt": "Exakt som på etiketten (t.ex. '13.5% vol') eller '-'",
+  "volym": "Exakt som på etiketten (t.ex. '750ml') eller '-'",
+  "klassificering": "Kvalitetsbeteckning (DOC, Reserva, etc.) eller '-'",
+  "karaktär": "Kort beskrivning baserad på druva och region",
+  "smak": "Typiska smaker för denna vintyp",
+  "servering": "Rekommenderad temperatur (t.ex. '16-18°C')",
   "passar_till": ["maträtt1", "maträtt2", "maträtt3"],
   "källor": []
 }
 
-VIKTIGT: 
-- Om du INTE kan hitta alkoholhalt eller volym på bilden: använd "-"
-- Fyll i karaktär och smak baserat på druva och region även om det inte står på etiketten
-- passar_till: ge 3-5 lämpliga maträtter baserat på vintyp och druva
-- Max 5 maträtter i passar_till
+VIKTIGT SISTA STEG:
+- Dubbelkolla att du faktiskt TITTADE på hela bilden för alkoholhalt och volym
+- Om du inte hittar dem efter noggrann granskning: använd "-"
+- Generera alltid smakprofil och matmatchningar baserat på druva och region
   `.trim();
 
   try {
@@ -1181,192 +1205,17 @@ function enrichFallback(ocrText: string, data: WineSummary): WineSummary {
   return data;
 }
 
-export async function analyzeWineLabel(
-  base64Image: string,
-  mimeType: string,
-): Promise<WineAnalysisResult> {
-  const ai = new GoogleGenAIClient({ apiKey: getApiKey() });
-
-  const imagePart = {
-    inlineData: {
-      data: base64Image,
-      mimeType,
-    },
-  };
-
-  const textPart = {
-    text:
-      "You are a world-class sommelier. Analyze the image of this wine label and return a JSON object with its details, following the provided schema. Be as accurate as possible based on the visual information.",
-  };
-
-  try {
-    const model = ai.models.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: wineAnalysisSchema,
-        temperature: 0.2,
-      },
-    });
-
-    const gen = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [imagePart, textPart],
-        },
-      ],
-    });
-
-    const rawText = gen.response?.text()?.trim();
-    if (!rawText) throw new Error("Empty response from Gemini");
-
-    const json = toJsonSafe(rawText);
-
-    if (!json.wineName || !Array.isArray(json.foodPairing)) {
-      throw new Error("Analysis JSON missing required fields");
-    }
-
-    const result = json as WineAnalysisResult;
-
-    if (isWeakNotes(result.tastingNotes)) {
-      const taste = await buildTasteWithAI(ai, result);
-      if (taste?.summary) {
-        result.tastingNotes = taste.summary;
-        if (!result.smak || isWeakNotes(result.smak)) {
-          result.smak = taste.summary;
-        }
-      }
-    }
-
-    if (!result.foodPairing || result.foodPairing.length !== 3) {
-      const fp = await buildFoodPairingIfMissing(ai, result);
-      if (fp) {
-        result.foodPairing = fp;
-      }
-    }
-
-    if ((!Array.isArray(result.passar_till) || result.passar_till.length === 0) && Array.isArray(result.foodPairing)) {
-      result.passar_till = [...result.foodPairing];
-    }
-
-    return result;
-  } catch (error) {
-    console.error("Error in analyzeWineLabel:", error);
-    if (error instanceof Error && error.message.toLowerCase().includes("json")) {
-      throw new Error("The AI failed to return a valid analysis. The label might be unclear or unreadable.");
-    }
-    throw error;
-  }
+// DEPRECATED: Old analyzeWineLabel function that used GoogleGenAI client directly
+// Current implementation uses aiClient.gemini() via runGeminiFast() instead
+/*
+export async function analyzeWineLabel(base64Image: string, mimeType: string): Promise<WineAnalysisResult> {
+  // This function is no longer used - see runGeminiFast() for current implementation
+  throw new Error("analyzeWineLabel is deprecated - use runGeminiFast instead");
 }
+*/
 
-/***** BEGIN PATCH: AI-anrop för smakfallback (lägg under analyzeWineLabel, men före createWineChat) *****/
-
-async function buildTasteWithAI(
-  ai: GoogleGenAIClient,
-  analysis: WineAnalysisResult,
-  ocrText?: string,
-): Promise<TasteAIResponse | null> {
-  // Plocka signaler
-  const grapes = (analysis.grapeVariety || []).filter(Boolean);
-  const region = analysis.region || null;
-  const country = analysis.country || null;
-  const style: WineStyle = inferStyleFromGrapes(grapes);
-  const abv = null; // valfritt: extrahera via OCR om du har
-  const sweetness = null; // valfritt: mappa "dry/sec/trocken" etc. om du har OCR
-  const oakMentioned = null; // valfritt: från OCR
-  const labelNotes = (ocrText || "").slice(0, 800);
-
-  const input = {
-    grapes,
-    region,
-    country,
-    style,
-    abv,
-    sweetness,
-    oakMentioned,
-    labelNotes,
-  };
-
-  // Primärförsök
-  const primary = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{
-      role: "user",
-      parts: [{ text: TASTE_PRIMARY_PROMPT }, { text: "\nINPUT:\n" + JSON.stringify(input) }],
-    }],
-    config: { temperature: 0.3, responseMimeType: "application/json" },
-  });
-
-  let raw = primary.text?.trim();
-  if (!raw) return null;
-
-  // Reparationsrunda vid felaktig JSON
-  try {
-    const obj = JSON.parse(raw) as TasteAIResponse;
-    return sanitizeTaste(obj);
-  } catch {
-    const repair = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: [{
-        role: "user",
-        parts: [
-          { text: TASTE_REPAIR_PROMPT },
-          { text: "\nINPUT:\n" + JSON.stringify(input) },
-          { text: "\nPREVIOUS:\n" + raw },
-        ],
-      }],
-      config: { temperature: 0.2, responseMimeType: "application/json" },
-    });
-    raw = repair.text?.trim() || "";
-    try {
-      const obj = JSON.parse(raw) as TasteAIResponse;
-      return sanitizeTaste(obj);
-    } catch {
-      return null;
-    }
-  }
-}
-
-/***** BEGIN PATCH: liten hjälp-prompt för 3 matparningar vid behov *****/
-
-async function buildFoodPairingIfMissing(
-  ai: GoogleGenAIClient,
-  analysis: WineAnalysisResult
-): Promise<string[] | null> {
-  if (analysis.foodPairing && analysis.foodPairing.length === 3) return null;
-
-  const ask = `
-Suggest EXACTLY three specific food pairings as a strict JSON array of strings.
-Use the wine's grapes/region/style if given. No prose, no markdown, JSON array only.
-  `.trim();
-
-  const promptObj = {
-    name: analysis.wineName || "",
-    producer: analysis.producer || "",
-    grapes: analysis.grapeVariety || [],
-    region: analysis.region || "",
-    country: analysis.country || "",
-  };
-
-  const res = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: [{ role: "user", parts: [{ text: ask }, { text: "\nINPUT:\n" + JSON.stringify(promptObj) }]}],
-    config: { temperature: 0.4, responseMimeType: "application/json" },
-  });
-  const raw = res.text?.trim() || "";
-  try {
-    const arr = JSON.parse(raw);
-    if (Array.isArray(arr) && arr.length === 3 && arr.every((x) => typeof x === "string")) {
-      return arr as string[];
-    }
-  } catch (_error) {
-    // ignore JSON parse issues and fall back to null
-  }
-  return null;
-}
-
-/***** END PATCH *****/
+// DEPRECATED: Old helper functions removed - not used in current implementation
+// Current flow uses aiClient.gemini() in runGeminiFast() instead
 
 function sanitizeTaste(t: TasteAIResponse): TasteAIResponse {
   const clamp = (v: number) => Math.max(1, Math.min(5, Math.round(v * 2) / 2)); // 0.5-steg
