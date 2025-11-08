@@ -5,12 +5,3 @@ verify_jwt = false
 
 [functions.wine-vision]
 verify_jwt = false
-
-[functions.extract-wine-metadata]
-verify_jwt = false
-
-[functions.fetch-wine-facts]
-verify_jwt = false
-
-[functions.generate-wine-taste]
-verify_jwt = false

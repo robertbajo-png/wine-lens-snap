@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, type Schema } from "npm:@google/genai";
+import { GoogleGenAI as GoogleGenAIClient, Type, type Schema } from "npm:@google/genai";
 import { aiClient } from "./lib/aiClient.ts";
 import {
   getCacheKey,
@@ -14,6 +14,7 @@ import {
   upsertOcrServerCache,
 } from "./db.ts";
 import type {
+  TasteAIResponse,
   WineAnalysisResult,
   WineSearchResult,
   WineStyle,
@@ -25,13 +26,6 @@ import {
   inferStyleFromGrapes,
   isWeakNotes,
 } from "./prompts.ts";
-
-const DEV_LOG = true; // sätt till false inför release
-function devLog(label: string, data: unknown) {
-  if (!DEV_LOG) return;
-  const ts = new Date().toISOString().split("T")[1]?.split(".")[0] ?? "--:--:--";
-  console.log(`🧪 [${ts}] ${label}:`, data);
-}
 
 const CFG = {
   PPLX_TIMEOUT_MS: 12000,   // max PPLX-tid
@@ -1191,171 +1185,160 @@ export async function analyzeWineLabel(
   base64Image: string,
   mimeType: string,
 ): Promise<WineAnalysisResult> {
-  const imageUrl = `data:${mimeType};base64,${base64Image}`;
-  
-  const prompt = 
-    "You are a world-class sommelier. Analyze this wine label image and return a JSON object " +
-    "with: wineName, producer, grapeVariety[], region, country, vintage ('N/V' if unknown), " +
-    "tastingNotes (1 short paragraph), foodPairing (exactly 3 items). Return STRICT JSON. No markdown.";
+  const ai = new GoogleGenAIClient({ apiKey: getApiKey() });
+
+  const imagePart = {
+    inlineData: {
+      data: base64Image,
+      mimeType,
+    },
+  };
+
+  const textPart = {
+    text:
+      "You are a world-class sommelier. Analyze the image of this wine label and return a JSON object with its details, following the provided schema. Be as accurate as possible based on the visual information.",
+  };
 
   try {
-    const json = await aiClient.gemini(prompt, {
-      json: true,
-      imageUrl,
-      temperature: 0.2,
-      model: "google/gemini-2.5-flash",
-      timeoutMs: CFG.GEMINI_TIMEOUT_MS,
-    }) as Record<string, unknown>;
+    const model = ai.models.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: wineAnalysisSchema,
+        temperature: 0.2,
+      },
+    });
 
-    devLog("VISION RAW", JSON.stringify(json).slice(0, 600));
+    const gen = await model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [imagePart, textPart],
+        },
+      ],
+    });
 
-    devLog("PARSED JSON", json);
+    const rawText = gen.response?.text()?.trim();
+    if (!rawText) throw new Error("Empty response from Gemini");
 
-    const noName = !json.wineName || String(json.wineName).trim().length === 0;
-    const noGrapes = !Array.isArray(json.grapeVariety) || json.grapeVariety.length === 0;
-    const noRegion = !json.region || String(json.region).trim().length === 0;
-    if (noName && noGrapes && noRegion) {
-      throw new Error(
-        "CONTENT_UNREADABLE: Label could not be reliably read (name/grapes/region empty).",
-      );
-    }
+    const json = toJsonSafe(rawText);
 
     if (!json.wineName || !Array.isArray(json.foodPairing)) {
-      throw new Error("FORMAT_INVALID_JSON: Analysis JSON missing required fields");
+      throw new Error("Analysis JSON missing required fields");
     }
 
     const result = json as WineAnalysisResult;
 
     if (isWeakNotes(result.tastingNotes)) {
-      devLog("TASTE FALLBACK TRIGGER", {
-        wine: result.wineName,
-        grapes: result.grapeVariety,
-        region: result.region,
-      });
-      const taste = await buildTasteWithAI(result);
-      if (taste?.summary?.trim()) {
-        result.tastingNotes = taste.summary.trim();
+      const taste = await buildTasteWithAI(ai, result);
+      if (taste?.summary) {
+        result.tastingNotes = taste.summary;
         if (!result.smak || isWeakNotes(result.smak)) {
-          result.smak = result.tastingNotes;
-        }
-      } else {
-        const inferredStyle = inferStyleFromGrapes(result.grapeVariety ?? []);
-        const isRed =
-          (result.grapeVariety?.[0] || "").toLowerCase().includes("kadarka") ||
-          result.region?.toLowerCase().includes("szekszárd") ||
-          inferredStyle === "red";
-        result.tastingNotes = isRed
-          ? "Lätt rött med röd frukt, frisk syra och låg tannin – drickvänligt och matvänligt."
-          : "Friskt, fruktigt och torrt med balanserad syra och ren avslutning.";
-        if (!result.smak || isWeakNotes(result.smak)) {
-          result.smak = result.tastingNotes;
+          result.smak = taste.summary;
         }
       }
     }
 
     if (!result.foodPairing || result.foodPairing.length !== 3) {
-      const fp = await buildFoodPairingIfMissing(result);
-      if (fp) result.foodPairing = fp;
+      const fp = await buildFoodPairingIfMissing(ai, result);
+      if (fp) {
+        result.foodPairing = fp;
+      }
     }
 
     if ((!Array.isArray(result.passar_till) || result.passar_till.length === 0) && Array.isArray(result.foodPairing)) {
       result.passar_till = [...result.foodPairing];
     }
 
-    devLog("FINAL RESULT", result);
     return result;
   } catch (error) {
     console.error("Error in analyzeWineLabel:", error);
-    if (
-      error instanceof Error &&
-      !error.message.includes("CONTENT_UNREADABLE") &&
-      !error.message.includes("FORMAT_INVALID_JSON") &&
-      error.message.toLowerCase().includes("json")
-    ) {
-      throw new Error(
-        "FORMAT_INVALID_JSON: The AI failed to return a valid analysis. The label might be unclear or unreadable.",
-      );
+    if (error instanceof Error && error.message.toLowerCase().includes("json")) {
+      throw new Error("The AI failed to return a valid analysis. The label might be unclear or unreadable.");
     }
     throw error;
   }
 }
 
+/***** BEGIN PATCH: AI-anrop för smakfallback (lägg under analyzeWineLabel, men före createWineChat) *****/
+
 async function buildTasteWithAI(
+  ai: GoogleGenAIClient,
   analysis: WineAnalysisResult,
   ocrText?: string,
-): Promise<{ tasteProfile: Record<string, number>; summary: string } | null> {
+): Promise<TasteAIResponse | null> {
+  // Plocka signaler
   const grapes = (analysis.grapeVariety || []).filter(Boolean);
   const region = analysis.region || null;
   const country = analysis.country || null;
   const style: WineStyle = inferStyleFromGrapes(grapes);
-  const abv = null;
-  const sweetness = null;
-  const oakMentioned = false;
+  const abv = null; // valfritt: extrahera via OCR om du har
+  const sweetness = null; // valfritt: mappa "dry/sec/trocken" etc. om du har OCR
+  const oakMentioned = null; // valfritt: från OCR
   const labelNotes = (ocrText || "").slice(0, 800);
 
-  const input = { grapes, region, country, style, abv, sweetness, oakMentioned, labelNotes };
-  devLog("TASTE INPUT", input);
-
-  const prompt = TASTE_PRIMARY_PROMPT + "\nINPUT:\n" + JSON.stringify(input);
-  
-  let parsed: unknown;
-  try {
-    parsed = await aiClient.gemini(prompt, {
-      json: true,
-      temperature: 0.3,
-      model: "google/gemini-2.5-flash",
-      timeoutMs: CFG.GEMINI_TIMEOUT_MS,
-    });
-    devLog("TASTE RAW", JSON.stringify(parsed).slice(0, 600));
-  } catch (error) {
-    devLog("TASTE PRIMARY FAILED", error);
-    // Retry with repair prompt
-    try {
-      const repairPrompt = TASTE_REPAIR_PROMPT + "\nINPUT:\n" + JSON.stringify(input) + "\nPREVIOUS:\n" + JSON.stringify(parsed || "");
-      parsed = await aiClient.gemini(repairPrompt, {
-        json: true,
-        temperature: 0.2,
-        model: "google/gemini-2.5-flash",
-        timeoutMs: CFG.GEMINI_TIMEOUT_MS,
-      });
-      devLog("TASTE REPAIR RAW", JSON.stringify(parsed).slice(0, 600));
-    } catch {
-      parsed = null;
-    }
-  }
-
-  if (!parsed || typeof parsed !== "object") return null;
-
-  const candidate = parsed as {
-    tasteProfile?: Record<string, unknown>;
-    summary?: unknown;
+  const input = {
+    grapes,
+    region,
+    country,
+    style,
+    abv,
+    sweetness,
+    oakMentioned,
+    labelNotes,
   };
 
-  if (!candidate.tasteProfile || typeof candidate.summary !== "string") return null;
+  // Primärförsök
+  const primary = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [{
+      role: "user",
+      parts: [{ text: TASTE_PRIMARY_PROMPT }, { text: "\nINPUT:\n" + JSON.stringify(input) }],
+    }],
+    config: { temperature: 0.3, responseMimeType: "application/json" },
+  });
 
-  const clampValue = (v: number) => Math.max(1, Math.min(5, Math.round(v * 2) / 2));
-  const metrics = ["sotma", "fyllighet", "fruktighet", "syra", "tannin", "ek"] as const;
-  const tasteProfile: Record<string, number> = {};
+  let raw = primary.text?.trim();
+  if (!raw) return null;
 
-  for (const key of metrics) {
-    const value = Number(candidate.tasteProfile[key]);
-    if (!Number.isFinite(value)) {
+  // Reparationsrunda vid felaktig JSON
+  try {
+    const obj = JSON.parse(raw) as TasteAIResponse;
+    return sanitizeTaste(obj);
+  } catch {
+    const repair = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [{
+        role: "user",
+        parts: [
+          { text: TASTE_REPAIR_PROMPT },
+          { text: "\nINPUT:\n" + JSON.stringify(input) },
+          { text: "\nPREVIOUS:\n" + raw },
+        ],
+      }],
+      config: { temperature: 0.2, responseMimeType: "application/json" },
+    });
+    raw = repair.text?.trim() || "";
+    try {
+      const obj = JSON.parse(raw) as TasteAIResponse;
+      return sanitizeTaste(obj);
+    } catch {
       return null;
     }
-    tasteProfile[key] = clampValue(value);
   }
-
-  return { tasteProfile, summary: candidate.summary.trim() };
 }
 
+/***** BEGIN PATCH: liten hjälp-prompt för 3 matparningar vid behov *****/
+
 async function buildFoodPairingIfMissing(
-  analysis: WineAnalysisResult,
+  ai: GoogleGenAIClient,
+  analysis: WineAnalysisResult
 ): Promise<string[] | null> {
   if (analysis.foodPairing && analysis.foodPairing.length === 3) return null;
 
   const ask = `
-Suggest EXACTLY three specific food pairings as a STRICT JSON array of strings.
-Use the wine's grapes/region/style if given. No prose, JSON array only.
+Suggest EXACTLY three specific food pairings as a strict JSON array of strings.
+Use the wine's grapes/region/style if given. No prose, no markdown, JSON array only.
   `.trim();
 
   const promptObj = {
@@ -1366,24 +1349,38 @@ Use the wine's grapes/region/style if given. No prose, JSON array only.
     country: analysis.country || "",
   };
 
-  const prompt = ask + "\nINPUT:\n" + JSON.stringify(promptObj);
-
+  const res = await ai.models.generateContent({
+    model: "gemini-2.5-flash",
+    contents: [{ role: "user", parts: [{ text: ask }, { text: "\nINPUT:\n" + JSON.stringify(promptObj) }]}],
+    config: { temperature: 0.4, responseMimeType: "application/json" },
+  });
+  const raw = res.text?.trim() || "";
   try {
-    const parsed = await aiClient.gemini(prompt, {
-      json: true,
-      temperature: 0.35,
-      model: "google/gemini-2.5-flash",
-      timeoutMs: CFG.GEMINI_TIMEOUT_MS,
-    }) as unknown;
-    devLog("FOOD RAW", JSON.stringify(parsed).slice(0, 400));
-    if (Array.isArray(parsed) && parsed.length === 3 && parsed.every((x): x is string => typeof x === "string")) {
-      return parsed;
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr) && arr.length === 3 && arr.every((x) => typeof x === "string")) {
+      return arr as string[];
     }
-  } catch {
+  } catch (_error) {
     // ignore JSON parse issues and fall back to null
   }
   return null;
 }
+
+/***** END PATCH *****/
+
+function sanitizeTaste(t: TasteAIResponse): TasteAIResponse {
+  const clamp = (v: number) => Math.max(1, Math.min(5, Math.round(v * 2) / 2)); // 0.5-steg
+  const p = t.tasteProfile;
+  p.sotma = clamp(p.sotma);
+  p.fyllighet = clamp(p.fyllighet);
+  p.fruktighet = clamp(p.fruktighet);
+  p.syra = clamp(p.syra);
+  p.tannin = clamp(p.tannin);
+  p.ek = clamp(p.ek);
+  return t;
+}
+
+/***** END PATCH *****/
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -1684,18 +1681,9 @@ ${hasWebData ? '' : 'VIKTIGT: Eftersom inga webbkällor finns tillgängliga, anv
 REGLER:
 - "Egri" = region "Eger" (översätt).
 - Typ/färg: härled endast från tydliga ord (Prosecco/Cava/Champagne/Spumante/Frizzante => "mousserande"; Rosé/Rosato/Rosado => "rosé"; Bianco/Blanc/White => "vitt"; Rosso/Rouge/Red => "rött").
-- **alkoholhalt & volym**: Försök ALLTID extrahera från OCR_TEXT först (sök efter "%" och "ml/cl/L"). Om saknas och webbdata finns, använd det. Om helt saknas, sätt "-".
-- **karaktär**: ${hasWebData ? 'Använd webbdata om finns, annars' : 'Använd'} din kunskap om druva, region och stil för att beskriva vinet kort (max 15 ord). Aldrig "-".
-- **smak**: ${hasWebData ? 'Använd webbdata om uttrycklig smakbeskrivning finns. Om saknas eller vag' : 'Använd din kunskap om druva och region för att'}, generera en detaljerad smakprofil baserat på druva + region + alkoholhalt + karaktär. Inkludera frukt, kryddor, och struktur. Minst 10 ord, aldrig "-".
-- **servering**: ${hasWebData ? 'Använd webbdata om finns, annars g' : 'G'}enerera ALLTID serveringstemperatur och matchtips baserat på vintyp (vitt 8-12°C, rosé 10-12°C, lätt rött 14-16°C, fylligt rött 16-18°C). Aldrig "-".
-- undantag: för mousserande får "sötma" mappas deterministiskt:
+- karaktär/smak/servering${hasWebData ? ': fyll bara om uttryckligen i källan' : ': använd din kunskap om vintyp, druva och region för att ge rimliga värden'}; undantag: för mousserande får "sötma" mappas deterministiskt:
   Brut Nature/Pas Dosé/Dosage Zéro=0; Extra Brut=0.5; Brut=1; Extra Dry=1.5; Dry/Sec=2.2; Demi-Sec/Semi-Seco=3.4; Dolce/Sweet=4.5.
-- **METERS (OBLIGATORISKT - ALLTID FYLL I)**: Baserat på druva, region, alkoholhalt, och smakbeskrivning, generera ALLTID exakta värden 1-5:
-  * **sötma**: 1=torrt (t.ex. Bordeaux, Chianti, Barolo), 2=halvtorrt (vissa Riesling), 3=medelsött (Liebfraumilch), 4=sött (Sauternes), 5=mycket sött (Tokaji Aszú). För mousserande: Brut Nature=1, Extra Brut=1, Brut=1, Extra Dry=2, Dry/Sec=2, Demi-Sec=3, Dolce/Sweet=5.
-  * **fyllighet**: 1=lätt kropp (Pinot Grigio, Vinho Verde), 2=lätt-medel (Beaujolais, Grüner Veltliner), 3=medelfylligt (Chianti, Côtes du Rhône, 12-13% alkohol), 4=fylligt (Bordeaux, Rioja, Chardonnay med fat, 13.5-14% alkohol), 5=mycket fylligt (Amarone, Barolo, 14.5%+ alkohol). Använd alkoholhalt som vägledning.
-  * **fruktighet**: 1=låg (mineraldrivna viner, Chablis), 2=låg-medel (Pinot Noir från Bourgogne), 3=medelfruktigt (Chianti, Rioja Crianza), 4=fruktig (Malbec, Zinfandel, Shiraz, "fruktig" i beskrivningen), 5=mycket fruktig (New World Shiraz, fruktbomb-stilar).
-  * **fruktsyra**: 1=låg syra (Amarone, Valpolicella Ripasso), 2=låg-medel (Merlot, Grenache), 3=medelsyra (Bordeaux, Rioja), 4=frisk syra (Chianti, Pinot Noir, Riesling), 5=hög syra (Sangiovese, Nebbiolo, mycket friska vita viner).
-  ${hasWebData ? 'Använd WEB_JSON som utgångspunkt men KORRIGERA om värdena verkar felaktiga baserat på vintyp.' : ''} Om inga exakta värden finns, HÄRLED logiskt från druva + region + alkoholhalt + smakbeskrivning. Meters får ALDRIG vara null!
+- meters (sötma/fyllighet/fruktighet/fruktsyra): ${hasWebData ? 'fyll bara om uttryckligen i källan' : 'ge rimliga värden baserat på vintyp och druva (0-5 skala)'}.
 - MATPARNINGAR (passar_till): GENERERA ALLTID 3-5 lämpliga maträtter baserat på vinets druva, region, stil och karaktär. Använd klassiska sommelierregler:
   * Vitt vin (lätt & friskt): skaldjur, vitfisk, kyckling, sallader, milda ostar
   * Vitt vin (fylligt): grillad fisk, fläskkött, krämiga pastarätter, svamprätter
@@ -1716,7 +1704,7 @@ SCHEMA:
   "vin": "", "land_region": "", "producent": "", "druvor": "", "årgång": "",
   "typ": "", "färgtyp": "", "klassificering": "", "alkoholhalt": "", "volym": "",
   "karaktär": "", "smak": "", "passar_till": [], "servering": "", "källa": "",
-  "meters": { "sötma": 1-5, "fyllighet": 1-5, "fruktighet": 1-5, "fruktsyra": 1-5 },
+  "meters": { "sötma": null, "fyllighet": null, "fruktighet": null, "fruktsyra": null },
   "evidence": { "etiketttext": "", "webbträffar": [] }
 }
 
@@ -1771,17 +1759,7 @@ WEB_JSON:
         );
       }
       
-      // Graceful fallback: use WEB_JSON (from Perplexity or Vision) if available
-      try {
-        console.warn("[wine-vision] Falling back to WEB_JSON-only summary due to Gemini failure");
-        const fallback = normalizeWineSummary(WEB_JSON || createEmptySummary());
-        finalData = fallback;
-      } catch (e) {
-        console.error("[wine-vision] Fallback normalization failed:", e);
-        // If even fallback fails, return minimal but valid payload to avoid 500s
-        finalData = createEmptySummary();
-        finalData.evidence = { etiketttext: clamp(ocrText), webbträffar: [] };
-      }
+      throw new Error(errorMsg);
     }
 
     // Post-process med auktoritativt källval

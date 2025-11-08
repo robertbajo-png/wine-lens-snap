@@ -41,40 +41,29 @@ interface GeminiImageContent {
   image_url: { url: string };
 }
 
+type GeminiContent = string | (GeminiTextContent | GeminiImageContent)[];
+
 interface GeminiMessage {
   role: GeminiMessageRole;
-  content: string;
-}
-
-interface GeminiPart {
-  text?: string;
-  inline_data?: {
-    mime_type: string;
-    data: string;
-  };
-}
-
-interface GeminiContent {
-  parts: GeminiPart[];
+  content: GeminiContent;
 }
 
 interface GeminiRequestBody {
-  contents: GeminiContent[];
-  generationConfig?: {
-    temperature?: number;
-    maxOutputTokens?: number;
-    responseMimeType?: string;
+  model: string;
+  temperature: number;
+  max_tokens: number;
+  messages: GeminiMessage[];
+  response_format?: { type: "json_object" };
+}
+
+interface LovableGatewayChoice {
+  message?: {
+    content?: string;
   };
 }
 
-interface GeminiCandidate {
-  content?: {
-    parts?: Array<{ text?: string }>;
-  };
-}
-
-interface GeminiResponse {
-  candidates?: GeminiCandidate[];
+interface LovableGatewayResponse {
+  choices?: LovableGatewayChoice[];
 }
 
 type PerplexityMessageRole = "system" | "user";
@@ -94,7 +83,7 @@ interface PerplexityResponse {
   choices?: PerplexityChoice[];
 }
 
-const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models";
+const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const PERPLEXITY_API = "https://api.perplexity.ai/chat/completions";
 
 async function fetchWithTimeout(
@@ -130,7 +119,7 @@ function parseJsonObject(payload: string): Record<string, unknown> {
 }
 
 // JSON repair function using Gemini
-async function forceJson(raw: string, schemaHint: string): Promise<Record<string, unknown>> {
+async function forceJson(raw: string, schemaHint: string, apiKey: string): Promise<Record<string, unknown>> {
   // 1) Direct parse
   try {
     return parseJsonObject(raw);
@@ -159,12 +148,32 @@ Text att reparera:
 <<<${raw}>>>
 `;
 
-  try {
-    return await gemini(fixPrompt, { json: true, temperature: 0.1 }) as Record<string, unknown>;
-  } catch (error) {
-    console.error("Gemini repair failed:", error);
-    throw new Error("Failed to repair JSON");
+  const response = await fetch(LOVABLE_GATEWAY, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [{ role: "user", content: fixPrompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini repair failed: HTTP ${response.status}`);
   }
+
+  const data = (await response.json()) as LovableGatewayResponse;
+  const content = data?.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error("Gemini repair returned empty content");
+  }
+
+  return parseJsonObject(content);
 }
 
 /**
@@ -180,69 +189,49 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
     model = "google/gemini-2.5-flash",
     json = false,
     temperature = 0.1,
-    maxTokens = 2500,
+    maxTokens = 1200,
     imageUrl,
     timeoutMs = 20000,
   } = options;
 
-  const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
-  if (!googleApiKey) {
-    throw new Error("GOOGLE_API_KEY not configured");
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!lovableApiKey) {
+    throw new Error("LOVABLE_API_KEY not configured");
   }
 
-  // Extract model name from format like "google/gemini-2.5-flash"
-  const modelName = model.startsWith("google/") ? model.slice(7) : model;
-
-  // Build parts array
-  const parts: GeminiPart[] = [];
-  
-  if (imageUrl) {
-    // Extract base64 data if it's a data URL
-    let base64Data = imageUrl;
-    let mimeType = "image/jpeg";
-    
-    if (imageUrl.startsWith("data:")) {
-      const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        mimeType = match[1];
-        base64Data = match[2];
-      }
-    }
-    
-    parts.push({
-      inline_data: {
-        mime_type: mimeType,
-        data: base64Data,
-      },
-    });
-  }
-  
-  parts.push({ text: prompt });
+  const userContent: GeminiContent = imageUrl
+    ? [
+        {
+          type: "image_url",
+          image_url: {
+            url: imageUrl.startsWith("data:") ? imageUrl : `data:image/jpeg;base64,${imageUrl}`,
+          },
+        },
+        {
+          type: "text",
+          text: prompt,
+        },
+      ]
+    : prompt;
 
   const body: GeminiRequestBody = {
-    contents: [{ parts }],
-    generationConfig: {
-      temperature,
-      maxOutputTokens: maxTokens,
-    },
+    model,
+    temperature,
+    max_tokens: maxTokens,
+    messages: [{ role: "user", content: userContent }],
   };
 
-  // Note: We explicitly ask for JSON in the prompt instead of using responseMimeType
-  // because direct Gemini API handles this differently than the gateway
   if (json) {
-    // Add explicit JSON instruction to prompt
-    const jsonPrompt = `${prompt}\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanations, just pure JSON.`;
-    parts[parts.length - 1] = { text: jsonPrompt };
+    body.response_format = { type: "json_object" };
   }
-
-  const url = `${GEMINI_API}/${modelName}:generateContent?key=${googleApiKey}`;
 
   try {
     const response = await fetchWithTimeout(
-      url,
+      LOVABLE_GATEWAY,
       {
         method: "POST",
         headers: {
+          Authorization: `Bearer ${lovableApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
@@ -255,58 +244,24 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
       console.error(`[aiClient.gemini] HTTP ${response.status}:`, errText);
 
       if (response.status === 429) throw new Error("rate_limit_exceeded");
-      if (response.status === 403) throw new Error("invalid_api_key");
+      if (response.status === 402) throw new Error("payment_required");
 
       throw new Error(`Gemini error: ${response.status}`);
     }
 
-    const data = (await response.json()) as GeminiResponse;
-    
-    // Log the full response for debugging
-    console.log("[aiClient.gemini] Full Gemini response:", JSON.stringify(data, null, 2));
-    
-    const partsArr = data?.candidates?.[0]?.content?.parts ?? [];
-    const rawContent = partsArr
-      .map((p) => (typeof p?.text === "string" ? p.text : ""))
-      .join("\n")
-      .trim();
+    const data = (await response.json()) as LovableGatewayResponse;
+    const rawContent = data?.choices?.[0]?.message?.content;
 
-    if (!rawContent) {
-      console.error("[aiClient.gemini] Response structure:", {
-        hasCandidates: !!data?.candidates,
-        candidatesLength: data?.candidates?.length,
-        firstCandidate: data?.candidates?.[0],
-      });
+    if (typeof rawContent !== "string") {
       throw new Error("Gemini response missing content");
     }
 
     if (json) {
       try {
-        // Try multiple cleaning strategies
-        let cleaned = rawContent.trim();
-        
-        // Remove markdown code blocks
-        cleaned = cleaned.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/g, "");
-        
-        // Try to extract JSON object if embedded in text
-        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          cleaned = jsonMatch[0];
-        }
-        
+        const cleaned = rawContent.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
         return parseJsonObject(cleaned);
-      } catch (parseError) {
-        // Try automatic repair with Gemini itself
-        try {
-          const repaired = await forceJson(rawContent, "Return a valid minified JSON object with the same structure as provided.");
-          return repaired;
-        } catch (repairError) {
-          console.error("[aiClient.gemini] Failed to parse and repair JSON.");
-          console.error("[aiClient.gemini] Raw content (first 500 chars):", rawContent.substring(0, 500));
-          console.error("[aiClient.gemini] Parse error:", parseError);
-          console.error("[aiClient.gemini] Repair error:", repairError);
-          throw new Error("Gemini did not return valid JSON");
-        }
+      } catch {
+        throw new Error("Gemini did not return valid JSON");
       }
     }
 
@@ -340,6 +295,7 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
   } = options;
 
   const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
   if (!perplexityApiKey) {
     throw new Error("PERPLEXITY_API_KEY not configured");
@@ -396,9 +352,9 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
     const cleaned = rawContent.trim().replace(/^```json\s*|```$/g, "");
 
     // Use forceJson if schema hint is provided
-    if (schemaHint) {
+    if (schemaHint && lovableApiKey) {
       console.log("Using forceJson for Perplexity response...");
-      return await forceJson(cleaned, schemaHint);
+      return await forceJson(cleaned, schemaHint, lovableApiKey);
     }
 
     // Otherwise try direct parse
