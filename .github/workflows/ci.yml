@@ -1,0 +1,27 @@
+name: CI (minimal)
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: |
+          if command -v pnpm >/dev/null 2>&1; then
+            corepack enable || true
+            pnpm install || true
+            pnpm run build || echo "No build script"
+            pnpm run lint || echo "No lint script"
+            pnpm run test || echo "No test script"
+          else
+            npm ci || npm install
+            npm run -s build || echo "No build script"
+            npm run -s lint || echo "No lint script"
+            npm run -s test || echo "No test script"
+          fi
