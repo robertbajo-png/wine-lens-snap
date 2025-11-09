@@ -129,13 +129,7 @@ const WineSnap = () => {
 
         if (message.type === "result") {
           cleanup();
-          const outputBitmap: ImageBitmap | undefined = message.bitmap;
-          resolve({
-            base64: message.base64,
-            width: message.width,
-            height: message.height,
-            bitmap: outputBitmap,
-          });
+          resolve({ base64: message.base64, width: message.width, height: message.height });
           return;
         }
 
@@ -279,11 +273,12 @@ const WineSnap = () => {
       setProgressNote("Analyserar vinet …");
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const supabaseAnonKey =
+        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
 
       if (!supabaseUrl || !supabaseAnonKey) {
         throw new Error(
-          "Appen saknar Supabase-konfiguration – sätt VITE_SUPABASE_URL och VITE_SUPABASE_PUBLISHABLE_KEY."
+          "Appen saknar Supabase-konfiguration – sätt VITE_SUPABASE_URL och VITE_SUPABASE_PUBLISHABLE_KEY (eller VITE_SUPABASE_ANON_KEY)."
         );
       }
 
