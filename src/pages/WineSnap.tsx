@@ -5,7 +5,6 @@ import { Camera, Wine, Loader2, Download, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
-import { autoCropLabel } from "@/lib/autoCrop";
 import { sha1Base64, getOcrCache, setOcrCache } from "@/lib/ocrCache";
 import { ProgressBanner } from "@/components/ProgressBanner";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
@@ -18,10 +17,11 @@ import ServingCard from "@/components/result/ServingCard";
 import EvidenceAccordion from "@/components/result/EvidenceAccordion";
 import ActionBar from "@/components/result/ActionBar";
 import ResultSkeleton from "@/components/result/ResultSkeleton";
-import { preprocessImage } from "@/lib/preprocess";
 import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
+import { runImagePipeline } from "@/lib/imageWorkerClient";
 
 const INTRO_ROUTE = "/";
+const AUTO_RETAKE_DELAY = 1500;
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
 
 const WineSnap = () => {
@@ -34,10 +34,15 @@ const WineSnap = () => {
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null);
   const [progressNote, setProgressNote] = useState<string | null>(null);
+  const [progressPercent, setProgressPercent] = useState<number | null>(null);
+  const [progressLabel, setProgressLabel] = useState<string | null>(null);
 
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
   const cameraOpenedRef = useRef(false);
+  const cameraModeRef = useRef(false);
+  const autoRetakeTimerRef = useRef<number | null>(null);
+  const shouldAutoRetakeRef = useRef(false);
   useEffect(() => {
     const lang = navigator.language || "sv-SE";
     prewarmOcr(lang).catch(() => {
@@ -46,11 +51,21 @@ const WineSnap = () => {
   }, []);
 
   useEffect(() => {
+    return () => {
+      if (autoRetakeTimerRef.current) {
+        window.clearTimeout(autoRetakeTimerRef.current);
+        autoRetakeTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (results || previewImage) return;
     if (autoOpenedRef.current) return;
     autoOpenedRef.current = true;
     const t = setTimeout(() => {
       cameraOpenedRef.current = true;
+      cameraModeRef.current = true;
       document.getElementById("wineImageUpload")?.click();
     }, 0);
     return () => clearTimeout(t);
@@ -63,16 +78,37 @@ const WineSnap = () => {
     setBanner(null);
     setProgressStep("prep");
     setProgressNote("Förbereder bilden…");
+    setProgressPercent(5);
+    setProgressLabel("Skannar…");
+    shouldAutoRetakeRef.current = false;
+    if (autoRetakeTimerRef.current) {
+      window.clearTimeout(autoRetakeTimerRef.current);
+      autoRetakeTimerRef.current = null;
+    }
 
     try {
-      const croppedImage = await autoCropLabel(imageData);
-      const processedImage = await preprocessImage(croppedImage, {
-        maxSide: 1200,
-        quality: 0.68,
-        grayscale: true,
-        contrast: 1.12,
-      });
+      const pipelineResult = await runImagePipeline(
+        imageData,
+        {
+          autoCrop: { fallbackCropPct: 0.1 },
+          preprocess: {
+            maxSide: 1200,
+            quality: 0.68,
+            grayscale: true,
+            contrast: 1.12,
+          },
+        },
+        (update) => {
+          setProgressStep("prep");
+          setProgressPercent(typeof update.progress === "number" ? update.progress : null);
+          setProgressLabel("Skannar…");
+          setProgressNote(update.note ?? "Skannar…");
+        },
+      );
+      const processedImage = pipelineResult.base64;
 
+      setProgressPercent(null);
+      setProgressLabel(null);
       setProgressStep("ocr");
       setProgressNote("Läser text (OCR) …");
       const ocrKey = await sha1Base64(processedImage);
@@ -86,17 +122,25 @@ const WineSnap = () => {
 
       const noTextFound = !ocrText || ocrText.length < 10;
       if (noTextFound) {
+        const guidance = "Ingen text hittades – flytta närmare etiketten, undvik reflexer.";
+        setBanner({ type: "error", text: guidance });
+        shouldAutoRetakeRef.current = true;
         toast({
-          title: "Fortsätter utan etiketttext",
-          description: "Kunde inte läsa etiketten – vi söker utifrån bild och heuristik.",
+          title: "Ingen text hittades",
+          description: "Flytta närmare etiketten och undvik reflexer. Vi försöker ändå analysera.",
+          variant: "destructive",
         });
+      } else {
+        shouldAutoRetakeRef.current = false;
       }
 
       const cacheLookupKey = !noTextFound && ocrText ? ocrText : processedImage;
       const cached = getCachedAnalysis(cacheLookupKey);
       if (cached) {
         setResults(cached);
-        setBanner({ type: "info", text: "Hämtade sparad analys från din enhet." });
+        if (!noTextFound) {
+          setBanner({ type: "info", text: "Hämtade sparad analys från din enhet." });
+        }
         toast({
           title: "Klart!",
           description: "Analys hämtad från cache.",
@@ -184,24 +228,26 @@ const WineSnap = () => {
         setResults(result);
         setCachedAnalysis(cacheLookupKey, result, processedImage);
 
-        if (note === "hit_memory" || note === "hit_supabase") {
-          setBanner({ type: "info", text: "Hämtade sparad profil för snabbare upplevelse." });
-        } else if (note === "hit_analysis_cache" || note === "hit_analysis_cache_get") {
-          setBanner({ type: "info", text: "⚡ Hämtade färdig vinprofil från global cache." });
-        } else if (note === "perplexity_timeout") {
-          setBanner({
-            type: "info",
-            text: "Webbsökning tog för lång tid – endast etikettinfo. Smakprofil visas inte.",
-          });
-        } else if (note === "perplexity_failed") {
-          setBanner({
-            type: "info",
-            text: "Kunde ej söka på webben – endast etikettinfo. Smakprofil visas inte.",
-          });
-        } else if (note === "fastpath" || note === "fastpath_heuristic") {
-          setBanner({ type: "info", text: "⚡ Snabbanalys – fyller profil utan webbsvar." });
-        } else {
-          setBanner({ type: "success", text: "Klart! Din vinprofil är uppdaterad." });
+        if (!noTextFound) {
+          if (note === "hit_memory" || note === "hit_supabase") {
+            setBanner({ type: "info", text: "Hämtade sparad profil för snabbare upplevelse." });
+          } else if (note === "hit_analysis_cache" || note === "hit_analysis_cache_get") {
+            setBanner({ type: "info", text: "⚡ Hämtade färdig vinprofil från global cache." });
+          } else if (note === "perplexity_timeout") {
+            setBanner({
+              type: "info",
+              text: "Webbsökning tog för lång tid – endast etikettinfo. Smakprofil visas inte.",
+            });
+          } else if (note === "perplexity_failed") {
+            setBanner({
+              type: "info",
+              text: "Kunde ej söka på webben – endast etikettinfo. Smakprofil visas inte.",
+            });
+          } else if (note === "fastpath" || note === "fastpath_heuristic") {
+            setBanner({ type: "info", text: "⚡ Snabbanalys – fyller profil utan webbsvar." });
+          } else {
+            setBanner({ type: "success", text: "Klart! Din vinprofil är uppdaterad." });
+          }
         }
       }
     } catch (error) {
@@ -211,6 +257,7 @@ const WineSnap = () => {
           : "Kunde inte analysera bilden – försök igen i bättre ljus.";
 
       setBanner({ type: "error", text: errorMessage });
+      shouldAutoRetakeRef.current = false;
 
       toast({
         title: "Skanningen misslyckades",
@@ -221,13 +268,29 @@ const WineSnap = () => {
       setIsProcessing(false);
       setProgressStep(null);
       setProgressNote(null);
+      setProgressPercent(null);
+      setProgressLabel(null);
+
+      if (shouldAutoRetakeRef.current && cameraModeRef.current) {
+        autoRetakeTimerRef.current = window.setTimeout(() => {
+          document.getElementById("wineImageUpload")?.click();
+        }, AUTO_RETAKE_DELAY);
+      }
+      shouldAutoRetakeRef.current = false;
     }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (autoRetakeTimerRef.current) {
+        window.clearTimeout(autoRetakeTimerRef.current);
+        autoRetakeTimerRef.current = null;
+      }
+      shouldAutoRetakeRef.current = false;
+      const triggeredByCamera = cameraOpenedRef.current;
       cameraOpenedRef.current = false;
+      cameraModeRef.current = triggeredByCamera;
       const reader = new FileReader();
       reader.onloadend = async () => {
         const imageData = reader.result as string;
@@ -242,6 +305,8 @@ const WineSnap = () => {
   };
 
   const handleTakePhoto = () => {
+    cameraOpenedRef.current = true;
+    cameraModeRef.current = true;
     document.getElementById("wineImageUpload")?.click();
   };
 
@@ -252,11 +317,20 @@ const WineSnap = () => {
     setProgressStep(null);
     setBanner(null);
     setProgressNote(null);
+    setProgressPercent(null);
+    setProgressLabel(null);
     autoOpenedRef.current = false;
     cameraOpenedRef.current = false;
+    shouldAutoRetakeRef.current = false;
+    if (autoRetakeTimerRef.current) {
+      window.clearTimeout(autoRetakeTimerRef.current);
+      autoRetakeTimerRef.current = null;
+    }
 
     // Re-open the camera/input on the next tick så användaren slipper tom skärm
     setTimeout(() => {
+      cameraOpenedRef.current = true;
+      cameraModeRef.current = true;
       document.getElementById("wineImageUpload")?.click();
     }, 0);
   };
@@ -586,7 +660,12 @@ const WineSnap = () => {
                     <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/70 backdrop-blur">
                       <div className="w-full max-w-xs space-y-4 text-center">
                         <Loader2 className="mx-auto h-10 w-10 animate-spin text-purple-200" />
-                        <ProgressBanner step={progressStep} note={progressNote} />
+                        <ProgressBanner
+                          step={progressStep}
+                          note={progressNote}
+                          progress={progressPercent}
+                          label={progressLabel}
+                        />
                       </div>
                     </div>
                   )}
