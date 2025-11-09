@@ -18,11 +18,28 @@ import EvidenceAccordion from "@/components/result/EvidenceAccordion";
 import ActionBar from "@/components/result/ActionBar";
 import ResultSkeleton from "@/components/result/ResultSkeleton";
 import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
-import { runImagePipeline } from "@/lib/imageWorkerClient";
+import {
+  supportsOffscreenCanvas,
+  runPipelineOnMain,
+  type PipelineOptions,
+  type PipelineProgress,
+  type PipelineResult,
+} from "@/lib/imagePipelineCore";
+import { readExifOrientation } from "@/lib/exif";
 
 const INTRO_ROUTE = "/";
 const AUTO_RETAKE_DELAY = 1500;
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
+
+type PipelineSource = { dataUrl: string; buffer: ArrayBuffer; type: string; orientation: number };
+
+const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Kunde inte läsa filen"));
+    reader.readAsDataURL(file);
+  });
 
 const WineSnap = () => {
   const { toast } = useToast();
@@ -43,6 +60,8 @@ const WineSnap = () => {
   const cameraModeRef = useRef(false);
   const autoRetakeTimerRef = useRef<number | null>(null);
   const shouldAutoRetakeRef = useRef(false);
+  const workerRef = useRef<Worker | null>(null);
+  const currentImageRef = useRef<PipelineSource | null>(null);
   useEffect(() => {
     const lang = navigator.language || "sv-SE";
     prewarmOcr(lang).catch(() => {
@@ -60,6 +79,13 @@ const WineSnap = () => {
   }, []);
 
   useEffect(() => {
+    return () => {
+      workerRef.current?.terminate();
+      workerRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     if (results || previewImage) return;
     if (autoOpenedRef.current) return;
     autoOpenedRef.current = true;
@@ -71,8 +97,81 @@ const WineSnap = () => {
     return () => clearTimeout(t);
   }, [results, previewImage]);
 
-  const processWineImage = async (imageData: string) => {
+  const ensureWorker = () => {
+    if (!workerRef.current) {
+      workerRef.current = new Worker(new URL("../workers/imageWorker.ts", import.meta.url), { type: "module" });
+    }
+    return workerRef.current;
+  };
+
+  const runWorkerPipeline = async (
+    bitmap: ImageBitmap,
+    options: PipelineOptions,
+    orientation: number | undefined,
+    onProgress?: (progress: PipelineProgress) => void,
+  ): Promise<PipelineResult> => {
+    const worker = ensureWorker();
+
+    return new Promise<PipelineResult>((resolve, reject) => {
+      const cleanup = () => {
+        worker.removeEventListener("message", handleMessage);
+        worker.removeEventListener("error", handleError);
+      };
+
+      const handleMessage = (event: MessageEvent<any>) => {
+        const message = event.data;
+        if (!message || typeof message !== "object") return;
+
+        if (message.type === "progress") {
+          onProgress?.({ value: Number(message.value) || 0, stage: message.stage, note: message.note });
+          return;
+        }
+
+        if (message.type === "result") {
+          cleanup();
+          const outputBitmap: ImageBitmap | undefined = message.bitmap;
+          resolve({
+            base64: message.base64,
+            width: message.width,
+            height: message.height,
+            bitmap: outputBitmap,
+          });
+          return;
+        }
+
+        if (message.type === "error") {
+          cleanup();
+          reject(new Error(message.message || "Bildprocessen misslyckades"));
+        }
+      };
+
+      const handleError = (event: ErrorEvent) => {
+        cleanup();
+        reject(new Error(event.message || "Bakgrundsprocessen misslyckades"));
+      };
+
+      worker.addEventListener("message", handleMessage);
+      worker.addEventListener("error", handleError);
+
+      try {
+        worker.postMessage(
+          { type: "pipeline", bitmap, options, orientation },
+          [bitmap],
+        );
+      } catch (error) {
+        cleanup();
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  };
+
+  const processWineImage = async (source?: PipelineSource | null) => {
     const uiLang = navigator.language || "sv-SE";
+    const activeSource = source ?? currentImageRef.current;
+
+    if (!activeSource) {
+      return;
+    }
 
     setIsProcessing(true);
     setBanner(null);
@@ -86,26 +185,51 @@ const WineSnap = () => {
       autoRetakeTimerRef.current = null;
     }
 
+    const options: PipelineOptions = {
+      autoCrop: { fallbackCropPct: 0.1 },
+      preprocess: {
+        maxSide: 1200,
+        quality: 0.68,
+        grayscale: true,
+        contrast: 1.12,
+      },
+    };
+
+    const progressHandler = (update: PipelineProgress) => {
+      setProgressStep("prep");
+      const value =
+        typeof update.value === "number" && Number.isFinite(update.value) ? update.value : null;
+      setProgressPercent(value);
+      setProgressLabel("Skannar…");
+      setProgressNote(update.note ?? "Skannar…");
+    };
+
     try {
-      const pipelineResult = await runImagePipeline(
-        imageData,
-        {
-          autoCrop: { fallbackCropPct: 0.1 },
-          preprocess: {
-            maxSide: 1200,
-            quality: 0.68,
-            grayscale: true,
-            contrast: 1.12,
-          },
-        },
-        (update) => {
-          setProgressStep("prep");
-          setProgressPercent(typeof update.progress === "number" ? update.progress : null);
-          setProgressLabel("Skannar…");
-          setProgressNote(update.note ?? "Skannar…");
-        },
-      );
+      let pipelineResult: PipelineResult;
+      if (supportsOffscreenCanvas()) {
+        try {
+          const blob = new Blob([activeSource.buffer], { type: activeSource.type || "image/jpeg" });
+          const bitmap = await createImageBitmap(blob);
+          pipelineResult = await runWorkerPipeline(
+            bitmap,
+            options,
+            activeSource.orientation,
+            progressHandler,
+          );
+        } catch (workerError) {
+          console.warn("Worker pipeline misslyckades, faller tillbaka på huvudtråden", workerError);
+          pipelineResult = await runPipelineOnMain(activeSource.dataUrl, options, progressHandler);
+        }
+      } else {
+        pipelineResult = await runPipelineOnMain(activeSource.dataUrl, options, progressHandler);
+      }
+
+      if (pipelineResult.bitmap) {
+        pipelineResult.bitmap.close();
+      }
+
       const processedImage = pipelineResult.base64;
+
 
       setProgressPercent(null);
       setProgressLabel(null);
@@ -291,13 +415,23 @@ const WineSnap = () => {
       const triggeredByCamera = cameraOpenedRef.current;
       cameraOpenedRef.current = false;
       cameraModeRef.current = triggeredByCamera;
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const imageData = reader.result as string;
-        setPreviewImage(imageData);
-        await processWineImage(imageData);
-      };
-      reader.readAsDataURL(file);
+
+      try {
+        const [buffer, dataUrl] = await Promise.all([file.arrayBuffer(), readFileAsDataUrl(file)]);
+        const orientation = readExifOrientation(buffer) ?? 1;
+        currentImageRef.current = { buffer, dataUrl, type: file.type || "image/jpeg", orientation };
+        setPreviewImage(dataUrl);
+        await processWineImage(currentImageRef.current);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Kunde inte läsa bildfilen – försök igen.";
+        setBanner({ type: "error", text: message });
+        toast({
+          title: "Filuppladdning misslyckades",
+          description: message,
+          variant: "destructive",
+        });
+      }
     } else if (cameraOpenedRef.current) {
       // User cancelled camera - go back to the introduction page
       navigate(INTRO_ROUTE);
@@ -326,6 +460,8 @@ const WineSnap = () => {
       window.clearTimeout(autoRetakeTimerRef.current);
       autoRetakeTimerRef.current = null;
     }
+
+    currentImageRef.current = null;
 
     // Re-open the camera/input on the next tick så användaren slipper tom skärm
     setTimeout(() => {
@@ -625,7 +761,7 @@ const WineSnap = () => {
           <div className="mb-6 flex w-full justify-center">
             <Button
               size="lg"
-              onClick={() => processWineImage(previewImage)}
+              onClick={() => processWineImage(currentImageRef.current)}
               className="h-12 rounded-full bg-gradient-to-r from-purple-600 to-indigo-500 text-white font-semibold shadow-lg hover:opacity-90 transition"
               disabled={isProcessing}
             >
