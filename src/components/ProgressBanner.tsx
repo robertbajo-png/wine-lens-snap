@@ -2,9 +2,18 @@ import React from "react";
 
 type Step = "prep" | "ocr" | "analysis" | "done" | "error" | null;
 
-export const ProgressBanner: React.FC<{ step: Step; note?: string | null }> = ({ step, note }) => {
+interface ProgressBannerProps {
+  step: Step;
+  note?: string | null;
+  progress?: number | null;
+  label?: string | null;
+}
+
+export const ProgressBanner: React.FC<ProgressBannerProps> = ({ step, note, progress, label }) => {
   const pct =
-    step === "prep"
+    typeof progress === "number"
+      ? clampProgress(progress)
+      : step === "prep"
       ? 20
       : step === "ocr"
       ? 55
@@ -13,7 +22,8 @@ export const ProgressBanner: React.FC<{ step: Step; note?: string | null }> = ({
       : step === "done" || step === "error"
       ? 100
       : 0;
-  const label =
+
+  const defaultLabel =
     step === "prep"
       ? "Förbereder bild"
       : step === "ocr"
@@ -25,13 +35,14 @@ export const ProgressBanner: React.FC<{ step: Step; note?: string | null }> = ({
       : step === "error"
       ? "Något gick fel"
       : "Startar…";
+
   const progressClass =
     step === "error" ? "h-1.5 rounded bg-red-400 transition-all" : "h-1.5 rounded bg-white/80 transition-all";
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-slate-100">
       <div className="flex items-center justify-between">
-        <span className="opacity-90">{label}</span>
+        <span className="opacity-90">{label ?? defaultLabel}</span>
         <span className="opacity-70">{pct}%</span>
       </div>
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded bg-white/10">
@@ -47,3 +58,10 @@ export const ProgressBanner: React.FC<{ step: Step; note?: string | null }> = ({
     </div>
   );
 };
+
+function clampProgress(value: number) {
+  if (Number.isNaN(value)) return 0;
+  if (value < 0) return 0;
+  if (value > 100) return 100;
+  return Math.round(value);
+}
