@@ -1296,12 +1296,6 @@ Deno.serve(async (req) => {
         headers: { ...cors, "content-type": "application/json" },
       });
     }
-    if (!PERPLEXITY_API_KEY) {
-      return new Response(JSON.stringify({ ok: false, error: "Missing PERPLEXITY_API_KEY" }), {
-        status: 500,
-        headers: { ...cors, "content-type": "application/json" },
-      });
-    }
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return new Response(JSON.stringify({ ok: false, error: "Missing Supabase credentials" }), {
         status: 500,
