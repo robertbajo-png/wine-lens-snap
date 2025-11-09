@@ -1,4 +1,4 @@
-import { runFixOrientation, runPreprocess } from "./imageWorkerClient";
+import { runPipelineOnMain, type PipelineOptions } from "./imagePipelineCore";
 
 /**
  * Canvas-based image preprocessing utilities tailored for OCR.
@@ -20,12 +20,17 @@ export async function preprocessImage(
   opts: PreprocessOptions = {},
 ): Promise<string> {
   if (typeof window === "undefined") return dataUrl;
-  const { base64 } = await runPreprocess(dataUrl, opts);
+  const options: PipelineOptions = {
+    autoCrop: null,
+    preprocess: { ...opts },
+  };
+  const { base64 } = await runPipelineOnMain(dataUrl, options);
   return base64;
 }
 
 export async function fixOrientation(imageData: string): Promise<string> {
   if (typeof window === "undefined") return imageData;
-  const { base64 } = await runFixOrientation(imageData);
+  const options: PipelineOptions = { autoCrop: null, preprocess: null };
+  const { base64 } = await runPipelineOnMain(imageData, options);
   return base64;
 }

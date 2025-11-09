@@ -1,4 +1,4 @@
-import { runAutoCrop } from "./imageWorkerClient";
+import { runPipelineOnMain, type PipelineOptions } from "./imagePipelineCore";
 
 export interface AutoCropOptions {
   downscaleMax?: number;
@@ -10,6 +10,10 @@ export interface AutoCropOptions {
 
 export async function autoCropLabel(dataUrl: string, opts: AutoCropOptions = {}): Promise<string> {
   if (typeof window === "undefined") return dataUrl;
-  const { base64 } = await runAutoCrop(dataUrl, opts);
+  const options: PipelineOptions = {
+    autoCrop: { ...opts },
+    preprocess: null,
+  };
+  const { base64 } = await runPipelineOnMain(dataUrl, options);
   return base64;
 }
