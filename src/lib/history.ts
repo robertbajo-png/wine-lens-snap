@@ -33,7 +33,16 @@ export function saveHistoryLocal(entry: HistoryEntry) {
 }
 
 export async function syncHistoryRemote(entry: HistoryEntry) {
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/history-sync`;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseKey =
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn("Supabase-konfiguration saknas; hoppar över historiksynk.");
+    return;
+  }
+
+  const url = `${supabaseUrl}/functions/v1/history-sync`;
   const deviceId = getDeviceId();
   const payload = {
     ...entry,
@@ -45,7 +54,7 @@ export async function syncHistoryRemote(entry: HistoryEntry) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${supabaseKey}`,
         "x-device-id": deviceId,
       },
       body: JSON.stringify(payload),

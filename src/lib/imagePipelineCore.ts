@@ -37,8 +37,39 @@ export interface CanvasExportResult {
 type CanvasLike = OffscreenCanvas | HTMLCanvasElement;
 type CanvasCtx = OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
 
+let offscreenSupport: boolean | null = null;
+
 export function supportsOffscreenCanvas() {
-  return typeof OffscreenCanvas !== "undefined" && typeof Worker !== "undefined";
+  if (offscreenSupport !== null) {
+    return offscreenSupport;
+  }
+
+  offscreenSupport = false;
+
+  if (typeof Worker === "undefined" || typeof OffscreenCanvas === "undefined") {
+    return offscreenSupport;
+  }
+
+  try {
+    const canvas = new OffscreenCanvas(1, 1);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      return offscreenSupport;
+    }
+
+    if (typeof canvas.convertToBlob !== "function" || typeof canvas.transferToImageBitmap !== "function") {
+      return offscreenSupport;
+    }
+
+    const bitmap = canvas.transferToImageBitmap();
+    bitmap.close();
+
+    offscreenSupport = true;
+  } catch (error) {
+    offscreenSupport = false;
+  }
+
+  return offscreenSupport;
 }
 
 export async function runPipelineWithEnv(
