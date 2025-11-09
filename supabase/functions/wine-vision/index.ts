@@ -1264,6 +1264,8 @@ Deno.serve(async (req) => {
     const ocrTextFromClient = typeof reqJson?.ocrText === "string" ? reqJson.ocrText : "";
     const ocrImageHash = typeof reqJson?.ocr_image_hash === "string" ? reqJson.ocr_image_hash : null;
     const vintageHint = typeof reqJson?.vintage === "string" && reqJson.vintage.trim() ? reqJson.vintage.trim() : null;
+    const geminiOnly = reqJson?.geminiOnly === true;
+    const skipCache = reqJson?.forceFresh === true || reqJson?.skipCache === true;
 
     if (!imageBase64) {
       return new Response(JSON.stringify({ ok: false, error: "Missing image data" }), {
@@ -1333,37 +1335,41 @@ Deno.serve(async (req) => {
     analysisKey = analysisKeyBase ? `${analysisKeyBase}.y${resolvedVintage}` : "";
 
     // Try memory cache
-    const memoryHit = getFromMemoryCache(cacheKey);
-    if (memoryHit) {
-      const cacheTime = Date.now() - startTime;
-      console.log(`[${new Date().toISOString()}] Memory cache hit! (${cacheTime}ms)`);
-      return new Response(JSON.stringify({ 
-        ok: true, 
-        data: memoryHit.data, 
-        note: "hit_memory" 
-      }), {
-        headers: { ...cors, "content-type": "application/json" },
-      });
+    if (!skipCache) {
+      const memoryHit = getFromMemoryCache(cacheKey);
+      if (memoryHit) {
+        const cacheTime = Date.now() - startTime;
+        console.log(`[${new Date().toISOString()}] Memory cache hit! (${cacheTime}ms)`);
+        return new Response(JSON.stringify({ 
+          ok: true, 
+          data: memoryHit.data, 
+          note: "hit_memory" 
+        }), {
+          headers: { ...cors, "content-type": "application/json" },
+        });
+      }
     }
 
     // Try Supabase cache
-    const supabaseHit = await getFromSupabaseCache(cacheKey, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    if (supabaseHit) {
-      const cacheTime = Date.now() - startTime;
-      console.log(`[${new Date().toISOString()}] Supabase cache hit! (${cacheTime}ms)`);
+    if (!skipCache) {
+      const supabaseHit = await getFromSupabaseCache(cacheKey, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      if (supabaseHit) {
+        const cacheTime = Date.now() - startTime;
+        console.log(`[${new Date().toISOString()}] Supabase cache hit! (${cacheTime}ms)`);
 
-      setMemoryCache(cacheKey, supabaseHit.data);
+        setMemoryCache(cacheKey, supabaseHit.data);
 
-      return new Response(JSON.stringify({
-        ok: true,
-        data: supabaseHit.data,
-        note: "hit_supabase"
-      }), {
-        headers: { ...cors, "content-type": "application/json" },
-      });
+        return new Response(JSON.stringify({
+          ok: true,
+          data: supabaseHit.data,
+          note: "hit_supabase"
+        }), {
+          headers: { ...cors, "content-type": "application/json" },
+        });
+      }
     }
 
-    if (analysisKey && analysisKey.length >= 6) {
+    if (!skipCache && analysisKey && analysisKey.length >= 6) {
       try {
         const cachedPayload = await getAnalysisFromServerCache(
           SUPABASE_URL,
