@@ -138,7 +138,7 @@ const Index = () => {
               <Button
                 size="sm"
                 className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-white shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/skanna")}
               >
                 Starta skanning
               </Button>
@@ -166,7 +166,7 @@ const Index = () => {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button
                   size="lg"
-                  onClick={() => navigate("/")}
+                  onClick={() => navigate("/skanna")}
                   className="h-14 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] px-8 text-base font-semibold shadow-[0_20px_40px_-22px_rgba(123,63,228,0.95)]"
                 >
                   <Camera className="mr-2 h-5 w-5" />
@@ -306,7 +306,7 @@ const Index = () => {
                 <Button
                   size="lg"
                   className="h-14 rounded-full bg-white/90 px-8 text-base font-semibold text-slate-900 transition hover:bg-white"
-                  onClick={() => navigate("/")}
+                  onClick={() => navigate("/skanna")}
                 >
                   Kom igång
                   <ArrowRight className="ml-2 h-5 w-5" />

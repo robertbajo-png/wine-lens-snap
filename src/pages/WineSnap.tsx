@@ -717,6 +717,14 @@ const WineSnap = () => {
               variant="ghost"
               size="sm"
               className="text-slate-200 hover:text-white"
+              onClick={() => navigate("/")}
+            >
+              Hem
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-slate-200 hover:text-white"
               onClick={() => navigate("/om")}
             >
               Om WineSnap
