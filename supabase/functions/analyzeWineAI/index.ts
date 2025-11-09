@@ -1,7 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GEMINI_MODEL = "google/gemini-2.5-flash";
+
+const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
 interface WineHeuristics {
   druva?: string;
@@ -32,6 +35,13 @@ serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (!lovableApiKey) {
+    return new Response(
+      JSON.stringify({ error: "Missing LOVABLE_API_KEY" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   try {
@@ -112,15 +122,17 @@ ${JSON.stringify(heuristics, null, 2)}` : ''}
 Språk: ${lang}
 Returnera strikt JSON enligt schema.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(LOVABLE_GATEWAY, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: GEMINI_MODEL,
         temperature: 0.2,
+        max_tokens: 1200,
+        response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -152,7 +164,15 @@ Returnera strikt JSON enligt schema.`;
     }
 
     const data = await response.json();
-    const analysisText = data.choices[0].message.content;
+    const analysisText = data?.choices?.[0]?.message?.content ?? "";
+
+    if (!analysisText) {
+      console.error('AI gateway returned empty content:', data);
+      return new Response(
+        JSON.stringify({ error: 'Gemini returned empty response' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('Analysis response:', analysisText);
 
