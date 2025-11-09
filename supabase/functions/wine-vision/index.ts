@@ -365,83 +365,38 @@ async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: W
   let pplx_ms: number | null = null;
   let gemini_ms: number | null = null;
   let fastPathHit = false;
-  let pplx_status: WebMeta["pplx_status"] = PERPLEXITY_API_KEY ? "empty" : "skipped";
+  let pplx_status: WebMeta["pplx_status"] = "skipped";
   let gemini_status: WebMeta["gemini_status"] = LOVABLE_API_KEY ? "empty" : "skipped";
 
-  const tasks: Promise<WebJson>[] = [];
-
-  if (PERPLEXITY_API_KEY) {
-    console.log(`[${new Date().toISOString()}] Starting Perplexity search (${CFG.PPLX_TIMEOUT_MS}ms timeout)...`);
-    const pplxPromise = (async () => {
-      const start = Date.now();
-      try {
-        const res = await withTimeout(runPerplexity(ocrText), CFG.PPLX_TIMEOUT_MS, "pplx");
-        pplx_ms = Date.now() - start;
-        pplx_status = res ? "ok" : "empty";
-        if (res) {
-          console.log(`[${new Date().toISOString()}] Perplexity WEB_JSON:`, JSON.stringify(res, null, 2));
-          console.log(`[${new Date().toISOString()}] Perplexity success (${pplx_ms}ms), sources: ${res.källor?.length ?? 0}`);
-        } else {
-          console.log(`[${new Date().toISOString()}] Perplexity returned empty result (${pplx_ms}ms)`);
-        }
-        return res;
-      } catch (error) {
-        pplx_ms = Date.now() - start;
-        if (error instanceof Error && error.name === "TimeoutError") {
-          pplx_status = "timeout";
-          console.log(`[${new Date().toISOString()}] Perplexity timeout (${pplx_ms}ms)`);
-        } else {
-          pplx_status = "error";
-          console.error(`[${new Date().toISOString()}] Perplexity error (${pplx_ms}ms):`, error);
-        }
-        return null;
-      }
-    })();
-    tasks.push(pplxPromise);
-  }
-
-  // Don't run Gemini Vision in parallel initially - use it as fallback only
-  // This saves on API costs and only uses it when Perplexity fails
-
+  // Skip Perplexity completely - go directly to Gemini Vision
   let web: WebJson = null;
 
-  if (tasks.length > 0) {
-    const settled = await Promise.allSettled(tasks);
-    for (const result of settled) {
-      if (result.status === "fulfilled" && result.value) {
-        web = result.value;
-        break;
-      }
-    }
-  }
-
-  // FALLBACK: If Perplexity failed or returned 0 sources, use Gemini Vision
-  if ((!web || !web.källor || web.källor.length === 0) && LOVABLE_API_KEY && imageUrl) {
-    console.log(`[${new Date().toISOString()}] Perplexity returned no sources – activating Gemini Vision fallback`);
+  if (LOVABLE_API_KEY && imageUrl) {
+    console.log(`[${new Date().toISOString()}] Starting Gemini Vision analysis directly...`);
     const gemStart = Date.now();
     try {
       const geminiResult = await withTimeout(
         runGeminiFast(ocrText, imageUrl), 
         CFG.GEMINI_TIMEOUT_MS, 
-        "gemini-vision-fallback"
+        "gemini-vision-direct"
       );
       gemini_ms = Date.now() - gemStart;
       if (geminiResult) {
         web = geminiResult;
         gemini_status = "ok";
-        console.log(`[${new Date().toISOString()}] Gemini Vision fallback success (${gemini_ms}ms)`);
+        console.log(`[${new Date().toISOString()}] Gemini Vision success (${gemini_ms}ms)`);
       } else {
         gemini_status = "empty";
-        console.log(`[${new Date().toISOString()}] Gemini Vision fallback returned empty (${gemini_ms}ms)`);
+        console.log(`[${new Date().toISOString()}] Gemini Vision returned empty (${gemini_ms}ms)`);
       }
     } catch (error) {
       gemini_ms = Date.now() - gemStart;
       if (error instanceof Error && error.name === "TimeoutError") {
         gemini_status = "timeout";
-        console.log(`[${new Date().toISOString()}] Gemini Vision fallback timeout (${gemini_ms}ms)`);
+        console.log(`[${new Date().toISOString()}] Gemini Vision timeout (${gemini_ms}ms)`);
       } else {
         gemini_status = "error";
-        console.error(`[${new Date().toISOString()}] Gemini Vision fallback error (${gemini_ms}ms):`, error);
+        console.error(`[${new Date().toISOString()}] Gemini Vision error (${gemini_ms}ms):`, error);
       }
     }
   }
