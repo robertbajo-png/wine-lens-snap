@@ -142,9 +142,16 @@ export function createWorkerPipelineEnvironment(): PipelineEnvironment {
       const dataUrl = await blobToDataUrl(blob);
       return { dataUrl, blob };
     },
-    async createImageBitmapFromCanvas(canvas) {
+    async createImageBitmapFromCanvas(canvas, exported) {
+      // Använd redan exporterad blob om den finns för att undvika OffscreenCanvas-referenser
+      if (exported) {
+        return await createImageBitmap(exported.blob);
+      }
+      // Konvertera OffscreenCanvas till blob först, sedan till ImageBitmap
+      // Detta bryter referensen till OffscreenCanvas och förhindrar postMessage-fel
       const offscreen = canvas as OffscreenCanvas;
-      return offscreen.transferToImageBitmap();
+      const blob = await offscreen.convertToBlob({ type: "image/jpeg", quality: 0.92 });
+      return await createImageBitmap(blob);
     },
   };
 }
