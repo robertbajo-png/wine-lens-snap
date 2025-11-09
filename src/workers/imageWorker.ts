@@ -17,7 +17,6 @@ interface PipelineMessage {
 interface PipelineResultMessage {
   type: "result";
   ok: true;
-  bitmap: ImageBitmap;
   base64: string;
   width: number;
   height: number;
@@ -55,19 +54,18 @@ self.addEventListener("message", async (event: MessageEvent<PipelineMessage>) =>
       env,
       postProgress,
     );
-    if (!result.bitmap) {
-      throw new Error("Pipeline returnerade ingen bitmap");
+    if (result.bitmap) {
+      result.bitmap.close();
     }
 
     const message: PipelineResultMessage = {
       type: "result",
       ok: true,
-      bitmap: result.bitmap,
       base64: result.base64,
       width: result.width,
       height: result.height,
     };
-    self.postMessage(message as WorkerResponse, [result.bitmap]);
+    self.postMessage(message as WorkerResponse);
   } catch (error) {
     const message: PipelineErrorMessage = {
       type: "error",

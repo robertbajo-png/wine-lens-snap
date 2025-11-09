@@ -129,13 +129,7 @@ const WineSnap = () => {
 
         if (message.type === "result") {
           cleanup();
-          const outputBitmap: ImageBitmap | undefined = message.bitmap;
-          resolve({
-            base64: message.base64,
-            width: message.width,
-            height: message.height,
-            bitmap: outputBitmap,
-          });
+          resolve({ base64: message.base64, width: message.width, height: message.height });
           return;
         }
 
