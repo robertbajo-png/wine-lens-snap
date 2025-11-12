@@ -56,7 +56,7 @@ export async function callGeminiJSON<T extends Record<string, unknown>>(
       body: JSON.stringify({
         model: MODEL,
         temperature: 0.1,
-        max_tokens: 1200,
+        max_tokens: 2000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
@@ -135,12 +135,21 @@ export async function summarizeWithGemini(
   const systemPrompt = `DU ÄR: En faktagranskande AI-sommelier med visuell expertis. Du får OCR-text från etiketten, eventuellt en bild av flaskan, och ett JSON-objekt med webbfakta ("WEB_JSON"). Du ska returnera ENDAST ett giltigt JSON-objekt i Systembolaget-stil. Inga påhitt.
 
 ARBETSGÅNG:
-1) OM DU FÅR EN BILD: Titta noga på etiketten och leta specifikt efter:
-   - Klassificering (t.ex. AOP, AOC, DOC, DOCG, IGT, VdP, Denominación de Origen)
-   - Alkoholhalt (t.ex. "12.5% vol", "13% vol", "14% alc/vol")
-   - Volym (t.ex. "750 ml", "75 cl", "0,75 L")
-   - Årgång (fyrsiffrigt årtal: 2018, 2019, 2020 etc)
-   Dessa står ofta i små tryck längst ner eller på sidorna av etiketten.
+1) OM DU FÅR EN BILD: Använd chain-of-thought reasoning. Titta metodiskt på etiketten och observera:
+   
+   LETA SPECIFIKT EFTER (ofta i små tryck längst ner eller på sidorna):
+   - Klassificering: AOP, AOC, DOC, DOCG, DOCG Classico, IGT, VdP, IGP, Denominación de Origen, DO, DOCa, Qualitätswein, Prädikatswein, AVA
+   - Alkoholhalt: siffror följt av "% vol", "% alc/vol", "% VOL", "% ALC" (exempel: "12.5% vol", "13% vol", "14.5% alc/vol")
+   - Volym: siffror följt av "ml", "ML", "cl", "CL", "L" eller "e" (exempel: "750 ml", "75 cl", "0,75 L", "750ml e")
+   - Årgång: fyrsiffrigt årtal mellan 1900-2030 (exempel: 2020, 2021, 2023)
+   
+   OBSERVERA: Dessa uppgifter kan vara placerade:
+   - I små tryck längst ner på etiketten
+   - På sidorna av huvudetiketten
+   - På ryggetiketten (om synlig)
+   - Nära varumärket eller producentens namn
+   
+   Scanna HELA etiketten metodiskt från topp till botten.
 
 2) Använd etikettens OCR_TEXT för att komplettera namn, producent och övrig information.
 
