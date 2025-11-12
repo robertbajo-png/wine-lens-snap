@@ -29,7 +29,7 @@ import {
 
 const CFG = {
   PPLX_TIMEOUT_MS: 12000,   // max PPLX-tid
-  GEMINI_TIMEOUT_MS: 45000, // max Gemini-tid
+  GEMINI_TIMEOUT_MS: 60000, // max GPT-5-tid
   FAST_TIMEOUT_MS: 4000,    // snabb “fail-fast” för initial sök
   MAX_WEB_URLS: 3,
   PPLX_MODEL: "sonar",

@@ -283,7 +283,7 @@ const WineSnap = () => {
       }
 
       const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), 25000);
+      const timeoutId = setTimeout(() => abortController.abort(), 65000);
 
       const functionUrl = `${supabaseUrl}/functions/v1/wine-vision`;
       const response = await fetch(functionUrl, {
