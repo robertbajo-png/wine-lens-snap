@@ -461,11 +461,20 @@ async function gpt5(
     }
 
     if (json) {
+      console.log("[aiClient.gpt5] Raw JSON response:", rawContent.substring(0, 500));
+      
       try {
         const cleaned = rawContent.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
         return parseJsonObject(cleaned);
-      } catch {
-        throw new Error("GPT-5 did not return valid JSON");
+      } catch (e) {
+        console.error("[aiClient.gpt5] JSON parse failed, attempting forceJson repair...");
+        const schemaHint = "WineSummary schema with vin, producent, druvor, land_region, etc.";
+        try {
+          return await forceJson(rawContent, schemaHint, lovableApiKey);
+        } catch (repairError) {
+          console.error("[aiClient.gpt5] forceJson repair also failed:", repairError);
+          throw new Error("GPT-5 did not return valid JSON");
+        }
       }
     }
 
