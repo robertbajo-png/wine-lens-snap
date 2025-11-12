@@ -395,8 +395,8 @@ async function gpt5(
     model = "openai/gpt-5-mini",
     json = false,
     imageUrl,
-    timeoutMs = 20000,
-    maxCompletionTokens = 2000,
+    timeoutMs = 60000,
+    maxCompletionTokens = 1500,
   } = options;
 
   const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");

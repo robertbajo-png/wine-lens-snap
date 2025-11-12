@@ -339,7 +339,7 @@ VIKTIGT SISTA STEG:
       imageUrl,
       timeoutMs: CFG.GEMINI_TIMEOUT_MS,
       json: true,
-      maxCompletionTokens: 2000,
+      maxCompletionTokens: 1500,
     }) as Record<string, unknown>;
 
     const normalized = normalizeSearchResult(result);
@@ -1523,7 +1523,7 @@ WEB_JSON:
       const geminiResult = await aiClient.gpt5(gemPrompt, {
         json: true,
         timeoutMs: CFG.GEMINI_TIMEOUT_MS,
-        maxCompletionTokens: 2000,
+        maxCompletionTokens: 1500,
       });
 
       finalData = normalizeWineSummary(geminiResult);
