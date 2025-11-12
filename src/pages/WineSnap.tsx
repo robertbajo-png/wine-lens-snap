@@ -282,6 +282,9 @@ const WineSnap = () => {
         );
       }
 
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 25000);
+
       const functionUrl = `${supabaseUrl}/functions/v1/wine-vision`;
       const response = await fetch(functionUrl, {
         method: "POST",
@@ -296,11 +299,32 @@ const WineSnap = () => {
           noTextFound,
           uiLang,
           ocr_image_hash: ocrKey,
+          geminiOnly: true,
+          skipCache: true,
         }),
+        signal: abortController.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          toast({
+            title: "För många förfrågningar",
+            description: "Vänta en stund och försök igen.",
+            variant: "destructive",
+          });
+          throw new Error("Rate limit överskriden – vänta en stund");
+        }
+        if (response.status === 402) {
+          toast({
+            title: "Betalning krävs",
+            description: "AI-krediter slut. Kontakta support.",
+            variant: "destructive",
+          });
+          throw new Error("AI-krediter slut");
+        }
         throw new Error(errorData?.error || `HTTP ${response.status}`);
       }
 
@@ -370,19 +394,31 @@ const WineSnap = () => {
         }
       }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Kunde inte analysera bilden – försök igen i bättre ljus.";
+      let errorMessage = "Kunde inte analysera bilden – försök igen i bättre ljus.";
+      
+      if (error instanceof Error) {
+        if (error.name === "AbortError") {
+          errorMessage = "Analysen tog för lång tid – försök igen";
+          toast({
+            title: "Timeout",
+            description: "Analysen tog för lång tid. Försök igen.",
+            variant: "destructive",
+          });
+        } else {
+          errorMessage = error.message;
+        }
+      }
 
       setBanner({ type: "error", text: errorMessage });
       shouldAutoRetakeRef.current = false;
 
-      toast({
-        title: "Skanningen misslyckades",
-        description: errorMessage,
-        variant: "destructive",
-      });
+      if (!(error instanceof Error && error.name === "AbortError")) {
+        toast({
+          title: "Skanningen misslyckades",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsProcessing(false);
       setProgressStep(null);
