@@ -132,14 +132,25 @@ export async function summarizeWithGemini(
   imageBase64: string | undefined,
   apiKey: string
 ): Promise<WineSummary> {
-  const systemPrompt = `DU ÄR: En faktagranskande AI-sommelier. Du får OCR-text från etiketten och ett JSON-objekt med webbfakta ("WEB_JSON"). Du ska returnera ENDAST ett giltigt JSON-objekt i Systembolaget-stil. Inga påhitt.
+  const systemPrompt = `DU ÄR: En faktagranskande AI-sommelier med visuell expertis. Du får OCR-text från etiketten, eventuellt en bild av flaskan, och ett JSON-objekt med webbfakta ("WEB_JSON"). Du ska returnera ENDAST ett giltigt JSON-objekt i Systembolaget-stil. Inga påhitt.
 
 ARBETSGÅNG:
-1) Använd etikettens OCR_TEXT för att plocka upp namn, klassificering, årgång, alkoholhalt, volym om det står.
-2) Använd WEB_JSON för att fylla verifierade fakta (producent, druvor, land/region, ev. stiltyp etc).
-3) Vid konflikt: lita främst på Systembolaget, därefter nordiska monopol, därefter producenten, därefter Vivino/Wine-Searcher/CellarTracker, därefter proffsmagasin. Annars behåll "-".
-4) Hitta inte på något som inte står i etikett eller WEB_JSON. Om fält saknas: "-".
-5) Svara endast med EN (1) giltig JSON enligt schema nedan (svenska, ingen markdown, ingen extra text).
+1) OM DU FÅR EN BILD: Titta noga på etiketten och leta specifikt efter:
+   - Klassificering (t.ex. AOP, AOC, DOC, DOCG, IGT, VdP, Denominación de Origen)
+   - Alkoholhalt (t.ex. "12.5% vol", "13% vol", "14% alc/vol")
+   - Volym (t.ex. "750 ml", "75 cl", "0,75 L")
+   - Årgång (fyrsiffrigt årtal: 2018, 2019, 2020 etc)
+   Dessa står ofta i små tryck längst ner eller på sidorna av etiketten.
+
+2) Använd etikettens OCR_TEXT för att komplettera namn, producent och övrig information.
+
+3) Använd WEB_JSON för att fylla verifierade fakta (producent, druvor, land/region, ev. stiltyp etc).
+
+4) Vid konflikt: lita främst på Systembolaget, därefter nordiska monopol, därefter producenten, därefter Vivino/Wine-Searcher/CellarTracker, därefter proffsmagasin. Om du ser värden tydligt på bilden men de inte finns i WEB_JSON, använd värdena från bilden.
+
+5) Hitta inte på något som inte står i etikett, bild eller WEB_JSON. Om fält saknas efter noggrann titt: "-".
+
+6) Svara endast med EN (1) giltig JSON enligt schema nedan (svenska, ingen markdown, ingen extra text).
 
 SCHEMA:
 {
@@ -195,9 +206,17 @@ REGLER:
 OCR_TEXT:
 ${ocrText || "(ingen text)"}
 
-ETIKETT-LÄGE: Webbsökning misslyckades. Använd endast OCR-text från etiketten. Sätt källa: "-". För fält som inte syns på etiketten, använd "-".
+ETIKETT-LÄGE: Webbsökning misslyckades. Du har en bild av flaskan och OCR-text från etiketten. 
 
-Analysera vinet baserat endast på OCR_TEXT och returnera JSON enligt schemat.`
+INSTRUKTION: Titta EXTRA noga på bilden för att hitta:
+- Klassificering (små tryck som "AOP", "AOC", "DOC", "DOCG" etc)
+- Alkoholhalt (siffror följt av "% vol" eller "% alc/vol")
+- Volym (siffror följt av "ml", "cl" eller "L")
+- Årgång (fyrsiffrigt årtal)
+
+Sätt källa: "gemini-vision". För fält som verkligen inte syns efter noggrann analys: "-".
+
+Analysera vinet baserat på bilden och OCR_TEXT och returnera JSON enligt schemat.`
     : `DATA:
 OCR_TEXT:
 ${ocrText || "(ingen text)"}
