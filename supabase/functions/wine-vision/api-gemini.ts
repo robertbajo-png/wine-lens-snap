@@ -222,7 +222,7 @@ INSTRUKTION: Titta EXTRA noga på bilden för att hitta:
 - Volym (siffror följt av "ml", "cl" eller "L")
 - Årgång (fyrsiffrigt årtal)
 
-Sätt källa: "gemini-vision". För fält som verkligen inte syns efter noggrann analys: "-".
+Sätt källa: "gpt-5-vision". För fält som verkligen inte syns efter noggrann analys: "-".
 
 Analysera vinet baserat på bilden och OCR_TEXT och returnera JSON enligt schemat.`
     : `DATA:
