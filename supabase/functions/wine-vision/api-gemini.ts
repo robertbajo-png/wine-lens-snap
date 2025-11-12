@@ -1,8 +1,8 @@
 import type { WineSearchResult, WineSummary } from "./types.ts";
 
-// Gemini API client via Lovable AI Gateway
+// GPT-5 API client via Lovable AI Gateway
 
-const MODEL = "google/gemini-2.5-flash";
+const MODEL = "openai/gpt-5-mini";
 
 type GeminiTextContent = {
   type: "text";
@@ -55,8 +55,7 @@ export async function callGeminiJSON<T extends Record<string, unknown>>(
       signal: controller.signal,
       body: JSON.stringify({
         model: MODEL,
-        temperature: 0.1,
-        max_tokens: 2000,
+        max_completion_tokens: 2000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemPrompt },
@@ -77,7 +76,7 @@ export async function callGeminiJSON<T extends Record<string, unknown>>(
         throw new Error("payment_required");
       }
       
-      throw new Error(`Gemini HTTP ${response.status}: ${errText}`);
+      throw new Error(`GPT-5 HTTP ${response.status}: ${errText}`);
     }
 
     const json = (await response.json()) as GeminiResponse;
@@ -88,13 +87,13 @@ export async function callGeminiJSON<T extends Record<string, unknown>>(
       const clean = content.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
       return parseJsonObject(clean) as T;
     } catch {
-      throw new Error("Gemini returnerade inte giltig JSON");
+      throw new Error("GPT-5 returnerade inte giltig JSON");
     }
 
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof Error && (error.message.includes("abort") || error.message.includes("timeout"))) {
-      throw new Error("gemini_timeout");
+      throw new Error("gpt5_timeout");
     }
     throw error;
   }
