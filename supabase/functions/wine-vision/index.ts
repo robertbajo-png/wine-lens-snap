@@ -335,20 +335,21 @@ VIKTIGT SISTA STEG:
   `.trim();
 
   try {
-    const result = await aiClient.gemini(prompt, {
+    const result = await aiClient.gpt5(prompt, {
       imageUrl,
       timeoutMs: CFG.GEMINI_TIMEOUT_MS,
       json: true,
+      maxCompletionTokens: 2000,
     }) as Record<string, unknown>;
 
     const normalized = normalizeSearchResult(result);
     normalized.fallback_mode = false;
-    normalized.källor = ["gemini-vision"];
+    normalized.källor = ["gpt-5-vision"];
 
-    console.log(`[${new Date().toISOString()}] Gemini Vision success:`, JSON.stringify(normalized, null, 2));
+    console.log(`[${new Date().toISOString()}] GPT-5 Vision success:`, JSON.stringify(normalized, null, 2));
     return normalized;
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Gemini Vision error:`, error);
+    console.error(`[${new Date().toISOString()}] GPT-5 Vision error:`, error);
     return null;
   }
 }
@@ -372,31 +373,31 @@ async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: W
   let web: WebJson = null;
 
   if (LOVABLE_API_KEY && imageUrl) {
-    console.log(`[${new Date().toISOString()}] Starting Gemini Vision analysis directly...`);
+    console.log(`[${new Date().toISOString()}] Starting GPT-5 Vision analysis directly...`);
     const gemStart = Date.now();
     try {
       const geminiResult = await withTimeout(
         runGeminiFast(ocrText, imageUrl), 
         CFG.GEMINI_TIMEOUT_MS, 
-        "gemini-vision-direct"
+        "gpt-5-vision-direct"
       );
       gemini_ms = Date.now() - gemStart;
       if (geminiResult) {
         web = geminiResult;
         gemini_status = "ok";
-        console.log(`[${new Date().toISOString()}] Gemini Vision success (${gemini_ms}ms)`);
+        console.log(`[${new Date().toISOString()}] GPT-5 Vision success (${gemini_ms}ms)`);
       } else {
         gemini_status = "empty";
-        console.log(`[${new Date().toISOString()}] Gemini Vision returned empty (${gemini_ms}ms)`);
+        console.log(`[${new Date().toISOString()}] GPT-5 Vision returned empty (${gemini_ms}ms)`);
       }
     } catch (error) {
       gemini_ms = Date.now() - gemStart;
       if (error instanceof Error && error.name === "TimeoutError") {
         gemini_status = "timeout";
-        console.log(`[${new Date().toISOString()}] Gemini Vision timeout (${gemini_ms}ms)`);
+        console.log(`[${new Date().toISOString()}] GPT-5 Vision timeout (${gemini_ms}ms)`);
       } else {
         gemini_status = "error";
-        console.error(`[${new Date().toISOString()}] Gemini Vision error (${gemini_ms}ms):`, error);
+        console.error(`[${new Date().toISOString()}] GPT-5 Vision error (${gemini_ms}ms):`, error);
       }
     }
   }
@@ -1468,9 +1469,9 @@ Deno.serve(async (req) => {
       console.log(`[${new Date().toISOString()}] No web data found – falling back to heuristics.`);
     }
 
-// Step 3: Gemini summarization (strict JSON)
+// Step 3: GPT-5 summarization (strict JSON)
     const geminiStart = Date.now();
-    console.log(`[${new Date().toISOString()}] Starting Gemini summarization...`);
+    console.log(`[${new Date().toISOString()}] Starting GPT-5 summarization...`);
 
     let finalData = createEmptySummary();
     try {
@@ -1499,7 +1500,7 @@ REGLER:
   Om WEB_JSON.passar_till har värden, använd dem som utgångspunkt och komplettera.
 - Vid konflikt: Systembolaget > producent > nordiska monopol > Vivino/Wine-Searcher.
 - Saknas uppgift: "-" (men passar_till ska ALDRIG vara tom!).
-- "källa": ${hasWebData ? 'välj viktigaste URL från WEB_JSON.källor (Systembolaget om finns)' : 'sätt till "-" eftersom inga webbkällor finns'}.
+- "källa": ${hasWebData ? 'välj viktigaste URL från WEB_JSON.källor (Systembolaget om finns)' : 'sätt till "gpt-5-vision"'}.
 - "evidence": etiketttext = första ~200 tecken av OCR_TEXT; webbträffar = ${hasWebData ? 'upp till 3 URL:er' : 'tom array []'}.
 - KRITISKT KRAV: ALL text i JSON-outputen MÅSTE vara på SVENSKA. Om WEB_JSON innehåller ungerska, engelska eller andra språk i fält som "karaktär", "smak", "klassificering", "servering" - ÖVERSÄTT dem till svenska. Ord som "Savhangsúlyos", "Fajtajellegges", "száraz" måste översättas (t.ex. "syrabetonad", "sortkaraktäristisk", "torr").
 
@@ -1519,30 +1520,31 @@ WEB_JSON:
 <<<${JSON.stringify(WEB_JSON)}>>>
       `.trim();
 
-      const geminiResult = await aiClient.gemini(gemPrompt, {
+      const geminiResult = await aiClient.gpt5(gemPrompt, {
         json: true,
         timeoutMs: CFG.GEMINI_TIMEOUT_MS,
+        maxCompletionTokens: 2000,
       });
 
       finalData = normalizeWineSummary(geminiResult);
 
-      console.log(`[${new Date().toISOString()}] Gemini finalData:`, JSON.stringify(finalData, null, 2));
+      console.log(`[${new Date().toISOString()}] GPT-5 finalData:`, JSON.stringify(finalData, null, 2));
 
       // Ensure proper structure
       if (!finalData.källa || finalData.källa === "-") {
-        finalData.källa = WEB_JSON.källor?.[0] ?? "-";
+        finalData.källa = WEB_JSON.källor?.[0] ?? "gpt-5-vision";
       }
       finalData.evidence = finalData.evidence || { etiketttext: "", webbträffar: [] };
       finalData.evidence.etiketttext = finalData.evidence.etiketttext || clamp(ocrText);
       finalData.evidence.webbträffar = (WEB_JSON.källor ?? []).slice(0, CFG.MAX_WEB_URLS);
 
       const geminiTime = Date.now() - geminiStart;
-      console.log(`[${new Date().toISOString()}] Gemini success (${geminiTime}ms)`);
+      console.log(`[${new Date().toISOString()}] GPT-5 success (${geminiTime}ms)`);
     } catch (error) {
       const geminiTime = Date.now() - geminiStart;
       const errorMsg = error instanceof Error ? error.message : String(error);
       
-      console.error(`[${new Date().toISOString()}] Gemini error (${geminiTime}ms):`, errorMsg);
+      console.error(`[${new Date().toISOString()}] GPT-5 error (${geminiTime}ms):`, errorMsg);
       
       if (errorMsg === "rate_limit_exceeded") {
         return new Response(

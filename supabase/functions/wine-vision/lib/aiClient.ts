@@ -373,7 +373,113 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
   }
 }
 
+/**
+ * Call GPT-5 via Lovable AI Gateway
+ * @example
+ * const result = await gpt5("Translate to Swedish", { json: true });
+ * const ocr = await gpt5("Read text", { imageUrl: base64Image });
+ */
+async function gpt5(prompt: string, options: { json?: false; model?: string; imageUrl?: string; timeoutMs?: number; maxCompletionTokens?: number }): Promise<string>;
+async function gpt5(prompt: string, options: { json: true; model?: string; imageUrl?: string; timeoutMs?: number; maxCompletionTokens?: number }): Promise<Record<string, unknown>>;
+async function gpt5(
+  prompt: string,
+  options: {
+    json?: boolean;
+    model?: string;
+    imageUrl?: string;
+    timeoutMs?: number;
+    maxCompletionTokens?: number;
+  } = {}
+): Promise<string | Record<string, unknown>> {
+  const {
+    model = "openai/gpt-5-mini",
+    json = false,
+    imageUrl,
+    timeoutMs = 20000,
+    maxCompletionTokens = 2000,
+  } = options;
+
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!lovableApiKey) {
+    throw new Error("LOVABLE_API_KEY not configured");
+  }
+
+  const userContent: GeminiContent = imageUrl
+    ? [
+        {
+          type: "image_url",
+          image_url: {
+            url: imageUrl.startsWith("data:") ? imageUrl : `data:image/jpeg;base64,${imageUrl}`,
+          },
+        },
+        {
+          type: "text",
+          text: prompt,
+        },
+      ]
+    : prompt;
+
+  const body: any = {
+    model,
+    max_completion_tokens: maxCompletionTokens,
+    messages: [{ role: "user", content: userContent }],
+  };
+
+  if (json) {
+    body.response_format = { type: "json_object" };
+  }
+
+  try {
+    const response = await fetchWithTimeout(
+      LOVABLE_GATEWAY,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${lovableApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      },
+      timeoutMs
+    );
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error(`[aiClient.gpt5] HTTP ${response.status}:`, errText);
+
+      if (response.status === 429) throw new Error("rate_limit_exceeded");
+      if (response.status === 402) throw new Error("payment_required");
+
+      throw new Error(`GPT-5 error: ${response.status}`);
+    }
+
+    const data = (await response.json()) as LovableGatewayResponse;
+    const rawContent = data?.choices?.[0]?.message?.content;
+
+    if (typeof rawContent !== "string") {
+      throw new Error("GPT-5 response missing content");
+    }
+
+    if (json) {
+      try {
+        const cleaned = rawContent.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
+        return parseJsonObject(cleaned);
+      } catch {
+        throw new Error("GPT-5 did not return valid JSON");
+      }
+    }
+
+    return rawContent;
+  } catch (error) {
+    if (error instanceof Error && error.message === "request_timeout") {
+      throw new Error("gpt5_timeout");
+    }
+    throw error;
+  }
+}
+
 export const aiClient = {
   gemini,
+  gpt5,
   perplexity,
 };
