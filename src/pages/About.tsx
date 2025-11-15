@@ -105,7 +105,7 @@ export default function About() {
             Starta skanning
           </Link>
           <Link
-            to="/historik"
+            to="/me/wines"
             className="inline-flex h-12 items-center justify-center rounded-full border border-theme-card bg-theme-elevated px-6 font-medium text-theme-primary hover:bg-theme-elevated"
           >
             Öppna historiken
