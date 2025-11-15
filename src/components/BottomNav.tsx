@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, type ComponentType, type CSSProperties, type SVGProps } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 import {
   ExploreIcon,
@@ -7,7 +8,7 @@ import {
   ForYouIcon,
   ProfileIcon,
   ScanIcon,
-} from "./TabIcons";
+} from "@/components/navigation/TabIcons";
 import { TAB_DEFINITIONS, getDefaultTabPath, type TabDefinition, type TabKey } from "@/lib/tabNavigation";
 import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
@@ -21,11 +22,12 @@ const iconMap: Record<TabKey, ComponentType<SVGProps<SVGSVGElement>>> = {
   profile: ProfileIcon,
 };
 
-const BottomTabBar = () => {
+const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { stateMap } = useTabStateContext();
   const triggerHaptic = useHapticFeedback();
+  const { user, loading } = useAuth();
 
   const activeKey = useMemo(() => {
     const current = TAB_DEFINITIONS.find((tab) =>
@@ -44,6 +46,29 @@ const BottomTabBar = () => {
       const targetState = stateMap[tab.key];
       const targetPath = targetState?.lastPath ?? getDefaultTabPath(tab.key);
 
+      const isProfileTab = tab.key === "profile";
+
+      if (isProfileTab) {
+        if (loading) {
+          return;
+        }
+
+        if (!user) {
+          triggerHaptic();
+          trackEvent("tab_select", {
+            tab: tab.key,
+            from: activeKey ?? undefined,
+            targetPath,
+            requiresAuth: true,
+          });
+
+          const params = new URLSearchParams();
+          params.set("redirectTo", targetPath);
+          navigate(`/login?${params.toString()}`);
+          return;
+        }
+      }
+
       if (location.pathname === targetPath) {
         return;
       }
@@ -54,9 +79,9 @@ const BottomTabBar = () => {
         from: activeKey ?? undefined,
         targetPath,
       });
-      navigate(targetPath, { replace: true });
+      navigate(targetPath);
     },
-    [activeKey, location.pathname, navigate, stateMap, triggerHaptic],
+    [activeKey, loading, location.pathname, navigate, stateMap, triggerHaptic, user],
   );
 
   return (
@@ -122,4 +147,4 @@ const BottomTabBar = () => {
   );
 };
 
-export default memo(BottomTabBar);
+export default memo(BottomNav);
