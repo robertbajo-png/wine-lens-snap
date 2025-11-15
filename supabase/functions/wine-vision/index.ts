@@ -29,7 +29,7 @@ import {
 
 const CFG = {
   PPLX_TIMEOUT_MS: 12000,   // max PPLX-tid
-  GEMINI_TIMEOUT_MS: 60000, // max GPT-5-tid
+  GEMINI_TIMEOUT_MS: 45000, // max Gemini-tid
   FAST_TIMEOUT_MS: 4000,    // snabb “fail-fast” för initial sök
   MAX_WEB_URLS: 3,
   PPLX_MODEL: "sonar",
@@ -1469,9 +1469,9 @@ Deno.serve(async (req) => {
       console.log(`[${new Date().toISOString()}] No web data found – falling back to heuristics.`);
     }
 
-// Step 3: GPT-5 summarization (strict JSON)
+// Step 3: Gemini summarization (strict JSON)
     const geminiStart = Date.now();
-    console.log(`[${new Date().toISOString()}] Starting GPT-5 summarization...`);
+    console.log(`[${new Date().toISOString()}] Starting Gemini summarization...`);
 
     let finalData = createEmptySummary();
     try {
@@ -1500,7 +1500,7 @@ REGLER:
   Om WEB_JSON.passar_till har värden, använd dem som utgångspunkt och komplettera.
 - Vid konflikt: Systembolaget > producent > nordiska monopol > Vivino/Wine-Searcher.
 - Saknas uppgift: "-" (men passar_till ska ALDRIG vara tom!).
-- "källa": ${hasWebData ? 'välj viktigaste URL från WEB_JSON.källor (Systembolaget om finns)' : 'sätt till "gpt-5-vision"'}.
+- "källa": ${hasWebData ? 'välj viktigaste URL från WEB_JSON.källor (Systembolaget om finns)' : 'sätt till "gemini-vision"'}.
 - "evidence": etiketttext = första ~200 tecken av OCR_TEXT; webbträffar = ${hasWebData ? 'upp till 3 URL:er' : 'tom array []'}.
 - KRITISKT KRAV: ALL text i JSON-outputen MÅSTE vara på SVENSKA. Om WEB_JSON innehåller ungerska, engelska eller andra språk i fält som "karaktär", "smak", "klassificering", "servering" - ÖVERSÄTT dem till svenska. Ord som "Savhangsúlyos", "Fajtajellegges", "száraz" måste översättas (t.ex. "syrabetonad", "sortkaraktäristisk", "torr").
 
@@ -1520,19 +1520,18 @@ WEB_JSON:
 <<<${JSON.stringify(WEB_JSON)}>>>
       `.trim();
 
-      const geminiResult = await aiClient.gpt5(gemPrompt, {
+      const geminiResult = await aiClient.gemini(gemPrompt, {
         json: true,
         timeoutMs: CFG.GEMINI_TIMEOUT_MS,
-        maxCompletionTokens: 1500,
       });
 
       finalData = normalizeWineSummary(geminiResult);
 
-      console.log(`[${new Date().toISOString()}] GPT-5 finalData:`, JSON.stringify(finalData, null, 2));
+      console.log(`[${new Date().toISOString()}] Gemini finalData:`, JSON.stringify(finalData, null, 2));
 
       // Ensure proper structure
       if (!finalData.källa || finalData.källa === "-") {
-        finalData.källa = WEB_JSON.källor?.[0] ?? "gpt-5-vision";
+        finalData.källa = WEB_JSON.källor?.[0] ?? "gemini-vision";
       }
       finalData.evidence = finalData.evidence || { etiketttext: "", webbträffar: [] };
       finalData.evidence.etiketttext = finalData.evidence.etiketttext || clamp(ocrText);
