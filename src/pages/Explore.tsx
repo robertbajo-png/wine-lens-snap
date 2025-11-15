@@ -23,6 +23,10 @@ const SEARCH_PLACEHOLDER = "Sök bland etiketter, producenter eller anteckningar
 const TREND_LIMIT = 3;
 const STYLE_LIMIT = 4;
 const MAX_SCANS_FETCH = 120;
+const TREND_WINDOW_DAYS = 42;
+const TREND_MIN_SCANS = 5;
+const POPULAR_STYLE_RECENT_WINDOW = 20;
+const STYLE_MIN_SCANS = 5;
 
 const FILTER_EMPTY_VALUE = "__all__";
 
@@ -412,39 +416,92 @@ const normalizeScanRow = (row: ScanRow): ExploreScan => {
   };
 };
 
-const deriveTrends = (scans: ExploreScan[]): AggregationItem[] => {
-  const counts = new Map<string, number>();
-  for (const scan of scans) {
-    for (const grape of scan.grapesList) {
-      const key = grape.trim();
-      if (!key) continue;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
+const deriveTrendingRegions = (scans: ExploreScan[]): AggregationItem[] => {
+  const now = Date.now();
+  const windowMs = TREND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const eligible = scans.filter((scan) => {
+    const region = cleanFilterValue(scan.region);
+    if (!region) return false;
+    const ageMs = now - scan.createdAtMs;
+    return ageMs >= 0 && ageMs <= windowMs;
+  });
+
+  if (eligible.length < TREND_MIN_SCANS) {
+    return [];
   }
-  return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
+
+  const counts = new Map<
+    string,
+    { label: string; weighted: number; count: number; mostRecent: number }
+  >();
+
+  for (const scan of eligible) {
+    const region = scan.region?.trim();
+    if (!region) continue;
+    const key = region.toLowerCase();
+    const ageRatio = Math.min(Math.max((now - scan.createdAtMs) / windowMs, 0), 1);
+    const recencyWeight = 1 + (1 - ageRatio); // 2 for newest, 1 for oldest within window
+    const entry = counts.get(key) ?? {
+      label: region,
+      weighted: 0,
+      count: 0,
+      mostRecent: 0,
+    };
+    entry.weighted += recencyWeight;
+    entry.count += 1;
+    entry.mostRecent = Math.max(entry.mostRecent, scan.createdAtMs);
+    counts.set(key, entry);
+  }
+
+  const weeks = Math.round(TREND_WINDOW_DAYS / 7);
+
+  return Array.from(counts.values())
+    .sort((a, b) => {
+      if (b.weighted !== a.weighted) return b.weighted - a.weighted;
+      if (b.count !== a.count) return b.count - a.count;
+      return b.mostRecent - a.mostRecent;
+    })
     .slice(0, TREND_LIMIT)
-    .map(([label, count]) => ({
-      label,
-      detail: `${count} ${pluralize(count, "skanning", "skanningar")}`,
-      count,
+    .map((item) => ({
+      label: item.label,
+      detail: `${item.count} ${pluralize(item.count, "skanning", "skanningar")} senaste ${weeks} veckorna`,
+      count: item.count,
     }));
 };
 
-const deriveStyles = (scans: ExploreScan[]): AggregationItem[] => {
-  const counts = new Map<string, number>();
-  for (const scan of scans) {
-    const style = scan.style?.trim();
-    if (!style) continue;
-    counts.set(style, (counts.get(style) ?? 0) + 1);
+const derivePopularStyles = (scans: ExploreScan[]): AggregationItem[] => {
+  const styleScans = scans
+    .filter((scan) => Boolean(cleanFilterValue(scan.style)))
+    .sort((a, b) => b.createdAtMs - a.createdAtMs);
+
+  if (styleScans.length < STYLE_MIN_SCANS) {
+    return [];
   }
-  return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
+
+  const counts = new Map<string, { label: string; weighted: number; count: number }>();
+
+  styleScans.forEach((scan, index) => {
+    const style = scan.style?.trim();
+    if (!style) return;
+    const key = style.toLowerCase();
+    const recencyBoost = index < POPULAR_STYLE_RECENT_WINDOW ? 1.5 : 1;
+    const entry = counts.get(key) ?? { label: style, weighted: 0, count: 0 };
+    entry.weighted += recencyBoost;
+    entry.count += 1;
+    counts.set(key, entry);
+  });
+
+  return Array.from(counts.values())
+    .sort((a, b) => {
+      if (b.weighted !== a.weighted) return b.weighted - a.weighted;
+      if (b.count !== a.count) return b.count - a.count;
+      return a.label.localeCompare(b.label, "sv", { sensitivity: "base" });
+    })
     .slice(0, STYLE_LIMIT)
-    .map(([label, count]) => ({
-      label,
-      detail: `${count} ${pluralize(count, "träff", "träffar")}`,
-      count,
+    .map((item) => ({
+      label: item.label,
+      detail: `${item.count} ${pluralize(item.count, "träff", "träffar")} totalt`,
+      count: item.count,
     }));
 };
 
@@ -567,14 +624,14 @@ const Explore = () => {
   const defaultQuickFilter = availableFilters[0] ?? FALLBACK_QUICK_FILTERS[0]!;
 
   const trendItems = useMemo(() => {
-    const trends = deriveTrends(personalScans);
+    const trends = deriveTrendingRegions(personalScans);
     if (trends.length > 0) return trends;
     if (serverTrends.length > 0) return serverTrends;
     return FALLBACK_TRENDS;
   }, [personalScans, serverTrends]);
 
   const styleItems = useMemo(() => {
-    const styles = deriveStyles(personalScans);
+    const styles = derivePopularStyles(personalScans);
     if (styles.length > 0) return styles;
     if (serverStyles.length > 0) return serverStyles;
     return FALLBACK_STYLES;
