@@ -24,6 +24,7 @@ import {
   seedDemoAnalyses,
   type CachedWineAnalysisEntry,
   markAnalysesReadyForSync,
+  WINE_CACHE_UPDATED_EVENT,
 } from "@/lib/wineCache";
 import HistorySummary from "@/components/history/HistorySummary";
 import WineCard, { WineCardSkeleton } from "@/components/history/WineCard";
@@ -115,6 +116,21 @@ const History = () => {
       if (refreshTimeoutRef.current) {
         window.clearTimeout(refreshTimeoutRef.current);
       }
+    };
+  }, [refreshEntries]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const handleCacheUpdate = () => {
+      refreshEntries();
+    };
+
+    window.addEventListener(WINE_CACHE_UPDATED_EVENT, handleCacheUpdate);
+    return () => {
+      window.removeEventListener(WINE_CACHE_UPDATED_EVENT, handleCacheUpdate);
     };
   }, [refreshEntries]);
 

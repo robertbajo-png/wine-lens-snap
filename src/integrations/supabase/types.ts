@@ -59,6 +59,46 @@ export type Database = {
         }
         Relationships: []
       }
+      scans: {
+        Row: {
+          analysis_json: Json | null
+          created_at: string
+          id: string
+          image_thumb: string | null
+          label_hash: string | null
+          raw_ocr: string | null
+          user_id: string
+          vintage: number | null
+        }
+        Insert: {
+          analysis_json?: Json | null
+          created_at?: string
+          id?: string
+          image_thumb?: string | null
+          label_hash?: string | null
+          raw_ocr?: string | null
+          user_id?: string
+          vintage?: number | null
+        }
+        Update: {
+          analysis_json?: Json | null
+          created_at?: string
+          id?: string
+          image_thumb?: string | null
+          label_hash?: string | null
+          raw_ocr?: string | null
+          user_id?: string
+          vintage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scans_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       winesnap_cache: {
         Row: {
           created_at: string | null

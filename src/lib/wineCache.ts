@@ -2,6 +2,7 @@
 
 const CACHE_KEY_PREFIX = 'wine_analysis_';
 const DEMO_CACHE_PREFIX = `${CACHE_KEY_PREFIX}demo_`;
+const CACHE_UPDATED_EVENT = 'wine-cache:update';
 
 interface StoredWineAnalysisV1 {
   version: 1;
@@ -18,7 +19,22 @@ interface StoredWineAnalysisV2 {
   syncReady: boolean;
 }
 
-type StoredWineAnalysis = WineAnalysisResult | StoredWineAnalysisV1 | StoredWineAnalysisV2;
+interface StoredWineAnalysisV3 {
+  version: 3;
+  timestamp: string;
+  result: WineAnalysisResult;
+  imageData?: string;
+  syncReady: boolean;
+  remoteId?: string | null;
+  labelHash?: string | null;
+  ocrText?: string | null;
+}
+
+type StoredWineAnalysis =
+  | WineAnalysisResult
+  | StoredWineAnalysisV1
+  | StoredWineAnalysisV2
+  | StoredWineAnalysisV3;
 
 export interface CachedWineAnalysisEntry {
   key: string;
@@ -26,6 +42,9 @@ export interface CachedWineAnalysisEntry {
   result: WineAnalysisResult;
   imageData?: string;
   syncReady: boolean;
+  remoteId?: string | null;
+  labelHash?: string | null;
+  ocrText?: string | null;
 }
 
 // Normalize OCR text: trim, lowercase, remove non-alphanumeric
@@ -53,6 +72,46 @@ export function getCacheKey(ocrText: string): string {
   const normalized = normalizeText(ocrText);
   const hash = hashString(normalized);
   return `${CACHE_KEY_PREFIX}${hash}`;
+}
+
+export function computeLabelHash(text?: string | null): string | null {
+  if (!text) return null;
+  const normalized = normalizeText(text);
+  if (!normalized) return null;
+  return hashString(normalized);
+}
+
+function emitCacheUpdatedEvent() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(CACHE_UPDATED_EVENT));
+}
+
+export const WINE_CACHE_UPDATED_EVENT = CACHE_UPDATED_EVENT;
+
+function deriveLabelHash(
+  ocrText: string | null | undefined,
+  result: WineAnalysisResult,
+  explicitHash?: string | null,
+): string | null {
+  if (explicitHash) {
+    return explicitHash;
+  }
+
+  const candidates: (string | undefined | null)[] = [
+    ocrText,
+    result.originaltext,
+    result.evidence?.etiketttext,
+    result.vin,
+  ];
+
+  for (const candidate of candidates) {
+    const hash = computeLabelHash(candidate);
+    if (hash) {
+      return hash;
+    }
+  }
+
+  return null;
 }
 
 export interface WineAnalysisResult {
@@ -102,6 +161,20 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
     const parsed = JSON.parse(raw) as StoredWineAnalysis;
 
     if (parsed && typeof parsed === 'object' && 'version' in parsed) {
+      if ((parsed as StoredWineAnalysisV3).version === 3) {
+        const v3 = parsed as StoredWineAnalysisV3;
+        return {
+          key,
+          timestamp: v3.timestamp,
+          result: v3.result,
+          imageData: v3.imageData,
+          syncReady: Boolean(v3.syncReady),
+          remoteId: v3.remoteId ?? null,
+          labelHash: v3.labelHash ?? null,
+          ocrText: v3.ocrText ?? null,
+        };
+      }
+
       if ((parsed as StoredWineAnalysisV2).version === 2) {
         const v2 = parsed as StoredWineAnalysisV2;
         return {
@@ -110,6 +183,9 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
           result: v2.result,
           imageData: v2.imageData,
           syncReady: Boolean(v2.syncReady),
+          remoteId: null,
+          labelHash: deriveLabelHash(null, v2.result),
+          ocrText: null,
         };
       }
 
@@ -120,6 +196,9 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
         result: v1.result,
         imageData: v1.imageData,
         syncReady: false,
+        remoteId: null,
+        labelHash: deriveLabelHash(null, v1.result),
+        ocrText: null,
       };
     }
 
@@ -130,6 +209,9 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
         timestamp: new Date().toISOString(),
         result: parsed as WineAnalysisResult,
         syncReady: false,
+        remoteId: null,
+        labelHash: deriveLabelHash(null, parsed as WineAnalysisResult),
+        ocrText: null,
       };
     }
   } catch (error) {
@@ -144,13 +226,19 @@ function createStoredPayload(data: {
   result: WineAnalysisResult;
   imageData?: string;
   syncReady: boolean;
-}): StoredWineAnalysisV2 {
+  remoteId?: string | null;
+  labelHash?: string | null;
+  ocrText?: string | null;
+}): StoredWineAnalysisV3 {
   return {
-    version: 2,
+    version: 3,
     timestamp: data.timestamp,
     result: data.result,
     imageData: data.imageData,
     syncReady: data.syncReady,
+    remoteId: data.remoteId ?? null,
+    labelHash: data.labelHash ?? null,
+    ocrText: data.ocrText ?? null,
   };
 }
 
@@ -168,17 +256,33 @@ export function getCachedAnalysis(ocrText: string): WineAnalysisResult | null {
   return null;
 }
 
-export function setCachedAnalysis(ocrText: string, result: WineAnalysisResult, imageData?: string): void {
+export function setCachedAnalysis(
+  ocrText: string,
+  result: WineAnalysisResult,
+  options: {
+    imageData?: string;
+    rawOcr?: string | null;
+    remoteId?: string | null;
+    labelHash?: string | null;
+  } = {},
+): void {
   if (typeof window === 'undefined') return;
   try {
     const key = getCacheKey(ocrText);
+    const rawOcr = options.rawOcr ?? null;
+    const remoteId = options.remoteId ?? null;
+    const labelHash = deriveLabelHash(rawOcr, result, options.labelHash);
     const payload = createStoredPayload({
       timestamp: new Date().toISOString(),
       result,
-      imageData,
+      imageData: options.imageData,
       syncReady: false,
+      remoteId,
+      labelHash,
+      ocrText: rawOcr,
     });
     localStorage.setItem(key, JSON.stringify(payload));
+    emitCacheUpdatedEvent();
   } catch (error) {
     console.error('Error writing to cache:', error);
   }
@@ -193,6 +297,7 @@ export function clearCache(): void {
         localStorage.removeItem(key);
       }
     });
+    emitCacheUpdatedEvent();
   } catch (error) {
     console.error('Error clearing cache:', error);
   }
@@ -224,9 +329,48 @@ export function removeCachedAnalysis(key: string): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(key);
+    emitCacheUpdatedEvent();
   } catch (error) {
     console.error('Error removing cached analysis:', error);
   }
+}
+
+function updateCachedAnalysisEntry(
+  key: string,
+  updater: (entry: CachedWineAnalysisEntry) => CachedWineAnalysisEntry | null,
+): CachedWineAnalysisEntry | null {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const parsed = parseStoredValue(key, localStorage.getItem(key));
+    if (!parsed) {
+      return null;
+    }
+
+    const updated = updater(parsed);
+    if (!updated) {
+      localStorage.removeItem(key);
+      emitCacheUpdatedEvent();
+      return null;
+    }
+
+    const payload = createStoredPayload({
+      timestamp: updated.timestamp,
+      result: updated.result,
+      imageData: updated.imageData,
+      syncReady: updated.syncReady,
+      remoteId: updated.remoteId ?? null,
+      labelHash: updated.labelHash ?? null,
+      ocrText: updated.ocrText ?? null,
+    });
+    localStorage.setItem(key, JSON.stringify(payload));
+    emitCacheUpdatedEvent();
+    return updated;
+  } catch (error) {
+    console.error('Error updating cached analysis:', error);
+  }
+
+  return null;
 }
 
 export function markAnalysesReadyForSync(): number {
@@ -242,7 +386,7 @@ export function markAnalysesReadyForSync(): number {
       if (!key || !key.startsWith(CACHE_KEY_PREFIX)) continue;
 
       const parsed = parseStoredValue(key, localStorage.getItem(key));
-      if (parsed && !parsed.syncReady) {
+      if (parsed && !parsed.syncReady && !parsed.remoteId) {
         keysToUpdate.push({ key, entry: parsed });
       }
     }
@@ -253,15 +397,34 @@ export function markAnalysesReadyForSync(): number {
         result: entry.result,
         imageData: entry.imageData,
         syncReady: true,
+        remoteId: entry.remoteId ?? null,
+        labelHash: entry.labelHash ?? null,
+        ocrText: entry.ocrText ?? null,
       });
       localStorage.setItem(key, JSON.stringify(payload));
       updated += 1;
     });
+
+    if (updated > 0) {
+      emitCacheUpdatedEvent();
+    }
   } catch (error) {
     console.error('Error marking analyses ready for sync:', error);
   }
 
   return updated;
+}
+
+export function getAnalysesPendingSync(): CachedWineAnalysisEntry[] {
+  return getAllCachedAnalyses().filter(entry => entry.syncReady && !entry.remoteId);
+}
+
+export function markAnalysisSynced(key: string, remoteId: string): CachedWineAnalysisEntry | null {
+  return updateCachedAnalysisEntry(key, entry => ({
+    ...entry,
+    remoteId,
+    syncReady: false,
+  }));
 }
 
 function removeExistingDemoEntries() {
@@ -277,6 +440,9 @@ function removeExistingDemoEntries() {
     }
 
     keysToRemove.forEach(key => localStorage.removeItem(key));
+    if (keysToRemove.length > 0) {
+      emitCacheUpdatedEvent();
+    }
   } catch (error) {
     console.error('Error removing demo entries:', error);
   }
@@ -293,9 +459,8 @@ export function seedDemoAnalyses(): CachedWineAnalysisEntry[] {
     const now = Date.now();
     const createTimestamp = (offsetMs: number) => new Date(now - offsetMs).toISOString();
 
-    const demoEntries: StoredWineAnalysisV2[] = [
+    const demoEntries = [
       {
-        version: 2,
         timestamp: createTimestamp(1000 * 60 * 60 * 6),
         result: {
           vin: 'Langhe Nebbiolo',
@@ -328,10 +493,9 @@ export function seedDemoAnalyses(): CachedWineAnalysisEntry[] {
           detekterat_språk: 'sv',
           originaltext: 'Langhe Nebbiolo DOC 2021',
         },
-        syncReady: false,
+        ocrText: 'Langhe Nebbiolo DOC 2021',
       },
       {
-        version: 2,
         timestamp: createTimestamp(1000 * 60 * 60 * 24 * 2),
         result: {
           vin: 'Sancerre Les Terres Blanches',
@@ -364,10 +528,9 @@ export function seedDemoAnalyses(): CachedWineAnalysisEntry[] {
           detekterat_språk: 'sv',
           originaltext: 'Sancerre Les Terres Blanches AOC 2022',
         },
-        syncReady: false,
+        ocrText: 'Sancerre Les Terres Blanches AOC 2022',
       },
       {
-        version: 2,
         timestamp: createTimestamp(1000 * 60 * 60 * 24 * 7),
         result: {
           vin: 'Cava Brut Reserva',
@@ -400,21 +563,32 @@ export function seedDemoAnalyses(): CachedWineAnalysisEntry[] {
           detekterat_språk: 'sv',
           originaltext: 'Segura Viudas Cava Brut Reserva',
         },
-        syncReady: false,
+        ocrText: 'Segura Viudas Cava Brut Reserva',
       },
     ];
 
     demoEntries.forEach((entry, index) => {
-      const key = `${DEMO_CACHE_PREFIX}${index + 1}`;
-      localStorage.setItem(key, JSON.stringify(entry));
-      seeded.push({
-        key,
+      const payload = createStoredPayload({
         timestamp: entry.timestamp,
         result: entry.result,
-        imageData: entry.imageData,
-        syncReady: entry.syncReady ?? false,
+        imageData: undefined,
+        syncReady: false,
+        remoteId: null,
+        labelHash: computeLabelHash(entry.ocrText),
+        ocrText: entry.ocrText,
       });
+      const key = `${DEMO_CACHE_PREFIX}${index + 1}`;
+      const raw = JSON.stringify(payload);
+      localStorage.setItem(key, raw);
+      const parsed = parseStoredValue(key, raw);
+      if (parsed) {
+        seeded.push(parsed);
+      }
     });
+
+    if (demoEntries.length > 0) {
+      emitCacheUpdatedEvent();
+    }
   } catch (error) {
     console.error('Error seeding demo analyses:', error);
   }
