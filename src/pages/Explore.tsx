@@ -5,20 +5,34 @@ import { AmbientBackground } from "@/components/AmbientBackground";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Camera, Compass, Filter, Flame, Grip, Search, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Tables } from "@/integrations/supabase/types";
 import type { WineAnalysisResult } from "@/lib/wineCache";
 import { useAuth } from "@/auth/AuthProvider";
 
-const SEARCH_PLACEHOLDER = "Sök snart bland tusentals etiketter";
+const SEARCH_PLACEHOLDER = "Sök bland etiketter, producenter eller anteckningar";
 const TREND_LIMIT = 3;
 const STYLE_LIMIT = 4;
 const MAX_SCANS_FETCH = 120;
 
-const categories = ["Druvor", "Regioner", "Stilar", "Matmatchning", "Prisnivåer", "Butiker"];
+const FILTER_EMPTY_VALUE = "__all__";
 
 type QuickFilterField = "grape" | "style" | "region";
+
+type SearchFilterField = QuickFilterField | "label";
+
+type SearchFilters = Partial<Record<SearchFilterField, string>>;
+
+const SUPPORTED_FILTER_FIELDS: SearchFilterField[] = ["label", "grape", "style", "region"];
 
 type QuickFilter = {
   id: string;
@@ -90,6 +104,87 @@ type ExploreScan = {
 
 type ScanRow = Pick<Tables<"scans">, "id" | "created_at" | "analysis_json" | "image_thumb">;
 type ExploreSeedCardRow = Tables<"explore_seed_cards">;
+
+const cleanFilterValue = (value?: string | null) => value?.trim() ?? "";
+
+const parseSearchFilters = (params: URLSearchParams): SearchFilters => {
+  const filters: SearchFilters = {};
+  for (const field of SUPPORTED_FILTER_FIELDS) {
+    const value = cleanFilterValue(params.get(field));
+    if (value) {
+      filters[field] = value;
+    }
+  }
+  return filters;
+};
+
+const hasExplicitFilters = (filters: SearchFilters): boolean =>
+  SUPPORTED_FILTER_FIELDS.some((field) => Boolean(filters[field]?.trim()));
+
+const matchesSearchFilters = (scan: ExploreScan, filters: SearchFilters): boolean => {
+  const normalizedLabel = `${scan.title} ${scan.producer ?? ""} ${scan.notes ?? ""}`.toLowerCase();
+  const normalizedRegion = cleanFilterValue(scan.region?.toLowerCase());
+  const normalizedStyle = cleanFilterValue(scan.style?.toLowerCase());
+  const grapeSet = scan.grapesList.map((grape) => grape.toLowerCase());
+
+  if (filters.label) {
+    const query = filters.label.toLowerCase();
+    if (!normalizedLabel.includes(query)) {
+      return false;
+    }
+  }
+
+  if (filters.region) {
+    if (!normalizedRegion.includes(filters.region.toLowerCase())) {
+      return false;
+    }
+  }
+
+  if (filters.style) {
+    if (!normalizedStyle.includes(filters.style.toLowerCase())) {
+      return false;
+    }
+  }
+
+  if (filters.grape) {
+    const target = filters.grape.toLowerCase();
+    const hasMatch = grapeSet.some((grape) => grape.includes(target));
+    if (!hasMatch) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const uniqueSortedValues = (values: (string | null | undefined)[]): string[] => {
+  const seen = new Map<string, string>();
+  for (const value of values) {
+    const trimmed = cleanFilterValue(value);
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (!seen.has(key)) {
+      seen.set(key, trimmed);
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => a.localeCompare(b, "sv", { sensitivity: "base" }));
+};
+
+const syncQuickFilterParam = (params: URLSearchParams, filters: QuickFilter[]) => {
+  const filterId = params.get("filter");
+  if (!filterId) return;
+  const quickFilter = filters.find((filter) => filter.id === filterId);
+  if (!quickFilter) {
+    params.delete("filter");
+    return;
+  }
+  const activeValue = cleanFilterValue(params.get(quickFilter.field));
+  if (!activeValue || activeValue.toLowerCase() !== quickFilter.value.toLowerCase()) {
+    params.delete("filter");
+  }
+};
+
+const buildWineIndex = (personal: ExploreScan[], curated: ExploreScan[]): ExploreScan[] => [...personal, ...curated];
 
 const FALLBACK_TRENDS: AggregationItem[] = [
   { label: "Furmint", detail: "Tokajs vulkaner", count: 14 },
@@ -353,20 +448,6 @@ const deriveStyles = (scans: ExploreScan[]): AggregationItem[] => {
     }));
 };
 
-const matchesFilter = (scan: ExploreScan, filter: QuickFilter): boolean => {
-  const target = filter.value.toLowerCase();
-  if (filter.field === "grape") {
-    return scan.grapesList.some((grape) => grape.toLowerCase().includes(target));
-  }
-  if (filter.field === "style") {
-    return (scan.style ?? "").toLowerCase().includes(target);
-  }
-  if (filter.field === "region") {
-    return (scan.region ?? "").toLowerCase().includes(target);
-  }
-  return false;
-};
-
 const formatRelativeTime = (iso: string) => {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "nyligen";
@@ -483,6 +564,7 @@ const Explore = () => {
   );
 
   const availableFilters = serverQuickFilters.length > 0 ? serverQuickFilters : FALLBACK_QUICK_FILTERS;
+  const defaultQuickFilter = availableFilters[0] ?? FALLBACK_QUICK_FILTERS[0]!;
 
   const trendItems = useMemo(() => {
     const trends = deriveTrends(personalScans);
@@ -498,36 +580,80 @@ const Explore = () => {
     return FALLBACK_STYLES;
   }, [personalScans, serverStyles]);
 
-  const activeFilter = useMemo(() => {
-    const param = searchParams.get("filter");
-    return (
-      availableFilters.find((filter) => filter.id === param) ??
-      availableFilters[0] ??
-      FALLBACK_QUICK_FILTERS[0]!
-    );
-  }, [searchParams, availableFilters]);
+  const selectedFilterId = searchParams.get("filter");
+
+  const selectedQuickFilter = useMemo(() => {
+    if (!selectedFilterId) return null;
+    return availableFilters.find((filter) => filter.id === selectedFilterId) ?? null;
+  }, [availableFilters, selectedFilterId]);
+
+  const paramsFilters = useMemo(() => parseSearchFilters(searchParams), [searchParams]);
+  const manualFiltersActive = useMemo(() => hasExplicitFilters(paramsFilters), [paramsFilters]);
+
+  const fallbackQuickFilter = !manualFiltersActive ? selectedQuickFilter ?? defaultQuickFilter : null;
+
+  const effectiveFilters = useMemo<SearchFilters>(() => {
+    if (manualFiltersActive) {
+      return paramsFilters;
+    }
+    if (fallbackQuickFilter) {
+      return { [fallbackQuickFilter.field]: fallbackQuickFilter.value };
+    }
+    return {};
+  }, [manualFiltersActive, paramsFilters, fallbackQuickFilter]);
+
+  const highlightedFilterId = selectedFilterId ?? (!manualFiltersActive ? fallbackQuickFilter?.id ?? null : null);
 
   const handleSelectFilter = (filterId: string) => {
     const next = availableFilters.find((filter) => filter.id === filterId);
     if (!next) return;
     const params = new URLSearchParams(searchParams);
     params.set("filter", filterId);
+    params.set(next.field, next.value);
     setSearchParams(params, { replace: true });
   };
 
-  const personalMatches = useMemo(
-    () => personalScans.filter((scan) => matchesFilter(scan, activeFilter)),
-    [personalScans, activeFilter],
+  const handleSearchFilterChange = (field: SearchFilterField, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    const normalizedValue = field === "label" ? value : value === FILTER_EMPTY_VALUE ? "" : value;
+    if (normalizedValue) {
+      params.set(field, normalizedValue);
+    } else {
+      params.delete(field);
+    }
+    syncQuickFilterParam(params, availableFilters);
+    setSearchParams(params, { replace: true });
+  };
+
+  const handleClearFilters = () => {
+    const params = new URLSearchParams(searchParams);
+    for (const field of SUPPORTED_FILTER_FIELDS) {
+      params.delete(field);
+    }
+    params.delete("filter");
+    setSearchParams(params, { replace: true });
+  };
+
+  const wineIndex = useMemo(
+    () => buildWineIndex(personalScans, curatedSeedLibrary),
+    [personalScans, curatedSeedLibrary],
   );
 
-  const curatedMatches = useMemo(
-    () => curatedSeedLibrary.filter((scan) => matchesFilter(scan, activeFilter)),
-    [activeFilter, curatedSeedLibrary],
+  const regionOptions = useMemo(() => uniqueSortedValues(wineIndex.map((scan) => scan.region)), [wineIndex]);
+  const styleOptions = useMemo(() => uniqueSortedValues(wineIndex.map((scan) => scan.style)), [wineIndex]);
+  const grapeOptions = useMemo(
+    () => uniqueSortedValues(wineIndex.flatMap((scan) => scan.grapesList)),
+    [wineIndex],
+  );
+
+  const filteredResults = useMemo(
+    () => wineIndex.filter((scan) => matchesSearchFilters(scan, effectiveFilters)),
+    [wineIndex, effectiveFilters],
   );
 
   const combinedResults = useMemo(
-    () => [...personalMatches, ...curatedMatches].sort((a, b) => b.createdAtMs - a.createdAtMs),
-    [personalMatches, curatedMatches],
+    () => filteredResults.slice().sort((a, b) => b.createdAtMs - a.createdAtMs),
+    [filteredResults],
   );
 
   const showEmptyState = !scansLoading && combinedResults.length === 0;
@@ -566,29 +692,82 @@ const Explore = () => {
               <Input
                 type="search"
                 placeholder={SEARCH_PLACEHOLDER}
-                disabled
-                className="h-12 rounded-full border-theme-card/60 bg-theme-card/20 pl-10 text-theme-secondary/70 placeholder:text-theme-secondary/50"
+                value={paramsFilters.label ?? ""}
+                onChange={(event) => handleSearchFilterChange("label", event.target.value)}
+                className="h-12 rounded-full border-theme-card/60 bg-theme-card/20 pl-10 text-theme-secondary placeholder:text-theme-secondary/50"
               />
             </div>
           </label>
 
-          <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Druva</Label>
+              <Select value={effectiveFilters.grape ?? FILTER_EMPTY_VALUE} onValueChange={(value) => handleSearchFilterChange("grape", value)}>
+                <SelectTrigger className="h-11 rounded-2xl border-theme-card/50 bg-theme-card/20 text-left text-sm text-theme-secondary">
+                  <SelectValue placeholder="Alla druvor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTER_EMPTY_VALUE}>Alla druvor</SelectItem>
+                  {grapeOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Region</Label>
+              <Select value={effectiveFilters.region ?? FILTER_EMPTY_VALUE} onValueChange={(value) => handleSearchFilterChange("region", value)}>
+                <SelectTrigger className="h-11 rounded-2xl border-theme-card/50 bg-theme-card/20 text-left text-sm text-theme-secondary">
+                  <SelectValue placeholder="Alla regioner" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTER_EMPTY_VALUE}>Alla regioner</SelectItem>
+                  {regionOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Stil</Label>
+              <Select value={effectiveFilters.style ?? FILTER_EMPTY_VALUE} onValueChange={(value) => handleSearchFilterChange("style", value)}>
+                <SelectTrigger className="h-11 rounded-2xl border-theme-card/50 bg-theme-card/20 text-left text-sm text-theme-secondary">
+                  <SelectValue placeholder="Alla stilar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTER_EMPTY_VALUE}>Alla stilar</SelectItem>
+                  {styleOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-theme-secondary/60">
               <Grip className="h-4 w-4" aria-hidden="true" />
-              Kategorier
+              Indexerade flaskor
+              <span className="rounded-full bg-theme-card/30 px-2 py-0.5 text-[10px] text-theme-secondary/80">
+                {wineIndex.length}
+              </span>
             </div>
-            <div className="flex flex-wrap justify-center gap-3">
-              {categories.map((category) => (
-                <Button
-                  key={category}
-                  variant="outline"
-                  disabled
-                  className="cursor-not-allowed rounded-full border-theme-card/50 bg-theme-card/20 px-4 text-sm font-medium text-theme-secondary/70"
-                >
-                  {category}
-                </Button>
-              ))}
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearFilters}
+              className="self-start rounded-full border border-transparent text-theme-secondary hover:border-theme-card/40 hover:bg-theme-card/20"
+            >
+              Rensa filter
+            </Button>
           </div>
         </div>
 
@@ -652,7 +831,7 @@ const Explore = () => {
             </div>
             <div className="flex flex-wrap gap-3">
               {availableFilters.map((filter) => {
-                const isActive = filter.id === activeFilter.id;
+                const isActive = highlightedFilterId === filter.id;
                 return (
                   <Button
                     key={filter.id}
