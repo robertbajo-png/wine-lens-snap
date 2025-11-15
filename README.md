@@ -127,8 +127,19 @@ Klona repot, öppna det i valfri editor och följ stegen ovan för att installer
 **Redigera direkt på GitHub**  
 Navigera till filen, klicka på pennikonen, gör dina ändringar och skapa en commit.
 
-**Använd GitHub Codespaces**  
+**Använd GitHub Codespaces**
 Starta en ny codespace från GitHub → Code → Codespaces för att jobba molnbaserat utan lokal setup.
+
+### 🔑 Logga in i Supabase Studio lokalt
+
+`supabase start` snurrar upp Supabase Studio på `http://127.0.0.1:54323`. För att logga in i den lokala miljön gör du så här:
+
+1. Öppna Studio och välj **Email OTP** (magisk länk) som inloggningsmetod.
+2. Ange valfri e-postadress, t.ex. `dev@winesnap.local`. Adressen behöver inte existera på riktigt.
+3. Öppna det inbyggda e-posttestverktyget Inbucket på `http://127.0.0.1:54324` i en ny flik och klicka på mailet som precis skickades.
+4. Följ länken i mailet så loggas du in i Studio.
+
+> 💡 Knappen **Supabase** på inloggningssidan försöker använda en särskild `supabase_provider`-inloggning som inte är aktiverad i den här självhostade miljön. Om du klickar på den får du felmeddelandet `supabase_provider provider is not enabled`. Använd alltid Email OTP-flödet i stället när du kör lokalt.
 
 ---
 
