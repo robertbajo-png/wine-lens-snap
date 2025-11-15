@@ -41,6 +41,27 @@ export type Database = {
         }
         Relationships: []
       }
+      explore_seed_cards: {
+        Row: {
+          created_at: string
+          id: string
+          payload_json: Json
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload_json: Json
+          type: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload_json?: Json
+          type?: string
+        }
+        Relationships: []
+      }
       label_history: {
         Row: {
           argang: string | null
