@@ -1,6 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { Outlet, useLocation } from "react-router-dom";
-import BottomTabBar from "@/components/navigation/BottomTabBar";
+import BottomNav from "@/components/BottomNav";
 import { TabStateProvider, useTabStateContext } from "@/contexts/TabStateContext";
 import { isTabRootPath, matchTabKey } from "@/lib/tabNavigation";
 import { useToast } from "@/hooks/use-toast";
@@ -141,7 +141,7 @@ const LayoutContent = () => {
       <main className="flex-1" style={contentPadding}>
         <Outlet />
       </main>
-      <BottomTabBar />
+      <BottomNav />
     </div>
   );
 };
