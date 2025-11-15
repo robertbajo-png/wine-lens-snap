@@ -28,6 +28,8 @@ import {
   type PipelineResult,
 } from "@/lib/imagePipelineCore";
 import { readExifOrientation } from "@/lib/exif";
+import { useTabStateContext } from "@/contexts/TabStateContext";
+import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -97,6 +99,8 @@ const WineSnap = () => {
   const [progressNote, setProgressNote] = useState<string | null>(null);
   const [progressPercent, setProgressPercent] = useState<number | null>(null);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
+  const { setTabState } = useTabStateContext();
+  const triggerHaptic = useHapticFeedback();
 
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
@@ -564,12 +568,14 @@ const WineSnap = () => {
   };
 
   const handleTakePhoto = () => {
+    triggerHaptic();
     cameraOpenedRef.current = true;
     cameraModeRef.current = true;
     document.getElementById("wineImageUpload")?.click();
   };
 
   const handleReset = () => {
+    triggerHaptic();
     setPreviewImage(null);
     setResults(null);
     setIsProcessing(false);
@@ -600,6 +606,32 @@ const WineSnap = () => {
     if (isProcessing) return;
     handleReset();
   };
+
+  const stageFallbackLabels: Record<Exclude<ProgressKey, null>, string> = {
+    prep: "Förbereder…",
+    ocr: "Tolkar etikett…",
+    analysis: "Analyserar…",
+  };
+
+  const navigationLabel = progressLabel ?? (progressStep ? stageFallbackLabels[progressStep] : null);
+
+  useEffect(() => {
+    setTabState("scan", (prev) => ({
+      ...prev,
+      isProcessing,
+      progressLabel: navigationLabel ?? null,
+    }));
+  }, [isProcessing, navigationLabel, setTabState]);
+
+  useEffect(() => {
+    return () => {
+      setTabState("scan", (prev) => ({
+        ...prev,
+        isProcessing: false,
+        progressLabel: null,
+      }));
+    };
+  }, [setTabState]);
 
   // --- helpers ---
   const hasNumeric = (value: unknown) => typeof value === "number" && Number.isFinite(value);
