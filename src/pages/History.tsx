@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -17,18 +17,18 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   clearCache,
   getAllCachedAnalyses,
   removeCachedAnalysis,
   seedDemoAnalyses,
   type CachedWineAnalysisEntry,
+  markAnalysesReadyForSync,
 } from "@/lib/wineCache";
-import WineCardSBFull from "@/components/WineCardSBFull";
-import { GaugeCircleSB } from "@/components/WineMetersSB";
-import { getSystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
-import { ArrowLeft, Camera, Copy, Eraser, Sparkles, Trash2, Wand2 } from "lucide-react";
+import HistorySummary from "@/components/history/HistorySummary";
+import WineCard, { WineCardSkeleton } from "@/components/history/WineCard";
+import { readAuthState, subscribeToAuthState, type AuthState } from "@/lib/mockAuth";
+import { ArrowLeft, Camera, Eraser, Wand2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Banner } from "@/components/Banner";
@@ -75,18 +75,62 @@ const formatRelativeTime = (iso: string) => {
 const History = () => {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<CachedWineAnalysisEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [devDialogOpen, setDevDialogOpen] = useState(false);
   const [devStatus, setDevStatus] = useState<string | null>(null);
+  const [authState, setAuthState] = useState<AuthState>(() => readAuthState());
+  const refreshTimeoutRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  const loadEntries = useCallback(() => {
     setEntries(getAllCachedAnalyses());
   }, []);
+
+  const refreshEntries = useCallback(
+    (showSkeleton = false) => {
+      if (refreshTimeoutRef.current) {
+        window.clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+
+      if (showSkeleton) {
+        setIsLoading(true);
+        refreshTimeoutRef.current = window.setTimeout(() => {
+          loadEntries();
+          setIsLoading(false);
+          refreshTimeoutRef.current = null;
+        }, 160);
+      } else {
+        loadEntries();
+        setIsLoading(false);
+      }
+    },
+    [loadEntries],
+  );
+
+  useEffect(() => {
+    refreshEntries(true);
+    return () => {
+      if (refreshTimeoutRef.current) {
+        window.clearTimeout(refreshTimeoutRef.current);
+      }
+    };
+  }, [refreshEntries]);
 
   useEffect(() => {
     if (!devDialogOpen) {
       setDevStatus(null);
     }
   }, [devDialogOpen]);
+
+  useEffect(() => subscribeToAuthState(setAuthState), []);
+
+  useEffect(() => {
+    if (authState !== "authenticated") return;
+    const updatedCount = markAnalysesReadyForSync();
+    if (updatedCount > 0) {
+      refreshEntries();
+    }
+  }, [authState, refreshEntries]);
 
   const { regionsCount, lastTimestamp } = useMemo(() => {
     const regions = new Set<string>();
@@ -107,18 +151,20 @@ const History = () => {
     };
   }, [entries]);
 
+  const skeletonCount = entries.length > 0 ? Math.min(entries.length, 6) : 3;
+
   const handleRemove = (key: string) => {
     removeCachedAnalysis(key);
-    setEntries(getAllCachedAnalyses());
+    refreshEntries();
   };
 
   const handleRefresh = () => {
-    setEntries(getAllCachedAnalyses());
+    refreshEntries(true);
   };
 
   const handleSeedDemo = () => {
     const seeded = seedDemoAnalyses();
-    setEntries(getAllCachedAnalyses());
+    refreshEntries(true);
     setDevStatus(
       seeded.length > 0
         ? `Lade till ${seeded.length} demoposter. Uppdatera historiken vid behov.`
@@ -128,12 +174,15 @@ const History = () => {
 
   const handleClearAll = () => {
     clearCache();
+    refreshEntries();
     const updated = getAllCachedAnalyses();
-    setEntries(updated);
     setDevStatus(updated.length === 0 ? "Historiken rensades." : "Vissa poster kunde inte tas bort.");
   };
 
-  const handleCopyToClipboard = async (entry: CachedWineAnalysisEntry) => {
+  const handleCopyToClipboard = async (
+    entry: CachedWineAnalysisEntry,
+    options: { silent?: boolean } = {},
+  ) => {
     const payload = JSON.stringify(
       {
         key: entry.key,
@@ -161,18 +210,67 @@ const History = () => {
         throw new Error("Clipboard API not available");
       }
 
-      toast({
-        title: "Vinanalys kopierad",
-        description: `${entry.result.vin || "Vinprofil"} finns nu i urklipp.`,
-      });
+      if (!options.silent) {
+        toast({
+          title: "Vinanalys kopierad",
+          description: `${entry.result.vin || "Vinprofil"} finns nu i urklipp.`,
+        });
+      }
     } catch (error) {
       console.error("Error copying wine analysis to clipboard:", error);
-      toast({
-        title: "Kunde inte kopiera",
-        description: "Din webbläsare blockerade kopieringen. Försök igen.",
-        variant: "destructive",
-      });
+      if (!options.silent) {
+        toast({
+          title: "Kunde inte kopiera",
+          description: "Din webbläsare blockerade kopieringen. Försök igen.",
+          variant: "destructive",
+        });
+      }
     }
+  };
+
+  const handleShare = async (entry: CachedWineAnalysisEntry) => {
+    const shareTitle = entry.result.vin || "WineSnap-analys";
+    const shareLines = [
+      entry.result.vin,
+      entry.result.land_region,
+      entry.result.typ,
+      entry.result.årgång ? `Årgång ${entry.result.årgång}` : null,
+      `Skannad ${formatDate(entry.timestamp)}`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const shareData = {
+      title: shareTitle,
+      text: shareLines,
+    };
+
+    const canShare =
+      typeof navigator !== "undefined" &&
+      typeof navigator.share === "function" &&
+      (!navigator.canShare || navigator.canShare(shareData));
+
+    if (canShare) {
+      try {
+        await navigator.share(shareData);
+        toast({
+          title: "Delning öppnades",
+          description: "Välj app för att dela din analys.",
+        });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        console.error("Error sharing wine analysis:", error);
+      }
+    }
+
+    await handleCopyToClipboard(entry, { silent: true });
+    toast({
+      title: "Delning ej tillgänglig",
+      description: "Analysen kopierades istället till urklipp.",
+    });
   };
 
   return (
@@ -191,7 +289,11 @@ const History = () => {
               Tillbaka
             </Button>
             <Badge variant="outline" className="rounded-full border-theme-card bg-theme-elevated text-xs uppercase tracking-[0.25em] text-theme-secondary">
-              {entries.length === 0 ? "Tom historik" : `${entries.length} sparade analyser`}
+              {isLoading
+                ? "Laddar historik"
+                : entries.length === 0
+                ? "Tom historik"
+                : `${entries.length} sparade analyser`}
             </Badge>
           </div>
 
@@ -255,46 +357,22 @@ const History = () => {
           </div>
         </div>
 
-        <Card className="border border-theme-card bg-theme-elevated shadow-xl shadow-purple-900/10 backdrop-blur">
-          <CardHeader className="space-y-4 pb-0">
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-2">
-                <CardTitle className="flex items-center gap-2 text-3xl font-semibold text-theme-primary">
-                  <Sparkles className="h-6 w-6 text-[#B095FF]" />
-                  Dina vinminnen
-                </CardTitle>
-                <CardDescription className="max-w-2xl text-base text-theme-secondary">
-                  Utforska dina tidigare analyser, upptäck favoriter och hoppa snabbt tillbaka in i WineSnap.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pb-6">
-            <div className="grid gap-4 pt-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 shadow-inner shadow-black/5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">Totalt sparade</p>
-                <p className="mt-3 text-3xl font-semibold text-theme-primary">{entries.length}</p>
-                <p className="text-sm text-theme-secondary">Alla analyser finns sparade lokalt på din enhet.</p>
-              </div>
-              <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 shadow-inner shadow-black/5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">Senaste analys</p>
-                <p className="mt-3 text-lg font-semibold text-theme-primary">
-                  {lastTimestamp ? formatRelativeTime(lastTimestamp) : "–"}
-                </p>
-                <p className="text-sm text-theme-secondary">
-                  {lastTimestamp ? formatDate(lastTimestamp) : "Gör en skanning för att komma igång."}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 shadow-inner shadow-black/5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">Ursprung representerade</p>
-                <p className="mt-3 text-3xl font-semibold text-theme-primary">{regionsCount}</p>
-                <p className="text-sm text-theme-secondary">Ett smakbibliotek fyllt av olika regioner.</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {entries.length === 0 ? (
+        <HistorySummary
+          total={entries.length}
+          lastRelative={lastTimestamp ? formatRelativeTime(lastTimestamp) : undefined}
+          lastAbsolute={lastTimestamp ? formatDate(lastTimestamp) : undefined}
+          regionsCount={regionsCount}
+          isLoading={isLoading}
+        />
+
+        {isLoading ? (
+          <div className="space-y-6">
+            {Array.from({ length: skeletonCount }).map((_, index) => (
+              <WineCardSkeleton key={index} />
+            ))}
+          </div>
+        ) : entries.length === 0 ? (
           <Card className="border border-dashed border-theme-card bg-theme-elevated text-center text-theme-primary shadow-xl backdrop-blur">
             <CardHeader className="space-y-2">
               <CardTitle className="text-2xl text-theme-primary">Ingen historik ännu</CardTitle>
@@ -322,176 +400,19 @@ const History = () => {
           </Card>
         ) : (
           <div className="space-y-6">
-            {entries.map((entry) => {
-              const pairings = entry.result.passar_till?.slice(0, 3) ?? [];
-              const classificationTags = [
-                { label: "Färg", value: entry.result.färgtyp },
-                { label: "Smaktyp", value: entry.result.typ },
-                { label: "Ursprungsangivelse", value: entry.result.klassificering },
-              ]
-                .map((tag) => ({ ...tag, value: tag.value?.trim() }))
-                .filter((tag) => tag.value);
-
-              const baseFacts = [
-                { label: "Producent", value: entry.result.producent || "–" },
-                { label: "Land/Region", value: entry.result.land_region || "–" },
-                { label: "Årgång", value: entry.result.årgång || "–" },
-                { label: "Druvor", value: entry.result.druvor || "–" },
-              ];
-
-              const tasteProfile = getSystembolagetTasteProfile(entry.result);
-              const hasTasteData = tasteProfile.meters.some((meter) => meter.value !== null);
-
-              return (
-                <Card
-                  key={entry.key}
-                  className="border border-theme-card bg-theme-elevated shadow-2xl shadow-purple-900/20 transition hover:-translate-y-1 hover:shadow-purple-900/40 backdrop-blur"
-                >
-                  <CardContent className="flex flex-col gap-6 pt-6 md:flex-row md:items-start">
-                    <div className="relative w-full overflow-hidden rounded-3xl border border-theme-card bg-black/20 shadow-sm md:max-w-[220px]">
-                      {entry.imageData ? (
-                        <img
-                          src={entry.imageData}
-                          alt={entry.result.vin || "Vin"}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full min-h-[180px] items-center justify-center text-theme-secondary">
-                          Ingen bild
-                        </div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-xs font-medium uppercase tracking-[0.24em] text-theme-primary opacity-80">
-                        {formatRelativeTime(entry.timestamp)}
-                      </div>
-                    </div>
-
-                    <div className="flex-1 space-y-4">
-                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                        <div className="space-y-1">
-                          <h2 className="text-2xl font-semibold text-theme-primary">
-                            {entry.result.vin || "Okänt vin"}
-                          </h2>
-                          <p className="text-sm text-theme-secondary">
-                            {entry.result.land_region || "–"}
-                            {entry.result.årgång ? ` • Årgång ${entry.result.årgång}` : ""}
-                          </p>
-                        </div>
-                        <p className="text-sm text-theme-secondary">{formatDate(entry.timestamp)}</p>
-                      </div>
-
-                      <div className="space-y-4">
-                        {classificationTags.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {classificationTags.map((tag) => (
-                              <span
-                                key={tag.label}
-                                className="inline-flex items-center gap-2 rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-xs text-[#D4C5FF]"
-                              >
-                                <span className="text-[10px] uppercase tracking-[0.35em] text-[#B095FF]/70">{tag.label}</span>
-                                <span className="font-semibold text-theme-primary">{tag.value}</span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-                          <div className="rounded-2xl border border-theme-card bg-theme-elevated p-4 text-sm text-theme-secondary">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-theme-secondary">Artikelinformation</p>
-                            <dl className="mt-3 grid gap-3 sm:grid-cols-2">
-                              {baseFacts.map((fact) => (
-                                <div key={fact.label} className="space-y-1">
-                                  <dt className="text-[11px] uppercase tracking-[0.35em] text-theme-secondary">{fact.label}</dt>
-                                  <dd className="text-base font-semibold text-theme-primary">{fact.value}</dd>
-                                </div>
-                              ))}
-                            </dl>
-                          </div>
-
-                          <div className="rounded-2xl border border-theme-card bg-theme-elevated p-4 text-sm text-theme-secondary shadow-sm">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-[#B095FF]">Systembolagets smakprofil</p>
-                            <p className="mt-1 text-xs text-theme-secondary">Skala 0–5. Hämtad från senaste analysen.</p>
-                            <div className="mt-4 grid grid-cols-3 gap-3">
-                              {tasteProfile.meters.map((meter) => (
-                                <div key={meter.label} className="flex flex-col items-center gap-2">
-                                  <GaugeCircleSB label={meter.label} value={meter.value ?? null} size={60} stroke={6} showValue />
-                                  <span className="text-[11px] text-theme-secondary">
-                                    {typeof meter.value === "number" ? `${meter.value.toFixed(1)}/5` : "–"}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                            {!hasTasteData && (
-                              <p className="mt-3 text-xs text-amber-400">Systembolaget har inte publicerat värden för denna flaska.</p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-theme-card bg-theme-elevated p-4">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-theme-secondary">Serveringsnotiser</p>
-                          <div className="mt-2 text-sm text-theme-secondary">
-                            <p>{entry.result.servering || "Systembolaget har inte publicerat serveringsråd."}</p>
-                            {pairings.length > 0 && (
-                              <ul className="mt-2 flex flex-wrap gap-2">
-                                {pairings.map((pairing) => (
-                                  <li
-                                    key={pairing}
-                                    className="rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-xs text-theme-primary"
-                                  >
-                                    {pairing}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <Separator className="border-theme-card" />
-
-                      <div className="flex flex-wrap gap-3">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button size="sm" className="gap-2 rounded-full bg-theme-elevated text-theme-primary hover:bg-theme-elevated">
-                              Visa detaljer
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                              <DialogTitle>{entry.result.vin || "Vinprofil"}</DialogTitle>
-                            </DialogHeader>
-                            <div className="max-h-[70vh] overflow-y-auto">
-                              <WineCardSBFull data={entry.result} />
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleCopyToClipboard(entry)}
-                          className="gap-2 rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
-                        >
-                          <Copy className="h-4 w-4" />
-                          Kopiera
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleRemove(entry.key)}
-                          className="gap-2 rounded-full border-destructive/60 bg-theme-elevated text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Ta bort
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {entries.map((entry) => (
+              <WineCard
+                key={entry.key}
+                entry={entry}
+                formatDate={formatDate}
+                formatRelativeTime={formatRelativeTime}
+                onShare={handleShare}
+                onRemove={handleRemove}
+              />
+            ))}
           </div>
         )}
+
       </div>
     </div>
   );
