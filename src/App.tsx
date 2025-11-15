@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Navigate, RouterProvider, createBrowserRouter } from "react-router-dom";
+import { readAuthState } from "./lib/mockAuth";
 import ForYou from "./pages/ForYou";
 import Explore from "./pages/Explore";
 import WineSnap from "./pages/WineSnap";
@@ -14,15 +15,8 @@ import BottomTabLayout from "./layouts/BottomTabLayout";
 
 const queryClient = new QueryClient();
 
-const AUTH_STORAGE_KEY = "wineSnap:auth-state";
-
-const readMockAuthState = () => {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(AUTH_STORAGE_KEY) === "authenticated";
-};
-
 const StartRedirect = () => {
-  const target = readMockAuthState() ? "/for-you" : "/scan";
+  const target = readAuthState() === "authenticated" ? "/for-you" : "/scan";
   return <Navigate to={target} replace />;
 };
 
