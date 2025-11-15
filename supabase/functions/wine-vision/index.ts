@@ -335,21 +335,20 @@ VIKTIGT SISTA STEG:
   `.trim();
 
   try {
-    const result = await aiClient.gpt5(prompt, {
+    const result = await aiClient.gemini(prompt, {
       imageUrl,
       timeoutMs: CFG.GEMINI_TIMEOUT_MS,
       json: true,
-      maxCompletionTokens: 1500,
     }) as Record<string, unknown>;
 
     const normalized = normalizeSearchResult(result);
     normalized.fallback_mode = false;
-    normalized.källor = ["gpt-5-vision"];
+    normalized.källor = ["gemini-vision"];
 
-    console.log(`[${new Date().toISOString()}] GPT-5 Vision success:`, JSON.stringify(normalized, null, 2));
+    console.log(`[${new Date().toISOString()}] Gemini Vision success:`, JSON.stringify(normalized, null, 2));
     return normalized;
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] GPT-5 Vision error:`, error);
+    console.error(`[${new Date().toISOString()}] Gemini Vision error:`, error);
     return null;
   }
 }
@@ -373,31 +372,31 @@ async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: W
   let web: WebJson = null;
 
   if (LOVABLE_API_KEY && imageUrl) {
-    console.log(`[${new Date().toISOString()}] Starting GPT-5 Vision analysis directly...`);
+    console.log(`[${new Date().toISOString()}] Starting Gemini Vision analysis directly...`);
     const gemStart = Date.now();
     try {
       const geminiResult = await withTimeout(
         runGeminiFast(ocrText, imageUrl), 
         CFG.GEMINI_TIMEOUT_MS, 
-        "gpt-5-vision-direct"
+        "gemini-vision-direct"
       );
       gemini_ms = Date.now() - gemStart;
       if (geminiResult) {
         web = geminiResult;
         gemini_status = "ok";
-        console.log(`[${new Date().toISOString()}] GPT-5 Vision success (${gemini_ms}ms)`);
+        console.log(`[${new Date().toISOString()}] Gemini Vision success (${gemini_ms}ms)`);
       } else {
         gemini_status = "empty";
-        console.log(`[${new Date().toISOString()}] GPT-5 Vision returned empty (${gemini_ms}ms)`);
+        console.log(`[${new Date().toISOString()}] Gemini Vision returned empty (${gemini_ms}ms)`);
       }
     } catch (error) {
       gemini_ms = Date.now() - gemStart;
       if (error instanceof Error && error.name === "TimeoutError") {
         gemini_status = "timeout";
-        console.log(`[${new Date().toISOString()}] GPT-5 Vision timeout (${gemini_ms}ms)`);
+        console.log(`[${new Date().toISOString()}] Gemini Vision timeout (${gemini_ms}ms)`);
       } else {
         gemini_status = "error";
-        console.error(`[${new Date().toISOString()}] GPT-5 Vision error (${gemini_ms}ms):`, error);
+        console.error(`[${new Date().toISOString()}] Gemini Vision error (${gemini_ms}ms):`, error);
       }
     }
   }
@@ -1538,12 +1537,12 @@ WEB_JSON:
       finalData.evidence.webbträffar = (WEB_JSON.källor ?? []).slice(0, CFG.MAX_WEB_URLS);
 
       const geminiTime = Date.now() - geminiStart;
-      console.log(`[${new Date().toISOString()}] GPT-5 success (${geminiTime}ms)`);
+      console.log(`[${new Date().toISOString()}] Gemini success (${geminiTime}ms)`);
     } catch (error) {
       const geminiTime = Date.now() - geminiStart;
       const errorMsg = error instanceof Error ? error.message : String(error);
       
-      console.error(`[${new Date().toISOString()}] GPT-5 error (${geminiTime}ms):`, errorMsg);
+      console.error(`[${new Date().toISOString()}] Gemini error (${geminiTime}ms):`, errorMsg);
       
       if (errorMsg === "rate_limit_exceeded") {
         return new Response(
