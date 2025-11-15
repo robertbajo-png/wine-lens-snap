@@ -1,11 +1,32 @@
-import { useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useNavigate } from "react-router-dom";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
-import { Camera, LogOut } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import { Camera, Loader2, LogOut, PenLine, UploadCloud } from "lucide-react";
 
 const getDisplayName = (metadata: Record<string, unknown> | undefined, email: string | null) => {
   const candidate =
@@ -42,13 +63,179 @@ const Me = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, signOut } = useAuth();
+  const [profile, setProfile] = useState<{ displayName: string | null; avatarUrl: string | null } | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [formDisplayName, setFormDisplayName] = useState("");
+  const [formNameError, setFormNameError] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const avatarObjectUrlRef = useRef<string | null>(null);
 
   const email = user?.email ?? (typeof user?.user_metadata?.email === "string" ? user.user_metadata.email : null);
-  const displayName = useMemo(
-    () => getDisplayName(user?.user_metadata ?? undefined, email),
-    [email, user?.user_metadata],
-  );
+  const metadataAvatarUrl =
+    typeof user?.user_metadata?.avatar_url === "string" && user.user_metadata.avatar_url.trim().length > 0
+      ? user.user_metadata.avatar_url
+      : null;
+
+  const displayName = useMemo(() => {
+    const profileName = profile?.displayName?.trim();
+    if (profileName && profileName.length > 0) {
+      return profileName;
+    }
+
+    return getDisplayName(user?.user_metadata ?? undefined, email);
+  }, [email, profile?.displayName, user?.user_metadata]);
+
+  const avatarUrl = useMemo(() => {
+    const profileAvatar = profile?.avatarUrl?.trim();
+    if (profileAvatar && profileAvatar.length > 0) {
+      return profileAvatar;
+    }
+
+    return metadataAvatarUrl;
+  }, [metadataAvatarUrl, profile?.avatarUrl]);
+
   const initials = useMemo(() => getInitials(displayName), [displayName]);
+  const previewInitials = useMemo(
+    () => getInitials((formDisplayName && formDisplayName.trim().length > 0 ? formDisplayName : displayName) ?? ""),
+    [displayName, formDisplayName],
+  );
+
+  const clearAvatarObjectUrl = useCallback(() => {
+    if (avatarObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarObjectUrlRef.current);
+      avatarObjectUrlRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setProfile(null);
+      return;
+    }
+
+    let ignore = false;
+
+    const loadProfile = async () => {
+      setProfileLoading(true);
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (ignore) {
+        return;
+      }
+
+      if (error) {
+        console.error("Failed to load profile", error);
+        toast({
+          title: "Kunde inte läsa profilen",
+          description: "Vi kunde inte hämta dina profiluppgifter just nu.",
+          variant: "destructive",
+        });
+        setProfile({ displayName: null, avatarUrl: null });
+      } else {
+        setProfile({
+          displayName: data?.display_name ?? null,
+          avatarUrl: data?.avatar_url ?? null,
+        });
+      }
+
+      setProfileLoading(false);
+    };
+
+    loadProfile();
+
+    return () => {
+      ignore = true;
+    };
+  }, [toast, user?.id]);
+
+  useEffect(() => {
+    return () => {
+      clearAvatarObjectUrl();
+    };
+  }, [clearAvatarObjectUrl]);
+
+  const resetAvatarPreview = useCallback(
+    (nextPreview: string | null) => {
+      clearAvatarObjectUrl();
+      setAvatarPreview(nextPreview);
+    },
+    [clearAvatarObjectUrl],
+  );
+
+  const handleDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setFormDisplayName(displayName);
+        setFormNameError(null);
+        setAvatarFile(null);
+        resetAvatarPreview(avatarUrl ?? null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      } else {
+        setFormNameError(null);
+        setAvatarFile(null);
+        resetAvatarPreview(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+
+      setIsEditOpen(open);
+    },
+    [avatarUrl, displayName, resetAvatarPreview],
+  );
+
+  const handleAvatarChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+
+      if (!file) {
+        setAvatarFile(null);
+        resetAvatarPreview(avatarUrl ?? null);
+        return;
+      }
+
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Ogiltig filtyp",
+          description: "Välj en bild i formatet PNG, JPG eller WEBP.",
+          variant: "destructive",
+        });
+        event.target.value = "";
+        setAvatarFile(null);
+        resetAvatarPreview(avatarUrl ?? null);
+        return;
+      }
+
+      if (file.size > 1024 * 1024) {
+        toast({
+          title: "Filen är för stor",
+          description: "Profilbilden får högst vara 1 MB.",
+          variant: "destructive",
+        });
+        event.target.value = "";
+        setAvatarFile(null);
+        resetAvatarPreview(avatarUrl ?? null);
+        return;
+      }
+
+      clearAvatarObjectUrl();
+      const previewUrl = URL.createObjectURL(file);
+      avatarObjectUrlRef.current = previewUrl;
+      setAvatarFile(file);
+      setAvatarPreview(previewUrl);
+    },
+    [avatarUrl, clearAvatarObjectUrl, resetAvatarPreview, toast],
+  );
 
   const handleSignOut = async () => {
     try {
@@ -64,11 +251,127 @@ const Me = () => {
     }
   };
 
+  const handleProfileSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!user?.id) {
+        return;
+      }
+
+      const trimmedName = formDisplayName.trim();
+      if (trimmedName.length === 0) {
+        setFormNameError("Ange ett visningsnamn.");
+        return;
+      }
+
+      if (trimmedName.length > 60) {
+        setFormNameError("Namnet får vara högst 60 tecken.");
+        return;
+      }
+
+      setFormNameError(null);
+      setSavingProfile(true);
+
+      try {
+        const bucket = import.meta.env.VITE_SUPABASE_AVATAR_BUCKET ?? "profile-avatars";
+        let uploadedAvatarUrl = avatarUrl ?? null;
+
+        if (avatarFile) {
+          const extensionFromName = avatarFile.name.split(".").pop()?.toLowerCase();
+          const fallbackExtension = avatarFile.type.includes("png")
+            ? "png"
+            : avatarFile.type.includes("webp")
+              ? "webp"
+              : avatarFile.type.includes("jpeg") || avatarFile.type.includes("jpg")
+                ? "jpg"
+                : "png";
+          const fileExtension = (extensionFromName && extensionFromName.length <= 5 ? extensionFromName : fallbackExtension) || "png";
+          const fileName = `${user.id}-${Date.now()}.${fileExtension}`;
+          const filePath = `${user.id}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, avatarFile, { cacheControl: "3600", upsert: true, contentType: avatarFile.type });
+
+          if (uploadError) {
+            console.error("Failed to upload avatar", uploadError);
+            toast({
+              title: "Kunde inte ladda upp bilden",
+              description: "Försök igen eller välj en annan bild.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from(bucket).getPublicUrl(filePath);
+          uploadedAvatarUrl = publicUrl ?? null;
+        }
+
+        const { data: upsertedProfile, error: upsertError } = await supabase
+          .from("profiles")
+          .upsert(
+            {
+              id: user.id,
+              display_name: trimmedName,
+              avatar_url: uploadedAvatarUrl,
+            },
+            { onConflict: "id" },
+          )
+          .select("display_name, avatar_url")
+          .single();
+
+        if (upsertError) {
+          console.error("Failed to update profile", upsertError);
+          toast({
+            title: "Kunde inte spara profilen",
+            description: "Försök igen om en stund.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        setProfile({
+          displayName: upsertedProfile.display_name ?? trimmedName,
+          avatarUrl: upsertedProfile.avatar_url ?? uploadedAvatarUrl ?? null,
+        });
+
+        const { error: metadataError } = await supabase.auth.updateUser({
+          data: {
+            display_name: trimmedName,
+            full_name: trimmedName,
+            avatar_url: uploadedAvatarUrl ?? null,
+          },
+        });
+
+        if (metadataError) {
+          console.error("Failed to sync auth metadata", metadataError);
+          toast({
+            title: "Profilen sparades med varning",
+            description: "Namnet är uppdaterat men metadata kunde inte synkas helt.",
+          });
+        } else {
+          toast({
+            title: "Profilen uppdaterades",
+            description: "Ditt namn och din bild visas nu i sociala ytor.",
+          });
+        }
+
+        handleDialogOpenChange(false);
+      } finally {
+        setSavingProfile(false);
+      }
+    },
+    [avatarFile, avatarUrl, formDisplayName, handleDialogOpenChange, toast, user?.id],
+  );
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-12 sm:px-8">
       <header className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 border border-theme-card bg-theme-elevated">
+            {avatarUrl ? <AvatarImage src={avatarUrl} alt="Profilbild" className="object-cover" /> : null}
             <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
               {initials || "WS"}
             </AvatarFallback>
@@ -100,11 +403,107 @@ const Me = () => {
 
       <div className="space-y-6">
         <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
-          <CardHeader>
-            <CardTitle className="text-theme-primary">Din profil</CardTitle>
-            <CardDescription className="text-theme-secondary">
-              Här ser du uppgifterna vi använder för att anpassa din upplevelse.
-            </CardDescription>
+          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-theme-primary">Din profil</CardTitle>
+              <CardDescription className="text-theme-secondary">
+                Uppdatera namn och bild så visas de på följelistor och kommande sociala ytor.
+              </CardDescription>
+            </div>
+            <Dialog open={isEditOpen} onOpenChange={handleDialogOpenChange}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="gap-2 border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                  disabled={profileLoading}
+                >
+                  <PenLine className="h-4 w-4" />
+                  Redigera profil
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg border-theme-card/80 bg-theme-elevated text-left text-theme-primary">
+                <DialogHeader>
+                  <DialogTitle>Redigera profil</DialogTitle>
+                  <DialogDescription>
+                    Ändra visningsnamn och profilbild. Bilden måste vara en PNG, JPG eller WEBP på högst 1 MB.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleProfileSubmit} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="display-name" className="text-theme-primary">
+                      Visningsnamn
+                    </Label>
+                    <Input
+                      id="display-name"
+                      value={formDisplayName}
+                      onChange={(event) => {
+                        setFormDisplayName(event.target.value);
+                        if (formNameError) {
+                          setFormNameError(null);
+                        }
+                      }}
+                      placeholder="Ditt namn"
+                      className="border-theme-card bg-theme-elevated text-theme-primary"
+                      maxLength={80}
+                    />
+                    {formNameError ? <p className="text-sm text-destructive">{formNameError}</p> : null}
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label className="text-theme-primary">Profilbild</Label>
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-16 w-16 border border-theme-card bg-theme-elevated">
+                        {avatarPreview ? <AvatarImage src={avatarPreview} alt="Förhandsvisning" className="object-cover" /> : null}
+                        <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
+                          {previewInitials || "WS"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="space-y-2 text-sm text-theme-secondary">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="gap-2 border-dashed border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={savingProfile}
+                        >
+                          <UploadCloud className="h-4 w-4" />
+                          Välj bild
+                        </Button>
+                        <p>PNG, JPG eller WEBP. Max 1 MB.</p>
+                      </div>
+                    </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp"
+                      className="hidden"
+                      onChange={handleAvatarChange}
+                    />
+                  </div>
+
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                        disabled={savingProfile}
+                      >
+                        Avbryt
+                      </Button>
+                    </DialogClose>
+                    <Button
+                      type="submit"
+                      className="gap-2 bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+                      disabled={savingProfile}
+                    >
+                      {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Spara ändringar
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-theme-secondary">
             <div>
