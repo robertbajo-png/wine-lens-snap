@@ -16,7 +16,7 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   signInWithEmail: (email: string) => Promise<AuthOtpResponse>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (redirectPath?: string | null) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -71,11 +71,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return result;
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (redirectPath?: string | null) => {
+    const safeRedirectPath = (() => {
+      if (!redirectPath) {
+        return "/me";
+      }
+
+      const trimmed = redirectPath.trim();
+      if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
+        return "/me";
+      }
+
+      return trimmed;
+    })();
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/me`,
+        redirectTo: new URL(safeRedirectPath, window.location.origin).toString(),
       },
     });
 

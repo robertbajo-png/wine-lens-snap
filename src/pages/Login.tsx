@@ -62,7 +62,7 @@ const Login = () => {
 
   const handleGoogleSignIn = async () => {
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(redirectTo);
     } catch (error) {
       console.error("Google sign-in failed", error);
       toast({
