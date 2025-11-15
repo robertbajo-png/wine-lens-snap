@@ -27,7 +27,7 @@ import {
 } from "@/lib/wineCache";
 import HistorySummary from "@/components/history/HistorySummary";
 import WineCard, { WineCardSkeleton } from "@/components/history/WineCard";
-import { readAuthState, subscribeToAuthState, type AuthState } from "@/lib/mockAuth";
+import { useAuth } from "@/auth/AuthProvider";
 import { ArrowLeft, Camera, Eraser, Wand2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { AmbientBackground } from "@/components/AmbientBackground";
@@ -79,7 +79,7 @@ const History = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [devDialogOpen, setDevDialogOpen] = useState(false);
   const [devStatus, setDevStatus] = useState<string | null>(null);
-  const [authState, setAuthState] = useState<AuthState>(() => readAuthState());
+  const { user } = useAuth();
   const refreshTimeoutRef = useRef<number | null>(null);
   const openLoggedRef = useRef(false);
 
@@ -124,15 +124,13 @@ const History = () => {
     }
   }, [devDialogOpen]);
 
-  useEffect(() => subscribeToAuthState(setAuthState), []);
-
   useEffect(() => {
-    if (authState !== "authenticated") return;
+    if (!user) return;
     const updatedCount = markAnalysesReadyForSync();
     if (updatedCount > 0) {
       refreshEntries();
     }
-  }, [authState, refreshEntries]);
+  }, [refreshEntries, user]);
 
   useEffect(() => {
     if (openLoggedRef.current || isLoading) {
