@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { AuthOtpResponse, Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+import { useSyncScans } from "@/hooks/useSyncScans";
 
 type AuthContextValue = {
   user: User | null;
@@ -24,6 +25,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useSyncScans(session?.user ?? null);
 
   useEffect(() => {
     let ignore = false;

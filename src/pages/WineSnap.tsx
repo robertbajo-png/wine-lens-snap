@@ -438,7 +438,20 @@ const WineSnap = () => {
         };
 
         setResults(result);
-        setCachedAnalysis(cacheLookupKey, result, processedImage);
+        const remoteScanId =
+          typeof data?._meta?.existing_scan_id === "string"
+            ? data._meta.existing_scan_id
+            : typeof data?._meta?.scan_id === "string"
+              ? data._meta?.scan_id
+              : undefined;
+        const labelHashMeta = typeof data?._meta?.label_hash === "string" ? data._meta.label_hash : undefined;
+        const rawOcrValue = !noTextFound && ocrText ? ocrText : null;
+        setCachedAnalysis(cacheLookupKey, result, {
+          imageData: processedImage,
+          rawOcr: rawOcrValue,
+          remoteId: remoteScanId ?? null,
+          labelHash: labelHashMeta,
+        });
         trackEvent("scan_success", {
           source: note ?? "analysis",
           noTextFound,
