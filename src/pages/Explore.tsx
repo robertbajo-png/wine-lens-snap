@@ -28,7 +28,7 @@ type QuickFilter = {
   value: string;
 };
 
-const quickFilters: QuickFilter[] = [
+const FALLBACK_QUICK_FILTERS: QuickFilter[] = [
   {
     id: "furmint",
     label: "Furmint",
@@ -89,6 +89,7 @@ type ExploreScan = {
 };
 
 type ScanRow = Pick<Tables<"scans">, "id" | "created_at" | "analysis_json" | "image_thumb">;
+type ExploreSeedCardRow = Tables<"explore_seed_cards">;
 
 const FALLBACK_TRENDS: AggregationItem[] = [
   { label: "Furmint", detail: "Tokajs vulkaner", count: 14 },
@@ -114,7 +115,7 @@ type CuratedSeed = {
   createdAt: string;
 };
 
-const curatedSeeds: CuratedSeed[] = [
+const FALLBACK_CURATED_SEEDS: CuratedSeed[] = [
   {
     id: "curated-furmint-barta",
     title: "Barta Öreg Király-dűlő",
@@ -189,7 +190,7 @@ const parseGrapes = (value?: string | null): string[] => {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
 };
 
-const curatedLibrary: ExploreScan[] = curatedSeeds.map((seed) => ({
+const FALLBACK_CURATED_LIBRARY: ExploreScan[] = FALLBACK_CURATED_SEEDS.map((seed) => ({
   id: seed.id,
   title: seed.title,
   producer: seed.producer,
@@ -204,6 +205,92 @@ const curatedLibrary: ExploreScan[] = curatedSeeds.map((seed) => ({
   createdAtMs: Date.parse(seed.createdAt),
   source: "curated",
 }));
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const parseSeedScanPayload = (payload: unknown): ExploreScan | null => {
+  if (!isRecord(payload)) return null;
+
+  const id = typeof payload.id === "string" ? payload.id : null;
+  const title = typeof payload.title === "string" ? payload.title : null;
+  if (!id || !title) return null;
+
+  const createdAt = typeof payload.createdAt === "string" ? payload.createdAt : new Date().toISOString();
+  const rawCreatedAtMs = Date.parse(createdAt);
+
+  const grapesRaw =
+    typeof payload.grapesRaw === "string"
+      ? payload.grapesRaw
+      : typeof payload.grapes === "string"
+        ? payload.grapes
+        : null;
+
+  const providedGrapesList = Array.isArray(payload.grapesList)
+    ? (payload.grapesList.filter((item): item is string => typeof item === "string") ?? [])
+    : [];
+
+  const grapesList = providedGrapesList.length > 0 ? providedGrapesList : parseGrapes(grapesRaw);
+
+  return {
+    id,
+    title,
+    producer: typeof payload.producer === "string" ? payload.producer : null,
+    region: typeof payload.region === "string" ? payload.region : null,
+    grapesRaw,
+    grapesList,
+    style: typeof payload.style === "string" ? payload.style : null,
+    color:
+      typeof payload.color === "string"
+        ? payload.color
+        : typeof payload.style === "string"
+          ? payload.style
+          : null,
+    notes: typeof payload.notes === "string" ? payload.notes : null,
+    image: typeof payload.image === "string" ? payload.image : null,
+    createdAt,
+    createdAtMs: Number.isNaN(rawCreatedAtMs) ? Date.now() : rawCreatedAtMs,
+    source: "curated",
+  };
+};
+
+const parseAggregationPayload = (payload: unknown): AggregationItem | null => {
+  if (!isRecord(payload)) return null;
+  const label = typeof payload.label === "string" ? payload.label : null;
+  if (!label) return null;
+
+  const detail = typeof payload.detail === "string" ? payload.detail : "";
+  const countValue =
+    typeof payload.count === "number"
+      ? payload.count
+      : typeof payload.count === "string"
+        ? Number.parseInt(payload.count, 10)
+        : 0;
+
+  return {
+    label,
+    detail,
+    count: Number.isNaN(countValue) ? 0 : countValue,
+  };
+};
+
+const parseQuickFilterPayload = (payload: unknown): QuickFilter | null => {
+  if (!isRecord(payload)) return null;
+  const id = typeof payload.id === "string" ? payload.id : null;
+  const label = typeof payload.label === "string" ? payload.label : null;
+  const field = typeof payload.field === "string" ? payload.field : null;
+  const value = typeof payload.value === "string" ? payload.value : null;
+  if (!id || !label || !field || !value) return null;
+  if (field !== "grape" && field !== "style" && field !== "region") return null;
+
+  return {
+    id,
+    label,
+    description: typeof payload.description === "string" ? payload.description : "",
+    field: field as QuickFilterField,
+    value,
+  };
+};
 
 const normalizeScanRow = (row: ScanRow): ExploreScan => {
   const analysis = (row.analysis_json as WineAnalysisResult | null) ?? null;
@@ -320,6 +407,19 @@ const fetchRecentScans = async (): Promise<ScanRow[]> => {
   return data ?? [];
 };
 
+const fetchExploreSeedCards = async (): Promise<ExploreSeedCardRow[]> => {
+  const { data, error } = await supabase
+    .from("explore_seed_cards")
+    .select("id,created_at,type,payload_json")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+};
+
 const Explore = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -336,25 +436,79 @@ const Explore = () => {
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: seedCards = [] } = useQuery({
+    queryKey: ["explore", "seed-cards"],
+    queryFn: fetchExploreSeedCards,
+    staleTime: 1000 * 60 * 5,
+  });
+
   const personalScans = useMemo(() => (scanRows ?? []).map((row) => normalizeScanRow(row)), [scanRows]);
+
+  const serverSeedLibrary = useMemo(
+    () =>
+      (seedCards ?? [])
+        .filter((card) => card.type === "seed_scan")
+        .map((card) => parseSeedScanPayload(card.payload_json))
+        .filter((card): card is ExploreScan => Boolean(card)),
+    [seedCards],
+  );
+
+  const curatedSeedLibrary = serverSeedLibrary.length > 0 ? serverSeedLibrary : FALLBACK_CURATED_LIBRARY;
+
+  const serverTrends = useMemo(
+    () =>
+      (seedCards ?? [])
+        .filter((card) => card.type === "trending_region")
+        .map((card) => parseAggregationPayload(card.payload_json))
+        .filter((item): item is AggregationItem => Boolean(item)),
+    [seedCards],
+  );
+
+  const serverStyles = useMemo(
+    () =>
+      (seedCards ?? [])
+        .filter((card) => card.type === "popular_style")
+        .map((card) => parseAggregationPayload(card.payload_json))
+        .filter((item): item is AggregationItem => Boolean(item)),
+    [seedCards],
+  );
+
+  const serverQuickFilters = useMemo(
+    () =>
+      (seedCards ?? [])
+        .filter((card) => card.type === "quick_filter")
+        .map((card) => parseQuickFilterPayload(card.payload_json))
+        .filter((item): item is QuickFilter => Boolean(item)),
+    [seedCards],
+  );
+
+  const availableFilters = serverQuickFilters.length > 0 ? serverQuickFilters : FALLBACK_QUICK_FILTERS;
 
   const trendItems = useMemo(() => {
     const trends = deriveTrends(personalScans);
-    return trends.length > 0 ? trends : FALLBACK_TRENDS;
-  }, [personalScans]);
+    if (trends.length > 0) return trends;
+    if (serverTrends.length > 0) return serverTrends;
+    return FALLBACK_TRENDS;
+  }, [personalScans, serverTrends]);
 
   const styleItems = useMemo(() => {
     const styles = deriveStyles(personalScans);
-    return styles.length > 0 ? styles : FALLBACK_STYLES;
-  }, [personalScans]);
+    if (styles.length > 0) return styles;
+    if (serverStyles.length > 0) return serverStyles;
+    return FALLBACK_STYLES;
+  }, [personalScans, serverStyles]);
 
   const activeFilter = useMemo(() => {
     const param = searchParams.get("filter");
-    return quickFilters.find((filter) => filter.id === param) ?? quickFilters[0];
-  }, [searchParams]);
+    return (
+      availableFilters.find((filter) => filter.id === param) ??
+      availableFilters[0] ??
+      FALLBACK_QUICK_FILTERS[0]!
+    );
+  }, [searchParams, availableFilters]);
 
   const handleSelectFilter = (filterId: string) => {
-    const next = quickFilters.find((filter) => filter.id === filterId);
+    const next = availableFilters.find((filter) => filter.id === filterId);
     if (!next) return;
     const params = new URLSearchParams(searchParams);
     params.set("filter", filterId);
@@ -367,8 +521,8 @@ const Explore = () => {
   );
 
   const curatedMatches = useMemo(
-    () => curatedLibrary.filter((scan) => matchesFilter(scan, activeFilter)),
-    [activeFilter],
+    () => curatedSeedLibrary.filter((scan) => matchesFilter(scan, activeFilter)),
+    [activeFilter, curatedSeedLibrary],
   );
 
   const combinedResults = useMemo(
@@ -497,7 +651,7 @@ const Explore = () => {
               </span>
             </div>
             <div className="flex flex-wrap gap-3">
-              {quickFilters.map((filter) => {
+              {availableFilters.map((filter) => {
                 const isActive = filter.id === activeFilter.id;
                 return (
                   <Button
