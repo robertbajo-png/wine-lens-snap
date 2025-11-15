@@ -8,6 +8,8 @@ export type ThemeTokens = {
   cardBorder: string;
 };
 
+export type ThemeName = "dark" | "light";
+
 export const darkTheme: ThemeTokens = {
   bgCanvas: "262 52% 6%",
   bgSurface: "262 45% 10%",
@@ -16,6 +18,21 @@ export const darkTheme: ThemeTokens = {
   textSecondary: "260 28% 78%",
   accentPrimary: "271 86% 67%",
   cardBorder: "262 36% 28%",
+};
+
+export const lightTheme: ThemeTokens = {
+  bgCanvas: "0 0% 100%",
+  bgSurface: "258 60% 97%",
+  surfaceElevated: "260 40% 92%",
+  textPrimary: "261 40% 18%",
+  textSecondary: "262 20% 38%",
+  accentPrimary: "268 85% 58%",
+  cardBorder: "260 28% 80%",
+};
+
+export const themeTokensByName: Record<ThemeName, ThemeTokens> = {
+  dark: darkTheme,
+  light: lightTheme,
 };
 
 const toCssVariableName = (token: keyof ThemeTokens) =>
@@ -34,4 +51,8 @@ export const applyTheme = (tokens: ThemeTokens) => {
   });
 
   document.body.classList.add("app-theme");
+};
+
+export const applyThemeByName = (theme: ThemeName) => {
+  applyTheme(themeTokensByName[theme]);
 };

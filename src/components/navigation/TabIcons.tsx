@@ -3,6 +3,7 @@ import {
   Compass,
   Scan,
   Sparkles,
+  UserRound,
   Users2,
   Wine,
   type LucideProps,
@@ -18,3 +19,4 @@ export const ExploreIcon = withStroke(Compass);
 export const ScanIcon = withStroke(Scan);
 export const FollowingIcon = withStroke(Users2);
 export const MyWinesIcon = withStroke(Wine);
+export const ProfileIcon = withStroke(UserRound);

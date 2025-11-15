@@ -663,9 +663,9 @@ const WineSnap = () => {
                 variant="ghost"
                 size="sm"
                 className="text-theme-secondary hover:text-theme-primary"
-                onClick={() => navigate("/om")}
+                onClick={() => navigate("/me")}
               >
-                Om WineSnap
+                Profil
               </Button>
               <Button
                 variant="outline"
@@ -835,9 +835,9 @@ const WineSnap = () => {
               variant="ghost"
               size="sm"
               className="text-theme-secondary hover:text-theme-primary"
-              onClick={() => navigate("/om")}
+              onClick={() => navigate("/me")}
             >
-              Om WineSnap
+              Profil
             </Button>
             <Button
               variant="outline"

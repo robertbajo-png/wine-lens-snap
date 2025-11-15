@@ -11,6 +11,7 @@ import Following from "./pages/Following";
 import History from "./pages/History";
 import About from "./pages/About";
 import NotFound from "./pages/NotFound";
+import Profile from "./pages/Profile";
 import BottomTabLayout from "./layouts/BottomTabLayout";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const router = createBrowserRouter([
       { path: "explore", element: <Explore /> },
       { path: "scan", element: <WineSnap /> },
       { path: "following", element: <Following /> },
+      { path: "me", element: <Profile /> },
       { path: "me/wines", element: <History /> },
     ],
   },
