@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string
+          followers_count: number
+          id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name: string
+          followers_count?: number
+          id?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string
+          followers_count?: number
+          id?: string
+        }
+        Relationships: []
+      }
       label_history: {
         Row: {
           argang: string | null
@@ -79,6 +106,37 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      follows: {
+        Row: {
+          created_at: string
+          followee_id: string
+          follower_id: string
+        }
+        Insert: {
+          created_at?: string
+          followee_id: string
+          follower_id?: string
+        }
+        Update: {
+          created_at?: string
+          followee_id?: string
+          follower_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follows_followee_id_fkey"
+            columns: ["followee_id"]
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follows_follower_id_fkey"
+            columns: ["follower_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scans: {
         Row: {
