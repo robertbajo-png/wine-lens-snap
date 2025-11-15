@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AmbientBackground } from "@/components/AmbientBackground";
+import { Banner } from "@/components/Banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -593,6 +594,8 @@ const Explore = () => {
     data: scanRows = [],
     isLoading: scansLoading,
     isError: scansError,
+    isFetching: scansFetching,
+    refetch: refetchScans,
   } = useQuery({
     queryKey: ["explore", "scans", user?.id ?? "guest"],
     queryFn: fetchRecentScans,
@@ -784,7 +787,13 @@ const Explore = () => {
     [filteredResults],
   );
 
-  const showEmptyState = !scansLoading && combinedResults.length === 0;
+  const hasUser = Boolean(user?.id);
+  const hasPersonalScans = personalScans.length > 0;
+  const showScansSkeleton = hasUser && (scansLoading || (scansFetching && !hasPersonalScans));
+  const showEmptyState = !showScansSkeleton && combinedResults.length === 0;
+  const showLoginPrompt = !hasUser;
+  const showFirstScanHint = hasUser && !hasPersonalScans && !scansLoading && !scansError;
+  const showScanErrorBanner = hasUser && scansError;
 
   useEffect(() => {
     if (exploreOpenedRef.current) return;
@@ -834,6 +843,32 @@ const Explore = () => {
       event.preventDefault();
       handleScanOpen(scan);
     }
+  };
+
+  const handleRetryScans = () => {
+    if (!hasUser || scansFetching) return;
+    trackEvent(
+      "explore_scans_retry_requested",
+      {
+        quickFilterId: highlightedFilterId,
+        manualFiltersActive,
+        personalScanCount: personalScans.length,
+      },
+      { sessionId: sessionIdRef.current },
+    );
+    void refetchScans();
+  };
+
+  const handleNavigateToLogin = () => {
+    trackEvent(
+      "explore_login_prompt_clicked",
+      {
+        quickFilterId: highlightedFilterId,
+        manualFiltersActive,
+      },
+      { sessionId: sessionIdRef.current },
+    );
+    navigate("/login");
   };
 
   return (
@@ -1035,7 +1070,7 @@ const Explore = () => {
           </div>
 
           <div className="mt-6 space-y-4">
-            {scansLoading && (
+            {showScansSkeleton && (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, index) => (
                   <div key={index} className="h-24 animate-pulse rounded-2xl bg-theme-card/30" />
@@ -1043,7 +1078,7 @@ const Explore = () => {
               </div>
             )}
 
-            {!scansLoading &&
+            {!showScansSkeleton &&
               combinedResults.map((scan) => (
                 <article
                   key={`${scan.source}-${scan.id}`}
@@ -1078,21 +1113,44 @@ const Explore = () => {
               ))}
 
             {showEmptyState && (
-              <div className="rounded-2xl border border-dashed border-theme-card/60 bg-theme-card/10 p-6 text-center text-sm text-theme-secondary/70">
-                Inga skanningar matchar filtret ännu. Fortsätt fota etiketter eller välj ett annat fokus.
-              </div>
+              <Banner
+                type="info"
+                title="Inga flaskor matchar filtret"
+                text="Justera sökningen eller nollställ filtren för att få fler träffar."
+                ctaLabel="Rensa filter"
+                onCta={handleClearFilters}
+                className="border-dashed"
+              />
             )}
 
-            {!user && (
-              <div className="rounded-2xl border border-theme-card/50 bg-theme-card/20 p-4 text-sm text-theme-secondary/80">
-                Logga in för att se dina egna skanningar i listan. Kuraterade tips visas alltid.
-              </div>
+            {showFirstScanHint && (
+              <Banner
+                type="info"
+                title="Gör en första skanning"
+                text="Vi visar redaktionens favoriter tills du fotar din första etikett. Då blir Explore personligt anpassad."
+                ctaLabel="Starta skanning"
+                onCta={handleStartNewScan}
+              />
             )}
 
-            {scansError && (
-              <div className="rounded-2xl border border-theme-card/50 bg-theme-card/20 p-4 text-sm text-theme-secondary/80">
-                Kunde inte läsa dina skanningar just nu. Vi visar endast kuraterade flaskor tills vidare.
-              </div>
+            {showLoginPrompt && (
+              <Banner
+                type="info"
+                title="Logga in för att låsa upp historiken"
+                text="Kuraterade tips visas alltid, men dina egna skanningar kräver ett konto."
+                ctaLabel="Till inloggning"
+                onCta={handleNavigateToLogin}
+              />
+            )}
+
+            {showScanErrorBanner && (
+              <Banner
+                type="error"
+                title="Kan inte läsa dina skanningar"
+                text="Din uppkoppling verkar svaja. Vi visar tills vidare kuraterade flaskor."
+                ctaLabel={scansFetching ? "Försöker igen..." : "Försök igen"}
+                onCta={handleRetryScans}
+              />
             )}
           </div>
         </section>
