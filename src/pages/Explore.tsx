@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AmbientBackground } from "@/components/AmbientBackground";
@@ -18,6 +18,7 @@ import { supabase } from "@/lib/supabaseClient";
 import type { Tables } from "@/integrations/supabase/types";
 import type { WineAnalysisResult } from "@/lib/wineCache";
 import { useAuth } from "@/auth/AuthProvider";
+import { trackEvent } from "@/lib/telemetry";
 
 const SEARCH_PLACEHOLDER = "Sök bland etiketter, producenter eller anteckningar";
 const TREND_LIMIT = 3;
@@ -37,6 +38,25 @@ type SearchFilterField = QuickFilterField | "label";
 type SearchFilters = Partial<Record<SearchFilterField, string>>;
 
 const SUPPORTED_FILTER_FIELDS: SearchFilterField[] = ["label", "grape", "style", "region"];
+
+const countActiveFilters = (filters: SearchFilters): number =>
+  Object.values(filters).filter((value) => typeof value === "string" && value.trim().length > 0).length;
+
+const createExploreSessionId = () => {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch (error) {
+    // ignore and fall back
+  }
+  const template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+  return template.replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = char === "x" ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+};
 
 type QuickFilter = {
   id: string;
@@ -562,6 +582,12 @@ const Explore = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const sessionIdRef = useRef<string>();
+  const exploreOpenedRef = useRef(false);
+
+  if (!sessionIdRef.current) {
+    sessionIdRef.current = createExploreSessionId();
+  }
 
   const {
     data: scanRows = [],
@@ -668,6 +694,21 @@ const Explore = () => {
     params.set("filter", filterId);
     params.set(next.field, next.value);
     setSearchParams(params, { replace: true });
+
+    const filtersSnapshot = parseSearchFilters(params);
+    trackEvent(
+      "explore_filter_changed",
+      {
+        source: "quick",
+        field: next.field,
+        value: next.value,
+        quickFilterId: filterId,
+        filters: filtersSnapshot,
+        filterCount: countActiveFilters(filtersSnapshot),
+        manualFiltersActive: hasExplicitFilters(filtersSnapshot),
+      },
+      { sessionId: sessionIdRef.current },
+    );
   };
 
   const handleSearchFilterChange = (field: SearchFilterField, value: string) => {
@@ -680,6 +721,22 @@ const Explore = () => {
     }
     syncQuickFilterParam(params, availableFilters);
     setSearchParams(params, { replace: true });
+
+    const filtersSnapshot = parseSearchFilters(params);
+    trackEvent(
+      "explore_filter_changed",
+      {
+        source: "manual",
+        field,
+        value: normalizedValue,
+        cleared: !normalizedValue,
+        quickFilterId: params.get("filter"),
+        filters: filtersSnapshot,
+        filterCount: countActiveFilters(filtersSnapshot),
+        manualFiltersActive: hasExplicitFilters(filtersSnapshot),
+      },
+      { sessionId: sessionIdRef.current },
+    );
   };
 
   const handleClearFilters = () => {
@@ -689,6 +746,20 @@ const Explore = () => {
     }
     params.delete("filter");
     setSearchParams(params, { replace: true });
+
+    trackEvent(
+      "explore_filter_changed",
+      {
+        source: "clear_all",
+        field: "all",
+        value: "__cleared__",
+        quickFilterId: null,
+        filters: {},
+        filterCount: 0,
+        manualFiltersActive: false,
+      },
+      { sessionId: sessionIdRef.current },
+    );
   };
 
   const wineIndex = useMemo(
@@ -715,13 +786,63 @@ const Explore = () => {
 
   const showEmptyState = !scansLoading && combinedResults.length === 0;
 
+  useEffect(() => {
+    if (exploreOpenedRef.current) return;
+    trackEvent(
+      "explore_opened",
+      {
+        hasUser: Boolean(user?.id),
+        personalScanCount: personalScans.length,
+        curatedScanCount: curatedSeedLibrary.length,
+        quickFilterCount: availableFilters.length,
+        seedLibrarySource: serverSeedLibrary.length > 0 ? "remote" : "fallback",
+      },
+      { sessionId: sessionIdRef.current },
+    );
+    exploreOpenedRef.current = true;
+  }, [availableFilters.length, curatedSeedLibrary.length, personalScans.length, serverSeedLibrary.length, user?.id]);
+
+  const handleStartNewScan = () => {
+    trackEvent(
+      "explore_new_scan_cta_clicked",
+      {
+        manualFiltersActive,
+        activeFilterCount: countActiveFilters(effectiveFilters),
+        quickFilterId: highlightedFilterId,
+        personalScanCount: personalScans.length,
+      },
+      { sessionId: sessionIdRef.current },
+    );
+    navigate("/scan");
+  };
+
+  const handleScanOpen = (scan: ExploreScan) => {
+    trackEvent(
+      "explore_scan_opened",
+      {
+        scanId: scan.id,
+        source: scan.source,
+        manualFiltersActive,
+        quickFilterId: highlightedFilterId,
+      },
+      { sessionId: sessionIdRef.current },
+    );
+  };
+
+  const handleScanCardKeyDown = (event: KeyboardEvent<HTMLElement>, scan: ExploreScan) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      handleScanOpen(scan);
+    }
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
       <AmbientBackground />
       <div className="absolute right-4 top-6 z-20">
         <Button
           className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
-          onClick={() => navigate("/scan")}
+          onClick={handleStartNewScan}
           aria-label="Starta ny skanning"
         >
           <Camera className="h-4 w-4" />
@@ -926,7 +1047,12 @@ const Explore = () => {
               combinedResults.map((scan) => (
                 <article
                   key={`${scan.source}-${scan.id}`}
-                  className="flex flex-col gap-4 rounded-2xl border border-theme-card/40 bg-theme-card/20 p-4 sm:flex-row sm:items-center"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Öppna ${scan.title}`}
+                  onClick={() => handleScanOpen(scan)}
+                  onKeyDown={(event) => handleScanCardKeyDown(event, scan)}
+                  className="flex cursor-pointer flex-col gap-4 rounded-2xl border border-theme-card/40 bg-theme-card/20 p-4 outline-none transition hover:border-theme-primary/50 focus-visible:ring-2 focus-visible:ring-theme-primary/60 sm:flex-row sm:items-center"
                 >
                   <div className="flex w-full flex-1 flex-col gap-1">
                     <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-theme-secondary/60">
