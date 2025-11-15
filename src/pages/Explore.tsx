@@ -39,6 +39,8 @@ type SearchFilterField = QuickFilterField | "label";
 type SearchFilters = Partial<Record<SearchFilterField, string>>;
 
 const SUPPORTED_FILTER_FIELDS: SearchFilterField[] = ["label", "grape", "style", "region"];
+const serializeFilters = (filters: SearchFilters) =>
+  SUPPORTED_FILTER_FIELDS.map((field) => `${field}:${filters[field]?.toLowerCase() ?? ""}`).join("|");
 
 const countActiveFilters = (filters: SearchFilters): number =>
   Object.values(filters).filter((value) => typeof value === "string" && value.trim().length > 0).length;
@@ -128,9 +130,12 @@ type ExploreScan = {
 };
 
 type ScanRow = Pick<Tables<"scans">, "id" | "created_at" | "analysis_json" | "image_thumb">;
-type ExploreSeedCardRow = Tables<"explore_seed_cards">;
+type ExploreCardRow = Tables<"explore_cards">;
+type WineIndexRow = Tables<"wine_index">;
 
 const cleanFilterValue = (value?: string | null) => value?.trim() ?? "";
+const escapeIlikePattern = (value: string) => value.replace(/[%_]/g, "\\$&");
+const buildIlikePattern = (value: string) => `%${escapeIlikePattern(value)}%`;
 
 const parseSearchFilters = (params: URLSearchParams): SearchFilters => {
   const filters: SearchFilters = {};
@@ -329,6 +334,11 @@ const FALLBACK_CURATED_LIBRARY: ExploreScan[] = FALLBACK_CURATED_SEEDS.map((seed
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+const getCardPayloadType = (payload: unknown): string | null => {
+  if (!isRecord(payload)) return null;
+  return typeof payload.type === "string" ? payload.type : null;
+};
+
 const parseSeedScanPayload = (payload: unknown): ExploreScan | null => {
   if (!isRecord(payload)) return null;
 
@@ -434,6 +444,35 @@ const normalizeScanRow = (row: ScanRow): ExploreScan => {
     createdAt,
     createdAtMs: Number.isNaN(createdAtMs) ? Date.now() : createdAtMs,
     source: "mine",
+  };
+};
+
+const normalizeWineIndexRow = (row: WineIndexRow): ExploreScan => {
+  const createdAt = row.created_at ?? new Date().toISOString();
+  const createdAtMs = Date.parse(createdAt);
+  const grapesRaw = row.grapes_raw ?? null;
+
+  const payload = (row.payload_json as Record<string, unknown> | null) ?? null;
+  const rawPayloadGrapes = Array.isArray(payload?.grapesList as unknown[])
+    ? ((payload?.grapesList as unknown[]) ?? [])
+    : [];
+  const payloadGrapes = rawPayloadGrapes.filter((item): item is string => typeof item === "string");
+  const grapesList = payloadGrapes.length > 0 ? payloadGrapes : parseGrapes(grapesRaw);
+
+  return {
+    id: row.id,
+    title: row.title,
+    producer: row.producer,
+    region: row.region,
+    grapesRaw,
+    grapesList,
+    style: row.style,
+    color: row.color ?? row.style ?? null,
+    notes: row.notes,
+    image: row.image_url,
+    createdAt,
+    createdAtMs: Number.isNaN(createdAtMs) ? Date.now() : createdAtMs,
+    source: "curated",
   };
 };
 
@@ -566,11 +605,53 @@ const fetchRecentScans = async (): Promise<ScanRow[]> => {
   return data ?? [];
 };
 
-const fetchExploreSeedCards = async (): Promise<ExploreSeedCardRow[]> => {
+const fetchExploreCards = async (): Promise<ExploreCardRow[]> => {
+  const nowIso = new Date().toISOString();
   const { data, error } = await supabase
-    .from("explore_seed_cards")
-    .select("id,created_at,type,payload_json")
+    .from("explore_cards")
+    .select("id,created_at,title,subtitle,payload_json,rank,valid_from,valid_to")
+    .lte("valid_from", nowIso)
+    .or(`valid_to.is.null,valid_to.gte.${nowIso}`)
+    .order("rank", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+};
+
+const WINE_INDEX_FETCH_LIMIT = 120;
+
+const fetchWineIndexRows = async (filters: SearchFilters): Promise<WineIndexRow[]> => {
+  let query = supabase
+    .from("wine_index")
+    .select("id,created_at,title,producer,region,grapes_raw,style,color,notes,image_url,rank,payload_json")
+    .order("rank", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(WINE_INDEX_FETCH_LIMIT);
+
+  if (filters.region) {
+    query = query.ilike("region", buildIlikePattern(filters.region));
+  }
+
+  if (filters.style) {
+    query = query.ilike("style", buildIlikePattern(filters.style));
+  }
+
+  if (filters.grape) {
+    query = query.ilike("grapes_raw", buildIlikePattern(filters.grape));
+  }
+
+  if (filters.label) {
+    const labelPattern = buildIlikePattern(filters.label);
+    query = query.or(
+      `title.ilike.${labelPattern},producer.ilike.${labelPattern},notes.ilike.${labelPattern}`,
+    );
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     throw error;
@@ -603,50 +684,49 @@ const Explore = () => {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: seedCards = [] } = useQuery({
-    queryKey: ["explore", "seed-cards"],
-    queryFn: fetchExploreSeedCards,
-    staleTime: 1000 * 60 * 5,
+  const { data: exploreCards = [] } = useQuery({
+    queryKey: ["explore", "cards"],
+    queryFn: fetchExploreCards,
+    staleTime: 1000 * 60 * 60 * 24,
   });
 
   const personalScans = useMemo(() => (scanRows ?? []).map((row) => normalizeScanRow(row)), [scanRows]);
 
-  const serverSeedLibrary = useMemo(
+  const cardSeedLibrary = useMemo(
     () =>
-      (seedCards ?? [])
-        .filter((card) => card.type === "seed_scan")
+      (exploreCards ?? [])
+        .filter((card) => getCardPayloadType(card.payload_json) === "seed_scan")
         .map((card) => parseSeedScanPayload(card.payload_json))
         .filter((card): card is ExploreScan => Boolean(card)),
-    [seedCards],
+    [exploreCards],
   );
 
-  const curatedSeedLibrary = serverSeedLibrary.length > 0 ? serverSeedLibrary : FALLBACK_CURATED_LIBRARY;
 
   const serverTrends = useMemo(
     () =>
-      (seedCards ?? [])
-        .filter((card) => card.type === "trending_region")
+      (exploreCards ?? [])
+        .filter((card) => getCardPayloadType(card.payload_json) === "trending_region")
         .map((card) => parseAggregationPayload(card.payload_json))
         .filter((item): item is AggregationItem => Boolean(item)),
-    [seedCards],
+    [exploreCards],
   );
 
   const serverStyles = useMemo(
     () =>
-      (seedCards ?? [])
-        .filter((card) => card.type === "popular_style")
+      (exploreCards ?? [])
+        .filter((card) => getCardPayloadType(card.payload_json) === "popular_style")
         .map((card) => parseAggregationPayload(card.payload_json))
         .filter((item): item is AggregationItem => Boolean(item)),
-    [seedCards],
+    [exploreCards],
   );
 
   const serverQuickFilters = useMemo(
     () =>
-      (seedCards ?? [])
-        .filter((card) => card.type === "quick_filter")
+      (exploreCards ?? [])
+        .filter((card) => getCardPayloadType(card.payload_json) === "quick_filter")
         .map((card) => parseQuickFilterPayload(card.payload_json))
         .filter((item): item is QuickFilter => Boolean(item)),
-    [seedCards],
+    [exploreCards],
   );
 
   const availableFilters = serverQuickFilters.length > 0 ? serverQuickFilters : FALLBACK_QUICK_FILTERS;
@@ -689,6 +769,34 @@ const Explore = () => {
   }, [manualFiltersActive, paramsFilters, fallbackQuickFilter]);
 
   const highlightedFilterId = selectedFilterId ?? (!manualFiltersActive ? fallbackQuickFilter?.id ?? null : null);
+
+  const serializedFilters = serializeFilters(effectiveFilters);
+
+  const { data: wineIndexRows = [], isFetching: wineIndexFetching } = useQuery({
+    queryKey: ["explore", "wine-index", serializedFilters],
+    queryFn: () => fetchWineIndexRows(effectiveFilters),
+    keepPreviousData: true,
+    staleTime: 1000 * 60,
+  });
+
+  const serverWineLibrary = useMemo(
+    () => (wineIndexRows ?? []).map((row) => normalizeWineIndexRow(row)),
+    [wineIndexRows],
+  );
+
+  const hasRemoteCuratedLibrary = serverWineLibrary.length > 0;
+
+  const curatedWineLibrary = hasRemoteCuratedLibrary
+    ? serverWineLibrary
+    : cardSeedLibrary.length > 0
+      ? cardSeedLibrary
+      : FALLBACK_CURATED_LIBRARY;
+
+  const seedLibrarySource = hasRemoteCuratedLibrary
+    ? "wine_index"
+    : cardSeedLibrary.length > 0
+      ? "explore_cards"
+      : "fallback";
 
   const handleSelectFilter = (filterId: string) => {
     const next = availableFilters.find((filter) => filter.id === filterId);
@@ -766,8 +874,8 @@ const Explore = () => {
   };
 
   const wineIndex = useMemo(
-    () => buildWineIndex(personalScans, curatedSeedLibrary),
-    [personalScans, curatedSeedLibrary],
+    () => buildWineIndex(personalScans, curatedWineLibrary),
+    [personalScans, curatedWineLibrary],
   );
 
   const regionOptions = useMemo(() => uniqueSortedValues(wineIndex.map((scan) => scan.region)), [wineIndex]);
@@ -789,7 +897,8 @@ const Explore = () => {
 
   const hasUser = Boolean(user?.id);
   const hasPersonalScans = personalScans.length > 0;
-  const showScansSkeleton = hasUser && (scansLoading || (scansFetching && !hasPersonalScans));
+  const showScansSkeleton =
+    (hasUser && (scansLoading || (scansFetching && !hasPersonalScans))) || wineIndexFetching;
   const showEmptyState = !showScansSkeleton && combinedResults.length === 0;
   const showLoginPrompt = !hasUser;
   const showFirstScanHint = hasUser && !hasPersonalScans && !scansLoading && !scansError;
@@ -802,14 +911,14 @@ const Explore = () => {
       {
         hasUser: Boolean(user?.id),
         personalScanCount: personalScans.length,
-        curatedScanCount: curatedSeedLibrary.length,
+        curatedScanCount: curatedWineLibrary.length,
         quickFilterCount: availableFilters.length,
-        seedLibrarySource: serverSeedLibrary.length > 0 ? "remote" : "fallback",
+        seedLibrarySource,
       },
       { sessionId: sessionIdRef.current },
     );
     exploreOpenedRef.current = true;
-  }, [availableFilters.length, curatedSeedLibrary.length, personalScans.length, serverSeedLibrary.length, user?.id]);
+  }, [availableFilters.length, curatedWineLibrary.length, personalScans.length, seedLibrarySource, user?.id]);
 
   const handleStartNewScan = () => {
     trackEvent(
