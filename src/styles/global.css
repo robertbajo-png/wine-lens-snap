@@ -2,83 +2,162 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ========= App Theme Tokens (Dark, lighter surfaces) ========= */
+/* ========= App Theme Tokens (Dark) ========= */
 :root {
-  /* Brand (lila) i HSL för flexibel opacitet */
-  --brand: 266 79% 59%;
-  /* Ljusare bakgrunder för bättre läsbarhet i kort */
-  --surface: 258 22% 18%;
-  --surface-2: 258 20% 22%;
-  --outline: 260 16% 40%;
-  --text: 260 20% 97%;
-  --text-soft: 260 12% 88%;
-  /* Något ljusare gradient */
-  --bg-start: 270 36% 10%;
-  --bg-end:   266 42% 18%;
+  --bg-canvas: 262 52% 6%;
+  --bg-surface: 262 45% 10%;
+  --surface-elevated: 261 42% 16%;
+  --text-primary: 259 56% 95%;
+  --text-secondary: 260 28% 78%;
+  --accent-primary: 271 86% 67%;
+  --card-border: 262 36% 28%;
 }
 
 /* ========= Global Dark Background ========= */
-html, body, #root { min-height: 100%; }
+html,
+body,
+#root {
+  min-height: 100%;
+}
 
 /* Aktiveras från main.tsx */
 body.app-theme {
-  color: hsl(var(--text));
-  background:
-    linear-gradient(
-      to bottom,
-      hsl(var(--bg-start)) 0%,
-      hsl(var(--bg-end)) 100%
-    );
+  color: hsl(var(--text-primary));
+  background-color: hsl(var(--bg-canvas));
+  background-image:
+    radial-gradient(120% 120% at 15% 10%, hsl(var(--accent-primary) / 0.18), transparent),
+    radial-gradient(120% 120% at 85% 90%, hsl(var(--accent-primary) / 0.12), transparent),
+    radial-gradient(140% 140% at 50% -20%, hsl(var(--bg-surface) / 0.65), transparent);
+  background-attachment: fixed;
 }
 
-/* ========= Theming-overrides för “ljusa” utilities =========
-   Gör att sidor som använder bg-white/border etc. ändå ser bra ut
-   i mörkt tema – utan att ändra JSX. */
+body.app-theme h1,
+body.app-theme h2,
+body.app-theme h3,
+body.app-theme h4,
+body.app-theme h5,
+body.app-theme h6 {
+  color: hsl(var(--text-primary));
+}
+
+body.app-theme p,
+body.app-theme .text-theme-secondary {
+  color: hsl(var(--text-secondary));
+}
+
+/* ========= Utility helpers ========= */
+body.app-theme .bg-theme-canvas {
+  background-color: hsl(var(--bg-canvas));
+}
+
+body.app-theme .bg-theme-surface {
+  background-color: hsl(var(--bg-surface));
+}
+
+body.app-theme .bg-theme-elevated {
+  background-color: hsl(var(--surface-elevated));
+}
+
+body.app-theme .text-theme-primary {
+  color: hsl(var(--text-primary));
+}
+
+body.app-theme .text-theme-secondary {
+  color: hsl(var(--text-secondary));
+}
+
+body.app-theme .bg-theme-accent {
+  background-color: hsl(var(--accent-primary));
+}
+
+body.app-theme .text-theme-accent {
+  color: hsl(var(--accent-primary));
+}
+
+body.app-theme .border-theme-card {
+  border-color: hsl(var(--card-border));
+}
+
+body.app-theme .ring-theme-card {
+  --tw-ring-color: hsl(var(--card-border));
+}
+
+body.app-theme .shadow-theme-elevated {
+  box-shadow: 0 24px 60px -30px hsla(var(--accent-primary) / 0.55);
+}
+
+/* ========= Override light utilities to match dark theme ========= */
 body.app-theme .bg-white,
 body.app-theme .bg-gray-50,
 body.app-theme .bg-slate-50,
-body.app-theme .bg-neutral-50 {
-  background-color: hsl(var(--surface-2)) !important;
+body.app-theme .bg-neutral-50,
+body.app-theme .bg-white\/5,
+body.app-theme .bg-white\/10,
+body.app-theme .bg-white\/15,
+body.app-theme .bg-white\/20,
+body.app-theme .bg-white\/30,
+body.app-theme .bg-white\/40,
+body.app-theme .bg-white\/50,
+body.app-theme .bg-white\/60,
+body.app-theme .bg-white\/70,
+body.app-theme .bg-white\/80,
+body.app-theme .bg-white\/90,
+body.app-theme .bg-white\/\[0\.04\],
+body.app-theme .bg-slate-100\/20,
+body.app-theme .bg-zinc-100\/20 {
+  background-color: hsl(var(--surface-elevated)) !important;
 }
-/* Hög kontrast på rubriker/primär text */
+
 body.app-theme .text-slate-900,
 body.app-theme .text-gray-900,
 body.app-theme .text-black,
 body.app-theme .text-slate-800,
 body.app-theme .text-gray-800,
 body.app-theme .text-neutral-900,
-body.app-theme .text-neutral-800 {
-  color: hsl(var(--text)) !important;
+body.app-theme .text-neutral-800,
+body.app-theme .text-white {
+  color: hsl(var(--text-primary)) !important;
 }
-/* Låt sekundär text vara läsbar – inte för mörk */
+
 body.app-theme .text-slate-600,
-body.app-theme .text-gray-600,
 body.app-theme .text-slate-500,
+body.app-theme .text-gray-600,
 body.app-theme .text-gray-500,
 body.app-theme .text-neutral-600,
-body.app-theme .text-neutral-500 {
-  color: hsl(var(--text-soft)) !important;
+body.app-theme .text-neutral-500,
+body.app-theme .text-slate-300,
+body.app-theme .text-slate-200,
+body.app-theme .text-slate-100,
+body.app-theme .text-gray-300,
+body.app-theme .text-gray-200,
+body.app-theme .text-gray-100 {
+  color: hsl(var(--text-secondary)) !important;
 }
+
 body.app-theme .border,
 body.app-theme .border-slate-200,
 body.app-theme .border-gray-200,
 body.app-theme .divide-slate-200,
-body.app-theme .divide-gray-200 {
-  border-color: hsl(var(--outline) / 0.25) !important;
-}
-/* Kort/ytor som tidigare var vita */
-body.app-theme .shadow,
-body.app-theme .shadow-md,
-body.app-theme .shadow-lg {
-  box-shadow: 0 28px 48px -26px rgba(123,63,228,0.28) !important;
+body.app-theme .divide-gray-200,
+body.app-theme .border-white\/10,
+body.app-theme .border-white\/15,
+body.app-theme .border-white\/20 {
+  border-color: hsl(var(--card-border) / 0.65) !important;
 }
 
-/* Knappar/”pill”-chips i ljus stil får mörka ytor */
-body.app-theme .bg-white\/70,
-body.app-theme .bg-white\/80 {
-  background-color: hsl(var(--surface)) !important;
-}
 body.app-theme .ring-1,
 body.app-theme .ring {
-  --tw-ring-color: hsl(var(--outline) / 0.25) !important;
+  --tw-ring-color: hsl(var(--card-border) / 0.5) !important;
+}
+
+body.app-theme .hover\:bg-white\/10:hover {
+  background-color: hsl(var(--surface-elevated) / 0.95) !important;
+}
+
+body.app-theme .hover\:bg-white\/15:hover {
+  background-color: hsl(var(--surface-elevated) / 0.85) !important;
+}
+
+body.app-theme .hover\:bg-white\/20:hover {
+  background-color: hsl(var(--surface-elevated) / 0.75) !important;
 }

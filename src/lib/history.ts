@@ -10,7 +10,7 @@ export type HistoryEntry = {
   årgång?: string;
   meters?: WineAnalysisResult["meters"];
   evidence?: WineAnalysisResult["evidence"];
-  _meta?: any;
+  _meta?: WineAnalysisResult["_meta"];
 };
 
 export function getDeviceId(): string {

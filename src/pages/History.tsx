@@ -30,6 +30,8 @@ import { GaugeCircleSB } from "@/components/WineMetersSB";
 import { getSystembolagetTasteProfile } from "@/components/SystembolagetTasteProfile";
 import { ArrowLeft, Camera, Copy, Eraser, Sparkles, Trash2, Wand2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
+import { AmbientBackground } from "@/components/AmbientBackground";
+import { Banner } from "@/components/Banner";
 
 const formatDate = (iso: string) => {
   const date = new Date(iso);
@@ -174,13 +176,8 @@ const History = () => {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#070311] text-slate-100">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-28 top-16 h-80 w-80 rounded-full bg-[#8B5CF6]/30 blur-[140px]" />
-        <div className="absolute right-[-72px] bottom-8 h-80 w-80 rounded-full bg-[#38BDF8]/20 blur-[150px]" />
-        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#110827] via-transparent to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 to-transparent" />
-      </div>
+    <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
+      <AmbientBackground />
 
       <div className="relative z-10 mx-auto flex max-w-6xl flex-col gap-8 px-4 pb-20 pt-12 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -188,12 +185,12 @@ const History = () => {
             <Button
               variant="ghost"
               onClick={() => navigate(-1)}
-              className="gap-2 rounded-full border border-white/10 bg-white/5 px-4 text-slate-100 shadow-lg shadow-purple-900/20 backdrop-blur transition hover:bg-white/10"
+              className="gap-2 rounded-full border border-theme-card bg-theme-elevated px-4 text-theme-primary shadow-lg shadow-purple-900/20 backdrop-blur transition hover:bg-theme-elevated"
             >
               <ArrowLeft className="h-4 w-4" />
               Tillbaka
             </Button>
-            <Badge variant="outline" className="rounded-full border-white/15 bg-white/10 text-xs uppercase tracking-[0.25em] text-slate-200/80">
+            <Badge variant="outline" className="rounded-full border-theme-card bg-theme-elevated text-xs uppercase tracking-[0.25em] text-theme-secondary">
               {entries.length === 0 ? "Tom historik" : `${entries.length} sparade analyser`}
             </Badge>
           </div>
@@ -202,7 +199,7 @@ const History = () => {
             <Button
               variant="outline"
               onClick={handleRefresh}
-              className="rounded-full border-white/15 bg-white/10 text-slate-100 hover:bg-white/15"
+              className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
             >
               Uppdatera
             </Button>
@@ -210,7 +207,7 @@ const History = () => {
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="gap-2 rounded-full border-dashed border-white/20 bg-white/10 text-slate-100 shadow-sm backdrop-blur transition hover:bg-white/15"
+                  className="gap-2 rounded-full border-dashed border-theme-card bg-theme-elevated text-theme-primary shadow-sm backdrop-blur transition hover:bg-[hsl(var(--surface-elevated)/0.85)]"
                 >
                   <Wand2 className="h-4 w-4" />
                   Testverktyg
@@ -223,36 +220,34 @@ const History = () => {
                     Fyll listan med färdiga demoposter eller rensa lagrade analyser när du förbereder manuell testning.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 text-slate-300">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
-                    <p className="font-medium text-white">Tips</p>
+                <div className="space-y-4 text-theme-secondary">
+                  <div className="rounded-xl border border-theme-card bg-theme-elevated p-4 text-sm">
+                    <p className="font-medium text-theme-primary">Tips</p>
                     <p>
                       Demoposterna sparas lokalt i din webbläsare. De påverkar inte riktiga analyser och kan tas bort när som helst.
                     </p>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button onClick={handleSeedDemo} className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-white shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] sm:flex-1">
+                    <Button onClick={handleSeedDemo} className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] sm:flex-1">
                       <Wand2 className="h-4 w-4" />
                       Fyll med demodata
                     </Button>
                     <Button
                       variant="outline"
                       onClick={handleClearAll}
-                      className="gap-2 rounded-full border-destructive/60 bg-white/5 text-destructive hover:bg-destructive/10 sm:flex-1"
+                      className="gap-2 rounded-full border-destructive/60 bg-theme-elevated text-destructive hover:bg-destructive/10 sm:flex-1"
                     >
                       <Eraser className="h-4 w-4" />
                       Rensa historiken
                     </Button>
                   </div>
-                  {devStatus && (
-                    <p className="text-sm text-slate-400">{devStatus}</p>
-                  )}
+                  {devStatus && <Banner type="info" text={devStatus} className="text-left" />}
                 </div>
               </DialogContent>
             </Dialog>
             <Button
               onClick={() => navigate("/")}
-              className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-white shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+              className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
             >
               <Camera className="h-4 w-4" />
               Ny skanning
@@ -260,15 +255,15 @@ const History = () => {
           </div>
         </div>
 
-        <Card className="border border-white/10 bg-white/5 shadow-xl shadow-purple-900/10 backdrop-blur">
+        <Card className="border border-theme-card bg-theme-elevated shadow-xl shadow-purple-900/10 backdrop-blur">
           <CardHeader className="space-y-4 pb-0">
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-2">
-                <CardTitle className="flex items-center gap-2 text-3xl font-semibold text-white">
+                <CardTitle className="flex items-center gap-2 text-3xl font-semibold text-theme-primary">
                   <Sparkles className="h-6 w-6 text-[#B095FF]" />
                   Dina vinminnen
                 </CardTitle>
-                <CardDescription className="max-w-2xl text-base text-slate-300">
+                <CardDescription className="max-w-2xl text-base text-theme-secondary">
                   Utforska dina tidigare analyser, upptäck favoriter och hoppa snabbt tillbaka in i WineSnap.
                 </CardDescription>
               </div>
@@ -276,41 +271,41 @@ const History = () => {
           </CardHeader>
           <CardContent className="pb-6">
             <div className="grid gap-4 pt-4 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-black/5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">Totalt sparade</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{entries.length}</p>
-                <p className="text-sm text-slate-300">Alla analyser finns sparade lokalt på din enhet.</p>
+              <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 shadow-inner shadow-black/5">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">Totalt sparade</p>
+                <p className="mt-3 text-3xl font-semibold text-theme-primary">{entries.length}</p>
+                <p className="text-sm text-theme-secondary">Alla analyser finns sparade lokalt på din enhet.</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-black/5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">Senaste analys</p>
-                <p className="mt-3 text-lg font-semibold text-white">
+              <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 shadow-inner shadow-black/5">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">Senaste analys</p>
+                <p className="mt-3 text-lg font-semibold text-theme-primary">
                   {lastTimestamp ? formatRelativeTime(lastTimestamp) : "–"}
                 </p>
-                <p className="text-sm text-slate-300">
+                <p className="text-sm text-theme-secondary">
                   {lastTimestamp ? formatDate(lastTimestamp) : "Gör en skanning för att komma igång."}
                 </p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-inner shadow-black/5">
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-300">Ursprung representerade</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{regionsCount}</p>
-                <p className="text-sm text-slate-300">Ett smakbibliotek fyllt av olika regioner.</p>
+              <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 shadow-inner shadow-black/5">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">Ursprung representerade</p>
+                <p className="mt-3 text-3xl font-semibold text-theme-primary">{regionsCount}</p>
+                <p className="text-sm text-theme-secondary">Ett smakbibliotek fyllt av olika regioner.</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {entries.length === 0 ? (
-          <Card className="border border-dashed border-white/20 bg-white/5 text-center text-slate-100 shadow-xl backdrop-blur">
+          <Card className="border border-dashed border-theme-card bg-theme-elevated text-center text-theme-primary shadow-xl backdrop-blur">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-2xl text-white">Ingen historik ännu</CardTitle>
-              <CardDescription className="text-base text-slate-300">
+              <CardTitle className="text-2xl text-theme-primary">Ingen historik ännu</CardTitle>
+              <CardDescription className="text-base text-theme-secondary">
                 Dina analyser sparas automatiskt här varje gång du fotar en vinflaska med WineSnap.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4 pb-10">
               <Button
                 onClick={() => navigate("/")}
-                className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-white shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
+                className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
               >
                 <Camera className="h-4 w-4" />
                 Starta första skanningen
@@ -318,7 +313,7 @@ const History = () => {
               <Button
                 variant="outline"
                 onClick={() => setDevDialogOpen(true)}
-                className="gap-2 rounded-full border-dashed border-white/25 bg-white/5 text-slate-100 hover:bg-white/10"
+                className="gap-2 rounded-full border-dashed border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
               >
                 <Wand2 className="h-4 w-4" />
                 Visa testverktyg
@@ -350,10 +345,10 @@ const History = () => {
               return (
                 <Card
                   key={entry.key}
-                  className="border border-white/10 bg-white/5 shadow-2xl shadow-purple-900/20 transition hover:-translate-y-1 hover:shadow-purple-900/40 backdrop-blur"
+                  className="border border-theme-card bg-theme-elevated shadow-2xl shadow-purple-900/20 transition hover:-translate-y-1 hover:shadow-purple-900/40 backdrop-blur"
                 >
                   <CardContent className="flex flex-col gap-6 pt-6 md:flex-row md:items-start">
-                    <div className="relative w-full overflow-hidden rounded-3xl border border-white/10 bg-black/20 shadow-sm md:max-w-[220px]">
+                    <div className="relative w-full overflow-hidden rounded-3xl border border-theme-card bg-black/20 shadow-sm md:max-w-[220px]">
                       {entry.imageData ? (
                         <img
                           src={entry.imageData}
@@ -361,11 +356,11 @@ const History = () => {
                           className="h-full w-full object-cover"
                         />
                       ) : (
-                        <div className="flex h-full min-h-[180px] items-center justify-center text-slate-400">
+                        <div className="flex h-full min-h-[180px] items-center justify-center text-theme-secondary">
                           Ingen bild
                         </div>
                       )}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-xs font-medium uppercase tracking-[0.24em] text-white/80">
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-xs font-medium uppercase tracking-[0.24em] text-theme-primary opacity-80">
                         {formatRelativeTime(entry.timestamp)}
                       </div>
                     </div>
@@ -373,15 +368,15 @@ const History = () => {
                     <div className="flex-1 space-y-4">
                       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                         <div className="space-y-1">
-                          <h2 className="text-2xl font-semibold text-white">
+                          <h2 className="text-2xl font-semibold text-theme-primary">
                             {entry.result.vin || "Okänt vin"}
                           </h2>
-                          <p className="text-sm text-slate-300">
+                          <p className="text-sm text-theme-secondary">
                             {entry.result.land_region || "–"}
                             {entry.result.årgång ? ` • Årgång ${entry.result.årgång}` : ""}
                           </p>
                         </div>
-                        <p className="text-sm text-slate-400">{formatDate(entry.timestamp)}</p>
+                        <p className="text-sm text-theme-secondary">{formatDate(entry.timestamp)}</p>
                       </div>
 
                       <div className="space-y-4">
@@ -390,36 +385,36 @@ const History = () => {
                             {classificationTags.map((tag) => (
                               <span
                                 key={tag.label}
-                                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs text-[#D4C5FF]"
+                                className="inline-flex items-center gap-2 rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-xs text-[#D4C5FF]"
                               >
                                 <span className="text-[10px] uppercase tracking-[0.35em] text-[#B095FF]/70">{tag.label}</span>
-                                <span className="font-semibold text-white">{tag.value}</span>
+                                <span className="font-semibold text-theme-primary">{tag.value}</span>
                               </span>
                             ))}
                           </div>
                         )}
 
                         <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-300">Artikelinformation</p>
+                          <div className="rounded-2xl border border-theme-card bg-theme-elevated p-4 text-sm text-theme-secondary">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-theme-secondary">Artikelinformation</p>
                             <dl className="mt-3 grid gap-3 sm:grid-cols-2">
                               {baseFacts.map((fact) => (
                                 <div key={fact.label} className="space-y-1">
-                                  <dt className="text-[11px] uppercase tracking-[0.35em] text-slate-400">{fact.label}</dt>
-                                  <dd className="text-base font-semibold text-white">{fact.value}</dd>
+                                  <dt className="text-[11px] uppercase tracking-[0.35em] text-theme-secondary">{fact.label}</dt>
+                                  <dd className="text-base font-semibold text-theme-primary">{fact.value}</dd>
                                 </div>
                               ))}
                             </dl>
                           </div>
 
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200 shadow-sm">
+                          <div className="rounded-2xl border border-theme-card bg-theme-elevated p-4 text-sm text-theme-secondary shadow-sm">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-[#B095FF]">Systembolagets smakprofil</p>
-                            <p className="mt-1 text-xs text-slate-300">Skala 0–5. Hämtad från senaste analysen.</p>
+                            <p className="mt-1 text-xs text-theme-secondary">Skala 0–5. Hämtad från senaste analysen.</p>
                             <div className="mt-4 grid grid-cols-3 gap-3">
                               {tasteProfile.meters.map((meter) => (
                                 <div key={meter.label} className="flex flex-col items-center gap-2">
                                   <GaugeCircleSB label={meter.label} value={meter.value ?? null} size={60} stroke={6} showValue />
-                                  <span className="text-[11px] text-slate-300">
+                                  <span className="text-[11px] text-theme-secondary">
                                     {typeof meter.value === "number" ? `${meter.value.toFixed(1)}/5` : "–"}
                                   </span>
                                 </div>
@@ -431,16 +426,16 @@ const History = () => {
                           </div>
                         </div>
 
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-300">Serveringsnotiser</p>
-                          <div className="mt-2 text-sm text-slate-200">
+                        <div className="rounded-2xl border border-theme-card bg-theme-elevated p-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-theme-secondary">Serveringsnotiser</p>
+                          <div className="mt-2 text-sm text-theme-secondary">
                             <p>{entry.result.servering || "Systembolaget har inte publicerat serveringsråd."}</p>
                             {pairings.length > 0 && (
                               <ul className="mt-2 flex flex-wrap gap-2">
                                 {pairings.map((pairing) => (
                                   <li
                                     key={pairing}
-                                    className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs text-slate-100"
+                                    className="rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-xs text-theme-primary"
                                   >
                                     {pairing}
                                   </li>
@@ -451,12 +446,12 @@ const History = () => {
                         </div>
                       </div>
 
-                      <Separator className="border-white/10" />
+                      <Separator className="border-theme-card" />
 
                       <div className="flex flex-wrap gap-3">
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button size="sm" className="gap-2 rounded-full bg-white/10 text-slate-100 hover:bg-white/20">
+                            <Button size="sm" className="gap-2 rounded-full bg-theme-elevated text-theme-primary hover:bg-theme-elevated">
                               Visa detaljer
                             </Button>
                           </DialogTrigger>
@@ -474,7 +469,7 @@ const History = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => handleCopyToClipboard(entry)}
-                          className="gap-2 rounded-full border-white/15 bg-white/5 text-slate-100 hover:bg-white/15"
+                          className="gap-2 rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
                         >
                           <Copy className="h-4 w-4" />
                           Kopiera
@@ -484,7 +479,7 @@ const History = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => handleRemove(entry.key)}
-                          className="gap-2 rounded-full border-destructive/60 bg-white/5 text-destructive hover:bg-destructive/10"
+                          className="gap-2 rounded-full border-destructive/60 bg-theme-elevated text-destructive hover:bg-destructive/10"
                         >
                           <Trash2 className="h-4 w-4" />
                           Ta bort

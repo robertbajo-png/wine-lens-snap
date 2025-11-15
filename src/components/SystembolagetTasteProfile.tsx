@@ -136,26 +136,26 @@ export function SystembolagetTasteProfile({ result }: { result: WineAnalysisResu
   const allNull = profile.meters.every((meter) => meter.value === null);
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-6 text-slate-800 shadow-sm">
+    <section className="rounded-2xl border border-theme-card bg-theme-elevated p-6 text-theme-secondary shadow-theme-elevated">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="max-w-xl space-y-2">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-theme-secondary">
             Systembolagets smakprofil
           </p>
-          <h2 className="text-lg font-semibold text-slate-900">{profile.headline}</h2>
-          <p className="text-sm text-slate-600">{profile.subline}</p>
-          <p className="text-xs text-slate-500">Skala 0–5 enligt Systembolagets mätare.</p>
+          <h2 className="text-lg font-semibold text-theme-primary">{profile.headline}</h2>
+          <p className="text-sm text-theme-secondary">{profile.subline}</p>
+          <p className="text-xs text-theme-secondary">Skala 0–5 enligt Systembolagets mätare.</p>
           {allNull && (
-            <p className="text-xs text-amber-600">
+            <p className="text-xs text-theme-secondary">
               Systembolaget har inte publicerat värden för den här flaskan ännu.
             </p>
           )}
         </div>
         <div className="grid w-full max-w-md grid-cols-3 gap-4">
           {profile.meters.map((meter) => (
-            <div key={meter.label} className="flex flex-col items-center gap-2 text-slate-700">
+            <div key={meter.label} className="flex flex-col items-center gap-2 text-theme-secondary">
               <GaugeCircleSB label={meter.label} value={meter.value ?? null} size={72} stroke={7} showValue />
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-theme-secondary">
                 {typeof meter.value === "number" ? `${meter.value.toFixed(1)}/5` : "–"}
               </span>
             </div>
