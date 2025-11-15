@@ -28,9 +28,9 @@ import {
 } from "./prompts.ts";
 
 const CFG = {
-  PPLX_TIMEOUT_MS: 12000,   // max PPLX-tid
+  PPLX_TIMEOUT_MS: 1200,    // aggressiv timeout för webbkällor
   GEMINI_TIMEOUT_MS: 45000, // max Gemini-tid
-  FAST_TIMEOUT_MS: 4000,    // snabb “fail-fast” för initial sök
+  FAST_TIMEOUT_MS: 1200,    // snabb “fail-fast” för initial sök
   MAX_WEB_URLS: 3,
   PPLX_MODEL: "sonar",
 };
@@ -365,19 +365,45 @@ async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: W
   let pplx_ms: number | null = null;
   let gemini_ms: number | null = null;
   let fastPathHit = false;
-  let pplx_status: WebMeta["pplx_status"] = "skipped";
-  let gemini_status: WebMeta["gemini_status"] = LOVABLE_API_KEY ? "empty" : "skipped";
+  let pplx_status: WebMeta["pplx_status"] = PERPLEXITY_API_KEY ? "empty" : "skipped";
+  let gemini_status: WebMeta["gemini_status"] = LOVABLE_API_KEY && imageUrl ? "empty" : "skipped";
 
-  // Skip Perplexity completely - go directly to Gemini Vision
   let web: WebJson = null;
 
-  if (LOVABLE_API_KEY && imageUrl) {
+  if (PERPLEXITY_API_KEY) {
+    const pplxStart = Date.now();
+    try {
+      const pplxResult = await runPerplexity(ocrText);
+      pplx_ms = Date.now() - pplxStart;
+      if (pplxResult) {
+        web = pplxResult;
+        fastPathHit = true;
+        pplx_status = "ok";
+        console.log(`[${new Date().toISOString()}] Perplexity success (${pplx_ms}ms)`);
+      } else {
+        pplx_status = "empty";
+        console.log(`[${new Date().toISOString()}] Perplexity returned empty (${pplx_ms}ms)`);
+      }
+    } catch (error) {
+      pplx_ms = Date.now() - pplxStart;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (errMsg === "perplexity_timeout" || (error instanceof Error && error.name === "TimeoutError")) {
+        pplx_status = "timeout";
+        console.warn(`[${new Date().toISOString()}] Perplexity timeout (${pplx_ms}ms)`);
+      } else {
+        pplx_status = "error";
+        console.error(`[${new Date().toISOString()}] Perplexity error (${pplx_ms}ms):`, error);
+      }
+    }
+  }
+
+  if (!web && LOVABLE_API_KEY && imageUrl) {
     console.log(`[${new Date().toISOString()}] Starting Gemini Vision analysis directly...`);
     const gemStart = Date.now();
     try {
       const geminiResult = await withTimeout(
-        runGeminiFast(ocrText, imageUrl), 
-        CFG.GEMINI_TIMEOUT_MS, 
+        runGeminiFast(ocrText, imageUrl),
+        CFG.GEMINI_TIMEOUT_MS,
         "gemini-vision-direct"
       );
       gemini_ms = Date.now() - gemStart;
@@ -438,6 +464,7 @@ function createEmptySummary(): WineSummary {
     passar_till: [],
     meters: { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
     evidence: { etiketttext: "", webbträffar: [] },
+    källstatus: { source: "heuristic", evidence_links: [] },
   };
 }
 
@@ -446,6 +473,14 @@ const ensureString = (value: unknown, fallback = "-"): string =>
 
 const ensureStringArray = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+
+const HTTP_URL_REGEX = /^https?:\/\//i;
+
+const sanitizeEvidenceLinks = (value: unknown): string[] =>
+  ensureStringArray(value)
+    .map((url) => url.trim())
+    .filter((url) => HTTP_URL_REGEX.test(url))
+    .slice(0, CFG.MAX_WEB_URLS);
 
 function ensureMeters(value: unknown): WineSummary["meters"] {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -469,8 +504,43 @@ function ensureEvidence(value: unknown): WineSummary["evidence"] {
   const evidence = value as Partial<WineSummary["evidence"]>;
   return {
     etiketttext: typeof evidence.etiketttext === "string" ? evidence.etiketttext : "",
-    webbträffar: ensureStringArray(evidence.webbträffar),
+    webbträffar: sanitizeEvidenceLinks(evidence.webbträffar),
   };
+}
+
+type SourceStatus = { source: "web" | "heuristic"; evidence_links: string[] };
+
+function ensureSourceStatus(value: unknown): SourceStatus {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { source: "heuristic", evidence_links: [] };
+  }
+  const record = value as Record<string, unknown>;
+  const source = record.source === "web" ? "web" : "heuristic";
+  return { source, evidence_links: sanitizeEvidenceLinks(record.evidence_links) };
+}
+
+const hasLabelSignal = (value: unknown): boolean =>
+  typeof value === "string" && !isBlank(value) && value.trim() !== "-";
+
+// Heuristics require at minimum one reliable grape hint plus either region or producer info from the label
+function canUseLabelHeuristics(data: WineSummary): boolean {
+  const hasGrape = hasLabelSignal(data.druvor);
+  const hasRegion = hasLabelSignal(data.land_region);
+  const hasProducer = hasLabelSignal(data.producent);
+  return hasGrape && (hasRegion || hasProducer);
+}
+
+type MetaRecord = {
+  confidence_per_field?: Record<string, number>;
+  source_breakdown?: Array<{ url?: string; weight?: number }>;
+  fallback?: string;
+  [key: string]: unknown;
+};
+
+function ensureMetaRecord(value: unknown): MetaRecord {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? { ...(value as MetaRecord) }
+    : {};
 }
 
 function normalizeWineSummary(value: unknown): WineSummary {
@@ -498,6 +568,7 @@ function normalizeWineSummary(value: unknown): WineSummary {
     passar_till: ensureStringArray(record.passar_till),
     meters: ensureMeters(record.meters),
     evidence: ensureEvidence(record.evidence),
+    källstatus: ensureSourceStatus(record.källstatus),
   };
 }
 
@@ -948,8 +1019,9 @@ function fillMissingFields(
   finalData.passar_till = Array.from(new Set([...existingPairings, ...fromWebPairings])).slice(0, 5);
 
   const meters = finalData.meters ?? { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null };
+  const heuristicsEnabled = allowHeuristics && canUseLabelHeuristics(finalData);
 
-  if (allowHeuristics) {
+  if (heuristicsEnabled) {
     const colour = detectColour(finalData, ocrText);
     const body = detectBody(finalData, ocrText);
     const sweetness = detectSweetness(finalData, ocrText);
@@ -990,10 +1062,11 @@ function fillMissingFields(
   }
 
   finalData.evidence = finalData.evidence ?? { etiketttext: clamp(ocrText), webbträffar: [] };
-  finalData.evidence = {
+  const normalizedEvidence = {
     etiketttext: finalData.evidence.etiketttext || clamp(ocrText),
-    webbträffar: ensureStringArray(finalData.evidence.webbträffar),
+    webbträffar: sanitizeEvidenceLinks(finalData.evidence.webbträffar),
   };
+  finalData.evidence = normalizedEvidence;
 
   const meterKeys: Array<keyof WineSummary["meters"]> = ["sötma", "fyllighet", "fruktighet", "fruktsyra"];
   const webMetersProvided =
@@ -1005,7 +1078,16 @@ function fillMissingFields(
     confidence?: Record<string, number>;
     [key: string]: unknown;
   };
-  meta.meters_source = webMetersProvided ? "web" : "derived";
+  const evidenceLinks = normalizedEvidence.webbträffar;
+  const webLinks = webData ? sanitizeEvidenceLinks(webData.källor) : [];
+  const hasVerifiedWeb = webLinks.length > 0 && evidenceLinks.length > 0;
+  const sourceStatus: SourceStatus = {
+    source: hasVerifiedWeb ? "web" : "heuristic",
+    evidence_links: evidenceLinks,
+  };
+  finalData.källstatus = sourceStatus;
+
+  meta.meters_source = hasVerifiedWeb && webMetersProvided ? "web" : "derived";
   const confidenceMeta =
     meta.confidence && typeof meta.confidence === "object" && !Array.isArray(meta.confidence)
       ? { ...meta.confidence }
@@ -1534,7 +1616,7 @@ WEB_JSON:
       }
       finalData.evidence = finalData.evidence || { etiketttext: "", webbträffar: [] };
       finalData.evidence.etiketttext = finalData.evidence.etiketttext || clamp(ocrText);
-      finalData.evidence.webbträffar = (WEB_JSON.källor ?? []).slice(0, CFG.MAX_WEB_URLS);
+      finalData.evidence.webbträffar = sanitizeEvidenceLinks(WEB_JSON.källor ?? []);
 
       const geminiTime = Date.now() - geminiStart;
       console.log(`[${new Date().toISOString()}] Gemini success (${geminiTime}ms)`);
@@ -1596,7 +1678,7 @@ WEB_JSON:
       }
     }
 
-    const meta = (finalData._meta || {}) as any;
+    const meta = ensureMetaRecord(finalData._meta);
     meta.confidence_per_field = {
       ...(meta.confidence_per_field || {}),
       ...conf,
@@ -1620,7 +1702,7 @@ WEB_JSON:
         if (m.fyllighet == null) m.fyllighet = drt.fyllighet;
         if (m.fruktighet == null) m.fruktighet = drt.fruktighet;
         if (m.fruktsyra == null) m.fruktsyra = drt.fruktsyra;
-        const meta = (finalData._meta || {}) as any;
+        const meta = ensureMetaRecord(finalData._meta);
         meta.fallback = "drt";
         finalData._meta = meta;
       }

@@ -419,7 +419,7 @@ async function gpt5(
       ]
     : prompt;
 
-  const body: any = {
+  const body: Record<string, unknown> = {
     model,
     max_completion_tokens: maxCompletionTokens,
     messages: [{ role: "user", content: userContent }],

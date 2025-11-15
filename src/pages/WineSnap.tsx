@@ -34,6 +34,8 @@ import { trackEvent } from "@/lib/telemetry";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
+const WEB_EVIDENCE_THRESHOLD = 2;
+const HTTP_LINK_REGEX = /^https?:\/\//i;
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
 
 type BannerState = {
@@ -432,6 +434,7 @@ const WineSnap = () => {
               ? data.meters
               : { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
           evidence: data.evidence || { etiketttext: "", webbträffar: [] },
+          källstatus: data.källstatus || { source: "heuristic", evidence_links: [] },
           detekterat_språk: data.detekterat_språk,
           originaltext: data.originaltext,
           _meta: data._meta,
@@ -675,9 +678,33 @@ const WineSnap = () => {
     hasNumeric(results.meters.fyllighet) &&
     hasNumeric(results.meters.fruktighet) &&
     hasNumeric(results.meters.fruktsyra);
-  const hasWebEvidence = (results?.evidence?.webbträffar?.length ?? 0) > 0;
+  const sourceStatus = results?.källstatus;
+  const evidenceFallback = results?.evidence?.webbträffar ?? [];
+  const evidenceLinks = Array.isArray(sourceStatus?.evidence_links) && sourceStatus?.evidence_links.length
+    ? (sourceStatus?.evidence_links as string[])
+    : evidenceFallback;
+  const verifiedEvidenceCount = evidenceLinks.filter((url) => typeof url === "string" && HTTP_LINK_REGEX.test(url)).length;
+  const isWebSource = sourceStatus?.source === "web";
   const metersFromTrustedSource = results?._meta?.meters_source === "web";
-  const showVerifiedMeters = Boolean(metersOk && hasWebEvidence && metersFromTrustedSource);
+  const showVerifiedMeters = Boolean(
+    metersOk &&
+    metersFromTrustedSource &&
+    isWebSource &&
+    verifiedEvidenceCount >= WEB_EVIDENCE_THRESHOLD
+  );
+  const sourceLabel = sourceStatus ? (isWebSource ? "Webb" : "Heuristik") : "Okänd";
+  const sourceDescription = sourceStatus
+    ? isWebSource
+      ? verifiedEvidenceCount >= WEB_EVIDENCE_THRESHOLD
+        ? `Bekräftad av ${verifiedEvidenceCount} webbkällor`
+        : `Behöver fler källor (${verifiedEvidenceCount}/${WEB_EVIDENCE_THRESHOLD})`
+      : "Baserad på etikett, druva och region"
+    : "Källstatus saknas";
+  const missingSourceText = !sourceStatus
+    ? "Källstatus saknas för denna analys. Försök att skanna om flaskan."
+    : isWebSource
+      ? `Vi behöver minst ${WEB_EVIDENCE_THRESHOLD} verifierade webbkällor för att visa smakprofilen (har ${verifiedEvidenceCount}).`
+      : "Vi saknar verifierade webbkällor och visar inte etikettbaserad heuristik.";
 
   // --- spara historik (lokalt + supabase) när resultat finns ---
   useEffect(() => {
@@ -769,13 +796,14 @@ const WineSnap = () => {
               />
 
               <section className="rounded-2xl border border-theme-card bg-gradient-to-br from-[hsl(var(--surface-elevated)/1)] via-[hsl(var(--surface-elevated)/0.8)] to-[hsl(var(--surface-elevated)/0.6)] p-4 backdrop-blur-sm">
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-theme-primary">Smakprofil</h3>
-                  {!showVerifiedMeters && (
-                    <span className="rounded-full border border-theme-card bg-theme-elevated px-2 py-0.5 text-[10px] uppercase tracking-wide text-theme-secondary">
-                      Etikettinfo
+                  <div className="flex flex-col items-end gap-1 text-right">
+                    <span className="inline-flex items-center rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-theme-secondary">
+                      Källa: {sourceLabel}
                     </span>
-                  )}
+                    <span className="text-[11px] text-theme-secondary">{sourceDescription}</span>
+                  </div>
                 </div>
                 {showVerifiedMeters ? (
                   <MetersRow
@@ -786,11 +814,7 @@ const WineSnap = () => {
                   <Banner
                     type="warning"
                     title="Smakprofil saknas"
-                    text={
-                      results?._meta?.meters_source === "derived"
-                        ? "Vi hittade bara uppskattade värden från etiketten och visar dem inte utan bekräftelse från webbkällor."
-                        : "Vi saknar tillräckliga webbkällor för att visa smakprofilen just nu."
-                    }
+                    text={missingSourceText}
                     ctaLabel="Ny skanning"
                     onCta={handleRetryScan}
                   />
@@ -818,7 +842,11 @@ const WineSnap = () => {
 
               <EvidenceAccordion
                 ocr={ocrText}
-                hits={results.evidence?.webbträffar}
+                hits={
+                  sourceStatus?.evidence_links?.length
+                    ? sourceStatus.evidence_links
+                    : results.evidence?.webbträffar
+                }
                 primary={results.källa}
               />
 

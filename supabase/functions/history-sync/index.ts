@@ -19,7 +19,7 @@ const cors = {
 
 // Table created via migration - no need for ensureTable()
 
-async function insertRow(payload: any) {
+async function insertRow(payload: Record<string, unknown>) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/label_history`, {
     method: "POST",
     headers: {
