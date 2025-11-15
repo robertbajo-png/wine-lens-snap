@@ -142,6 +142,10 @@ export interface WineAnalysisResult {
     etiketttext: string;
     webbträffar: string[];
   };
+  källstatus?: {
+    source: "web" | "heuristic";
+    evidence_links: string[];
+  };
   _meta?: {
     meters_source?: "web" | "derived";
     confidence?: {

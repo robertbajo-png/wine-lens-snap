@@ -28,6 +28,10 @@ export interface WineSummary {
   passar_till: string[];
   meters: WineMeters;
   evidence: WineEvidence;
+  källstatus?: {
+    source: "web" | "heuristic";
+    evidence_links: string[];
+  };
   [key: string]: unknown;
 }
 
