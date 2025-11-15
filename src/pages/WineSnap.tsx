@@ -29,7 +29,7 @@ import {
 } from "@/lib/imagePipelineCore";
 import { readExifOrientation } from "@/lib/exif";
 
-const INTRO_ROUTE = "/";
+const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
 
@@ -671,7 +671,7 @@ const WineSnap = () => {
                 variant="outline"
                 size="sm"
                 className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-                onClick={() => navigate("/historik")}
+                onClick={() => navigate("/me/wines")}
               >
                 Historik
               </Button>
@@ -843,7 +843,7 @@ const WineSnap = () => {
               variant="outline"
               size="sm"
               className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-              onClick={() => navigate("/historik")}
+              onClick={() => navigate("/me/wines")}
             >
               Historik
             </Button>

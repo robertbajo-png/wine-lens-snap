@@ -78,7 +78,7 @@ const workflowSteps = [
   },
 ];
 
-const Index = () => {
+const ForYou = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<LandingStats>({ count: 0, latestWine: null, latestTime: null });
 
@@ -129,14 +129,14 @@ const Index = () => {
                 variant="ghost"
                 size="sm"
                 className="text-theme-secondary hover:text-theme-primary"
-                onClick={() => navigate("/historik")}
+                onClick={() => navigate("/me/wines")}
               >
                 Historik
               </Button>
               <Button
                 size="sm"
                 className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
-                onClick={() => navigate("/skanna")}
+                onClick={() => navigate("/scan")}
               >
                 Starta skanning
               </Button>
@@ -150,7 +150,7 @@ const Index = () => {
             title="Senaste vinprofil"
             text={`${stats.latestWine ?? "Vinprofil"} analyserades ${stats.latestTime ?? "nyligen"}. Du har ${stats.count} sparade analyser.`}
             ctaLabel="Öppna historiken"
-            onCta={() => navigate("/historik")}
+            onCta={() => navigate("/me/wines")}
             className="mb-10"
           />
         )}
@@ -175,7 +175,7 @@ const Index = () => {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button
                   size="lg"
-                  onClick={() => navigate("/skanna")}
+                  onClick={() => navigate("/scan")}
                   className="h-14 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] px-8 text-base font-semibold shadow-[0_20px_40px_-22px_rgba(123,63,228,0.95)]"
                 >
                   <Camera className="mr-2 h-5 w-5" />
@@ -184,7 +184,7 @@ const Index = () => {
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={() => navigate("/historik")}
+                  onClick={() => navigate("/me/wines")}
                   className="h-14 rounded-full border-theme-card bg-theme-elevated px-8 text-base text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
                 >
                   Utforska historiken
@@ -315,7 +315,7 @@ const Index = () => {
                 <Button
                   size="lg"
                   className="h-14 rounded-full bg-theme-accent px-8 text-base font-semibold text-theme-primary shadow-theme-elevated transition hover:opacity-90"
-                  onClick={() => navigate("/skanna")}
+                  onClick={() => navigate("/scan")}
                 >
                   Kom igång
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -339,4 +339,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default ForYou;
