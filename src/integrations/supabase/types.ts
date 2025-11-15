@@ -221,6 +221,36 @@ export type Database = {
           }
         ]
       }
+      telemetry_events: {
+        Row: {
+          created_at: string
+          event_name: string
+          id: string
+          occurred_at: string
+          payload_json: Json
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_name: string
+          id?: string
+          occurred_at?: string
+          payload_json?: Json
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_name?: string
+          id?: string
+          occurred_at?: string
+          payload_json?: Json
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       scans: {
         Row: {
           analysis_json: Json | null
@@ -309,7 +339,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      explore_filter_usage_top3: {
+        Row: {
+          field: string | null
+          usage_count: number | null
+          value: string | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      explore_session_conversion: {
+        Row: {
+          conversion_rate: number | null
+          sessions_with_new_scan: number | null
+          total_sessions: number | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

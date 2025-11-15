@@ -1,6 +1,6 @@
 # Telemetrievent
 
-WineSnap loggar en uppsättning minimala telemetrievent till konsolen via `trackEvent` i `src/lib/telemetry.ts`. Händelserna kan enkelt bytas ut mot en annan transport om vi i framtiden vill skicka dem till ett externt system.
+WineSnap loggar en uppsättning minimala telemetrievent via `trackEvent` i `src/lib/telemetry.ts`. Händelserna skrivs både till webbkonsolen och till Supabase-tabellen `telemetry_events`, vilket gör det enkelt att köra saved queries och dashboards i efterhand.
 
 ## Eventöversikt
 
@@ -12,10 +12,14 @@ WineSnap loggar en uppsättning minimala telemetrievent till konsolen via `track
 | `scan_fail` | När bildanalysen misslyckas. | `reason` (felsymtom som visas för användaren), `name` (feltyp om tillgänglig). |
 | `history_open` | När historiksidan visas och datan har laddats. | `entries` (antalet synliga poster). |
 | `profile_open` | När profilsidan öppnas första gången i en session. | `language`, `theme`, `notificationsEnabled` (aktuella inställningar). |
+| `explore_opened` | När Explore-sidan visas första gången under en session. | `hasUser`, `personalScanCount`, `curatedScanCount`, `quickFilterCount`, `seedLibrarySource`. |
+| `explore_filter_changed` | När snabbfilter eller sökparametrar ändras. | `source` (`quick`, `manual`, `clear_all`), `field`, `value`, `quickFilterId`, `filters` (hela filteruppsättningen), `filterCount`, `manualFiltersActive`, `cleared` (om ett fält tömdes). |
+| `explore_scan_opened` | När en kuraterad eller personlig skanning öppnas från Explore. | `scanId`, `source` (`mine` eller `curated`), `manualFiltersActive`, `quickFilterId`. |
+| `explore_new_scan_cta_clicked` | När CTA:n "Ny skanning" klickas från Explore. | `manualFiltersActive`, `activeFilterCount`, `quickFilterId`, `personalScanCount`. |
 
 ## Loggning
 
-Alla event hamnar i webbkonsolen med prefixet `[telemetry]` samt tidsstämpel i ISO-format. I utvecklingsläge används `console.info`, annars `console.log`.
+Alla event hamnar i webbkonsolen med prefixet `[telemetry]` samt tidsstämpel i ISO-format. I utvecklingsläge används `console.info`, annars `console.log`. I bakgrunden buffras eventen asynkront till `telemetry_events` utan att blockera UI-tråden.
 
 ## Utökning
 
