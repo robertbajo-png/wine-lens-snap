@@ -95,6 +95,34 @@ export type Database = {
             foreignKeyName: "scans_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "profiles"
+          referencedColumns: ["id"]
+        }
+      ]
+      }
+      user_settings: {
+        Row: {
+          lang: string
+          push_opt_in: boolean
+          theme: string
+          user_id: string
+        }
+        Insert: {
+          lang?: string
+          push_opt_in?: boolean
+          theme?: string
+          user_id: string
+        }
+        Update: {
+          lang?: string
+          push_opt_in?: boolean
+          theme?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           }
         ]
