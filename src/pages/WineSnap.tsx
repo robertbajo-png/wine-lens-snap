@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Camera, Wine, Loader2, Download, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { getCachedAnalysis, setCachedAnalysis, type WineAnalysisResult } from "@/lib/wineCache";
+import { useAuth } from "@/auth/AuthProvider";
+import { getCachedAnalysis, setCachedAnalysis, computeLabelHash, type WineAnalysisResult } from "@/lib/wineCache";
 import { sha1Base64, getOcrCache, setOcrCache } from "@/lib/ocrCache";
 import { ProgressBanner } from "@/components/ProgressBanner";
 import { Banner } from "@/components/Banner";
@@ -19,6 +20,7 @@ import ServingCard from "@/components/result/ServingCard";
 import EvidenceAccordion from "@/components/result/EvidenceAccordion";
 import ActionBar from "@/components/result/ActionBar";
 import ResultSkeleton from "@/components/result/ResultSkeleton";
+import { WineListsPanel } from "@/components/result/WineListsPanel";
 import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
 import {
   supportsOffscreenCanvas,
@@ -31,6 +33,7 @@ import { readExifOrientation } from "@/lib/exif";
 import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { trackEvent } from "@/lib/telemetry";
+import { supabase } from "@/lib/supabaseClient";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -71,6 +74,31 @@ type WorkerErrorMessage = {
 
 type WorkerMessage = WorkerProgressMessage | WorkerResultMessage | WorkerErrorMessage;
 
+const parseVintageFromString = (value?: string | null): number | null => {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.match(/\d{4}/);
+  if (!match) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(match[0], 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const normalizeRawText = (value?: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "–") {
+    return null;
+  }
+  return trimmed;
+};
+
 type AnalysisResponse = {
   ok: boolean;
   note?: string;
@@ -93,6 +121,7 @@ const readFileAsDataUrl = (file: File) =>
 const WineSnap = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -102,6 +131,8 @@ const WineSnap = () => {
   const [progressNote, setProgressNote] = useState<string | null>(null);
   const [progressPercent, setProgressPercent] = useState<number | null>(null);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
+  const [remoteScanId, setRemoteScanId] = useState<string | null>(null);
+  const [persistingScan, setPersistingScan] = useState(false);
   const { setTabState } = useTabStateContext();
   const triggerHaptic = useHapticFeedback();
 
@@ -113,6 +144,7 @@ const WineSnap = () => {
   const shouldAutoRetakeRef = useRef(false);
   const workerRef = useRef<Worker | null>(null);
   const currentImageRef = useRef<PipelineSource | null>(null);
+  const ensureScanPromiseRef = useRef<Promise<string> | null>(null);
   useEffect(() => {
     const lang = navigator.language || "sv-SE";
     prewarmOcr(lang).catch(() => {
@@ -441,18 +473,19 @@ const WineSnap = () => {
         };
 
         setResults(result);
-        const remoteScanId =
+        const resolvedRemoteId =
           typeof data?._meta?.existing_scan_id === "string"
             ? data._meta.existing_scan_id
             : typeof data?._meta?.scan_id === "string"
               ? data._meta?.scan_id
               : undefined;
+        setRemoteScanId(resolvedRemoteId ?? null);
         const labelHashMeta = typeof data?._meta?.label_hash === "string" ? data._meta.label_hash : undefined;
         const rawOcrValue = !noTextFound && ocrText ? ocrText : null;
         setCachedAnalysis(cacheLookupKey, result, {
           imageData: processedImage,
           rawOcr: rawOcrValue,
-          remoteId: remoteScanId ?? null,
+          remoteId: resolvedRemoteId ?? null,
           labelHash: labelHashMeta,
         });
         trackEvent("scan_success", {
@@ -611,6 +644,57 @@ const WineSnap = () => {
     document.getElementById("wineImageUpload")?.click();
   };
 
+  const ensureRemoteScan = useCallback(async (): Promise<string> => {
+    if (remoteScanId) {
+      return remoteScanId;
+    }
+
+    if (!results) {
+      throw new Error("Vänta tills analysen är klar innan du sparar vinet.");
+    }
+
+    if (!user?.id) {
+      throw new Error("Logga in för att kunna spara listor.");
+    }
+
+    if (ensureScanPromiseRef.current) {
+      return ensureScanPromiseRef.current;
+    }
+
+    const promise = (async () => {
+      setPersistingScan(true);
+      try {
+        const rawTextCandidate =
+          normalizeRawText(results.originaltext) ?? normalizeRawText(results.evidence?.etiketttext) ?? null;
+        const labelHash = computeLabelHash(rawTextCandidate ?? results.vin ?? null);
+        const { data, error } = await supabase
+          .from("scans")
+          .insert({
+            label_hash: labelHash,
+            raw_ocr: rawTextCandidate,
+            image_thumb: previewImage,
+            analysis_json: results,
+            vintage: parseVintageFromString(results.årgång),
+          })
+          .select("id")
+          .single();
+
+        if (error || !data) {
+          throw new Error(error?.message ?? "Kunde inte spara skanningen.");
+        }
+
+        setRemoteScanId(data.id);
+        return data.id;
+      } finally {
+        setPersistingScan(false);
+        ensureScanPromiseRef.current = null;
+      }
+    })();
+
+    ensureScanPromiseRef.current = promise;
+    return promise;
+  }, [previewImage, remoteScanId, results, user?.id]);
+
   const handleReset = () => {
     triggerHaptic();
     setPreviewImage(null);
@@ -621,9 +705,12 @@ const WineSnap = () => {
     setProgressNote(null);
     setProgressPercent(null);
     setProgressLabel(null);
+    setRemoteScanId(null);
+    setPersistingScan(false);
     autoOpenedRef.current = false;
     cameraOpenedRef.current = false;
     shouldAutoRetakeRef.current = false;
+    ensureScanPromiseRef.current = null;
     if (autoRetakeTimerRef.current) {
       window.clearTimeout(autoRetakeTimerRef.current);
       autoRetakeTimerRef.current = null;
@@ -794,6 +881,30 @@ const WineSnap = () => {
                 land_region={results.land_region}
                 typ={results.typ}
               />
+
+              {user ? (
+                <WineListsPanel
+                  scanId={remoteScanId}
+                  ensureScanId={ensureRemoteScan}
+                  isPersistingScan={persistingScan}
+                />
+              ) : (
+                <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
+                  <CardContent className="flex flex-col gap-3 text-sm text-theme-secondary sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-theme-primary">Logga in för att spara vinet</p>
+                      <p>Skapa listor som Favoriter, Köp igen och Gästlista med ditt konto.</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                      onClick={() => navigate("/login?redirectTo=/scan")}
+                    >
+                      Logga in
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
               <section className="rounded-2xl border border-theme-card bg-gradient-to-br from-[hsl(var(--surface-elevated)/1)] via-[hsl(var(--surface-elevated)/0.8)] to-[hsl(var(--surface-elevated)/0.6)] p-4 backdrop-blur-sm">
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
