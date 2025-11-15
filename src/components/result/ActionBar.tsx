@@ -10,6 +10,7 @@ export default function ActionBar({ onNewScan }: { onNewScan?: () => void }) {
             type="button"
             onClick={onNewScan}
             className="rounded-full bg-gradient-to-r from-purple-600 to-indigo-500 px-5 py-2 text-sm font-semibold text-theme-primary shadow-lg transition hover:opacity-90"
+            aria-label="Starta en ny skanning"
           >
             Fota ny flaska
           </button>

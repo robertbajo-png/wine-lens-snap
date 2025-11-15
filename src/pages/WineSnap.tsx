@@ -30,6 +30,7 @@ import {
 import { readExifOrientation } from "@/lib/exif";
 import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
+import { trackEvent } from "@/lib/telemetry";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -215,6 +216,13 @@ const WineSnap = () => {
       return;
     }
 
+    const trigger = cameraModeRef.current ? "camera" : autoOpenedRef.current ? "auto" : "upload";
+    trackEvent("scan_start", {
+      trigger,
+      hasSource: Boolean(activeSource),
+      retried: Boolean(source),
+    });
+
     setIsProcessing(true);
     setBanner(null);
     setProgressStep("prep");
@@ -320,6 +328,10 @@ const WineSnap = () => {
         toast({
           title: "Klart!",
           description: "Analys hämtad från cache.",
+        });
+        trackEvent("scan_success", {
+          source: "cache",
+          noTextFound,
         });
         setProgressStep(null);
         setProgressNote(null);
@@ -427,6 +439,10 @@ const WineSnap = () => {
 
         setResults(result);
         setCachedAnalysis(cacheLookupKey, result, processedImage);
+        trackEvent("scan_success", {
+          source: note ?? "analysis",
+          noTextFound,
+        });
 
         if (!noTextFound) {
           if (note === "hit_memory" || note === "hit_supabase") {
@@ -474,7 +490,7 @@ const WineSnap = () => {
       }
     } catch (error) {
       let errorMessage = "Kunde inte analysera bilden – försök igen i bättre ljus.";
-      
+
       if (error instanceof Error) {
         if (error.name === "AbortError") {
           errorMessage = "Analysen tog för lång tid – försök igen";
@@ -487,6 +503,11 @@ const WineSnap = () => {
           errorMessage = error.message;
         }
       }
+
+      trackEvent("scan_fail", {
+        reason: errorMessage,
+        name: error instanceof Error ? error.name : undefined,
+      });
 
       const retryAction = currentImageRef.current
         ? () => {
