@@ -30,22 +30,22 @@ export function SystembolagetFactList({
       : "space-y-3";
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-5 text-slate-800 shadow-sm">
+    <section className="rounded-2xl border border-theme-card bg-theme-elevated p-5 text-theme-secondary shadow-theme-elevated">
       <header className="space-y-1">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">{title}</p>
-        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+        <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-theme-secondary">{title}</p>
+        {subtitle && <p className="text-xs text-theme-secondary">{subtitle}</p>}
       </header>
 
-      <dl className={`mt-4 text-sm text-slate-700 ${layoutClass}`}>
+      <dl className={`mt-4 text-sm text-theme-secondary ${layoutClass}`}>
         {items.map((fact) => (
           <div key={fact.label} className="flex items-start justify-between gap-3">
-            <dt className="text-slate-500">{fact.label}</dt>
-            <dd className="text-right font-semibold text-slate-900">{fact.value || "–"}</dd>
+            <dt className="text-theme-secondary">{fact.label}</dt>
+            <dd className="text-right font-semibold text-theme-primary">{fact.value || "–"}</dd>
           </div>
         ))}
       </dl>
 
-      {footnote && <p className="mt-4 text-xs text-slate-500">{footnote}</p>}
+      {footnote && <p className="mt-4 text-xs text-theme-secondary">{footnote}</p>}
       {children}
     </section>
   );

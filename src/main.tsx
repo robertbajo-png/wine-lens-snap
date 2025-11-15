@@ -2,11 +2,10 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import "./styles/global.css";
+import { applyTheme, darkTheme } from "./ui/theme";
 
 // Tvinga på vårt app-tema globalt (mörk bakgrund + token-override)
-if (typeof document !== "undefined") {
-  document.body.classList.add("app-theme");
-}
+applyTheme(darkTheme);
 
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {

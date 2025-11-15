@@ -13,9 +13,9 @@ interface Props {
 const Row = ({ label, value }: { label: string; value?: string }) => {
   if (!value || value === "–") return null;
   return (
-    <div className="flex items-start justify-between gap-4 rounded-xl border border-white/10 bg-white/5 p-3">
-      <span className="text-xs uppercase tracking-wide text-slate-200/80">{label}</span>
-      <span className="text-sm text-right text-slate-100">{value}</span>
+    <div className="flex items-start justify-between gap-4 rounded-xl border border-theme-card bg-theme-elevated p-3">
+      <span className="text-xs uppercase tracking-wide text-theme-secondary opacity-80">{label}</span>
+      <span className="text-sm text-right text-theme-primary">{value}</span>
     </div>
   );
 };

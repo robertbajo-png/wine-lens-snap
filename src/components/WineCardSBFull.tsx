@@ -33,8 +33,8 @@ type WineData = {
 
 const Row = ({ label, value }: { label: string; value?: string }) => (
   <div className="grid grid-cols-12 gap-3 py-2">
-    <div className="col-span-5 md:col-span-3 text-gray-500">{label}</div>
-    <div className="col-span-7 md:col-span-9 font-medium">{value && value.trim() !== "" ? value : "–"}</div>
+    <div className="col-span-5 text-theme-secondary md:col-span-3">{label}</div>
+    <div className="col-span-7 font-medium text-theme-primary md:col-span-9">{value && value.trim() !== "" ? value : "–"}</div>
   </div>
 );
 
@@ -48,16 +48,16 @@ export default function WineCardSBFull({ data }: { data: WineData }) {
   ].filter(Boolean);
   
   return (
-    <div className="max-w-xl mx-auto">
-      <div className="rounded-3xl shadow-sm ring-1 ring-gray-200 bg-white overflow-hidden">
+    <div className="mx-auto max-w-xl">
+      <div className="overflow-hidden rounded-3xl border border-theme-card bg-theme-elevated shadow-theme-elevated">
         {/* Header */}
-        <div className="bg-purple-700 text-white px-5 py-4">
-          <h1 className="text-xl font-semibold">{title}</h1>
+        <div className="bg-theme-accent px-5 py-4 text-theme-primary">
+          <h1 className="text-xl font-semibold text-theme-primary">{title}</h1>
           <div className="opacity-90">{subtitleParts.join(" • ") || " "}</div>
         </div>
 
         {/* Body */}
-        <div className="p-5">
+        <div className="p-5 text-theme-secondary">
           <Row label="Producent" value={data?.producent} />
           <Row label="Druvor" value={data?.druvor} />
           <Row label="Karaktär" value={data?.karaktär} />
@@ -65,11 +65,11 @@ export default function WineCardSBFull({ data }: { data: WineData }) {
           <Row label="Passar till" value={joinArr(data?.passar_till)} />
           <Row label="Servering" value={data?.servering} />
 
-          <div className="h-px bg-gray-200 my-3" />
+          <div className="my-3 h-px bg-[hsl(var(--card-border)/0.45)]" />
 
           <WineMetersSB meters={data?.meters} />
 
-          <div className="h-px bg-gray-200 my-3" />
+          <div className="my-3 h-px bg-[hsl(var(--card-border)/0.45)]" />
 
           <Row label="Typ" value={data?.typ} />
           <Row label="Färg" value={data?.färgtyp} />
@@ -80,11 +80,11 @@ export default function WineCardSBFull({ data }: { data: WineData }) {
           <Row label="Syra" value={data?.syra} />
 
           {/* Diskret källa */}
-          <p className="text-sm text-gray-400 mt-2">Källa: {data?.källa || "–"}</p>
+          <p className="mt-2 text-sm text-theme-secondary">Källa: {data?.källa || "–"}</p>
 
           {/* Valfri debug/transparens */}
           {data?.evidence?.etiketttext && (
-            <p className="text-[11px] text-gray-400 mt-1">
+            <p className="mt-1 text-[11px] text-theme-secondary">
               OCR: {String(data.evidence.etiketttext).slice(0, 200)}
               {data?.evidence?.webbträffar?.length ? ` • Webbkällor: ${data.evidence.webbträffar.join(", ")}` : ""}
             </p>
