@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Camera } from "lucide-react";
 import { useLocalSetting } from "@/hooks/useLocalSetting";
 import { applyThemeByName, type ThemeName } from "@/ui/theme";
 import { trackEvent } from "@/lib/telemetry";
@@ -83,6 +84,14 @@ const Profile = () => {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+            onClick={() => navigate("/scan")}
+            aria-label="Starta ny skanning"
+          >
+            <Camera className="h-4 w-4" />
+            Ny skanning
+          </Button>
           <Button
             variant="outline"
             className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"

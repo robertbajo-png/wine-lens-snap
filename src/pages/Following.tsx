@@ -1,7 +1,7 @@
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users2, Sparkles } from "lucide-react";
+import { Users2, Sparkles, Camera } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const Following = () => {
@@ -10,6 +10,16 @@ const Following = () => {
   return (
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
       <AmbientBackground />
+      <div className="absolute right-4 top-6 z-20">
+        <Button
+          className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+          onClick={() => navigate("/scan")}
+          aria-label="Starta ny skanning"
+        >
+          <Camera className="h-4 w-4" />
+          Ny skanning
+        </Button>
+      </div>
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center px-4 py-24 text-center sm:px-6 lg:px-8">
         <Card className="w-full max-w-xl border-theme-card/60 bg-theme-elevated/80 backdrop-blur">
           <CardContent className="flex flex-col items-center gap-5 px-8 py-12">
