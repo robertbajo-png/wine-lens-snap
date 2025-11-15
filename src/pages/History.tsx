@@ -32,6 +32,7 @@ import { ArrowLeft, Camera, Eraser, Wand2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Banner } from "@/components/Banner";
+import { trackEvent } from "@/lib/telemetry";
 
 const formatDate = (iso: string) => {
   const date = new Date(iso);
@@ -80,6 +81,7 @@ const History = () => {
   const [devStatus, setDevStatus] = useState<string | null>(null);
   const [authState, setAuthState] = useState<AuthState>(() => readAuthState());
   const refreshTimeoutRef = useRef<number | null>(null);
+  const openLoggedRef = useRef(false);
 
   const loadEntries = useCallback(() => {
     setEntries(getAllCachedAnalyses());
@@ -131,6 +133,15 @@ const History = () => {
       refreshEntries();
     }
   }, [authState, refreshEntries]);
+
+  useEffect(() => {
+    if (openLoggedRef.current || isLoading) {
+      return;
+    }
+
+    trackEvent("history_open", { entries: entries.length });
+    openLoggedRef.current = true;
+  }, [entries.length, isLoading]);
 
   const { regionsCount, lastTimestamp } = useMemo(() => {
     const regions = new Set<string>();
@@ -284,6 +295,7 @@ const History = () => {
               variant="ghost"
               onClick={() => navigate(-1)}
               className="gap-2 rounded-full border border-theme-card bg-theme-elevated px-4 text-theme-primary shadow-lg shadow-purple-900/20 backdrop-blur transition hover:bg-theme-elevated"
+              aria-label="Gå tillbaka"
             >
               <ArrowLeft className="h-4 w-4" />
               Tillbaka
@@ -302,6 +314,7 @@ const History = () => {
               variant="outline"
               onClick={handleRefresh}
               className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
+              aria-label="Uppdatera historiken"
             >
               Uppdatera
             </Button>
@@ -310,6 +323,7 @@ const History = () => {
                 <Button
                   variant="outline"
                   className="gap-2 rounded-full border-dashed border-theme-card bg-theme-elevated text-theme-primary shadow-sm backdrop-blur transition hover:bg-[hsl(var(--surface-elevated)/0.85)]"
+                  aria-label="Öppna testverktyg"
                 >
                   <Wand2 className="h-4 w-4" />
                   Testverktyg
@@ -330,7 +344,11 @@ const History = () => {
                     </p>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button onClick={handleSeedDemo} className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] sm:flex-1">
+                    <Button
+                      onClick={handleSeedDemo}
+                      className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] sm:flex-1"
+                      aria-label="Fyll listan med demodata"
+                    >
                       <Wand2 className="h-4 w-4" />
                       Fyll med demodata
                     </Button>
@@ -338,6 +356,7 @@ const History = () => {
                       variant="outline"
                       onClick={handleClearAll}
                       className="gap-2 rounded-full border-destructive/60 bg-theme-elevated text-destructive hover:bg-destructive/10 sm:flex-1"
+                      aria-label="Rensa historiken"
                     >
                       <Eraser className="h-4 w-4" />
                       Rensa historiken
@@ -350,6 +369,7 @@ const History = () => {
             <Button
               onClick={() => navigate("/for-you")}
               className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+              aria-label="Öppna kameran för ny skanning"
             >
               <Camera className="h-4 w-4" />
               Ny skanning
@@ -384,6 +404,7 @@ const History = () => {
               <Button
                 onClick={() => navigate("/for-you")}
                 className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
+                aria-label="Starta din första skanning"
               >
                 <Camera className="h-4 w-4" />
                 Starta första skanningen
@@ -392,6 +413,7 @@ const History = () => {
                 variant="outline"
                 onClick={() => setDevDialogOpen(true)}
                 className="gap-2 rounded-full border-dashed border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
+                aria-label="Visa testverktyg"
               >
                 <Wand2 className="h-4 w-4" />
                 Visa testverktyg

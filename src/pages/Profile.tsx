@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useLocalSetting } from "@/hooks/useLocalSetting";
 import { applyThemeByName, type ThemeName } from "@/ui/theme";
+import { trackEvent } from "@/lib/telemetry";
 
 const MOCK_NAME = "Alex Vinälskare";
 const MOCK_EMAIL = "alex.vinalskare@example.com";
@@ -39,10 +40,24 @@ const Profile = () => {
     "winesnap.notifications",
     true,
   );
+  const openLoggedRef = useRef(false);
 
   useEffect(() => {
     applyThemeByName(theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (openLoggedRef.current) {
+      return;
+    }
+
+    trackEvent("profile_open", {
+      language,
+      theme,
+      notificationsEnabled,
+    });
+    openLoggedRef.current = true;
+  }, [language, notificationsEnabled, theme]);
 
   const initials = useMemo(() => {
     return MOCK_NAME
@@ -72,6 +87,7 @@ const Profile = () => {
             variant="outline"
             className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
             onClick={() => navigate("/me/wines")}
+            aria-label="Visa sparade viner"
           >
             Mina viner
           </Button>
@@ -79,6 +95,7 @@ const Profile = () => {
             variant="ghost"
             className="text-theme-secondary underline-offset-4 hover:text-theme-primary hover:underline"
             onClick={() => navigate("/om")}
+            aria-label="Läs mer om WineSnap"
           >
             Om WineSnap
           </Button>

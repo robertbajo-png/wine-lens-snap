@@ -11,6 +11,7 @@ import {
 import { TAB_DEFINITIONS, getDefaultTabPath, type TabDefinition, type TabKey } from "@/lib/tabNavigation";
 import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
+import { trackEvent } from "@/lib/telemetry";
 
 const iconMap: Record<TabKey, ComponentType<SVGProps<SVGSVGElement>>> = {
   "for-you": ForYouIcon,
@@ -48,9 +49,14 @@ const BottomTabBar = () => {
       }
 
       triggerHaptic();
+      trackEvent("tab_select", {
+        tab: tab.key,
+        from: activeKey ?? undefined,
+        targetPath,
+      });
       navigate(targetPath, { replace: true });
     },
-    [location.pathname, navigate, stateMap, triggerHaptic],
+    [activeKey, location.pathname, navigate, stateMap, triggerHaptic],
   );
 
   return (
