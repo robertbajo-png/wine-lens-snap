@@ -663,7 +663,8 @@ const WineSnap = () => {
     hasNumeric(results.meters.fruktighet) &&
     hasNumeric(results.meters.fruktsyra);
   const hasWebEvidence = (results?.evidence?.webbträffar?.length ?? 0) > 0;
-  const showVerifiedMeters = Boolean(metersOk && hasWebEvidence);
+  const metersFromTrustedSource = results?._meta?.meters_source === "web";
+  const showVerifiedMeters = Boolean(metersOk && hasWebEvidence && metersFromTrustedSource);
 
   // --- spara historik (lokalt + supabase) när resultat finns ---
   useEffect(() => {
@@ -769,19 +770,17 @@ const WineSnap = () => {
                     estimated={results?._meta?.meters_source === "derived"}
                   />
                 ) : (
-                  <div className="text-sm text-theme-secondary">
-                    <p className="opacity-80">Smakprofil kunde inte fastställas utan webbkällor.</p>
-                    <div className="mt-3">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="rounded-xl bg-theme-elevated text-theme-primary transition-colors hover:bg-theme-elevated"
-                        onClick={handleRetryScan}
-                      >
-                        Försök igen
-                      </Button>
-                    </div>
-                  </div>
+                  <Banner
+                    type="warning"
+                    title="Smakprofil saknas"
+                    text={
+                      results?._meta?.meters_source === "derived"
+                        ? "Vi hittade bara uppskattade värden från etiketten och visar dem inte utan bekräftelse från webbkällor."
+                        : "Vi saknar tillräckliga webbkällor för att visa smakprofilen just nu."
+                    }
+                    ctaLabel="Ny skanning"
+                    onCta={handleRetryScan}
+                  />
                 )}
               </section>
 

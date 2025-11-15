@@ -1,14 +1,27 @@
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Compass, Grip } from "lucide-react";
+import { Search, Compass, Grip, Camera } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const categories = ["Druvor", "Regioner", "Stilar", "Matmatchning", "Prisnivåer", "Butiker"];
 
 const Explore = () => {
+  const navigate = useNavigate();
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
       <AmbientBackground />
+      <div className="absolute right-4 top-6 z-20">
+        <Button
+          className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+          onClick={() => navigate("/scan")}
+          aria-label="Starta ny skanning"
+        >
+          <Camera className="h-4 w-4" />
+          Ny skanning
+        </Button>
+      </div>
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-10 px-4 pb-24 pt-20 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3 text-center">
           <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/20 px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">

@@ -367,7 +367,7 @@ const History = () => {
               </DialogContent>
             </Dialog>
             <Button
-              onClick={() => navigate("/for-you")}
+              onClick={() => navigate("/scan")}
               className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
               aria-label="Öppna kameran för ny skanning"
             >
@@ -402,7 +402,7 @@ const History = () => {
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4 pb-10">
               <Button
-                onClick={() => navigate("/for-you")}
+                onClick={() => navigate("/scan")}
                 className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
                 aria-label="Starta din första skanning"
               >
