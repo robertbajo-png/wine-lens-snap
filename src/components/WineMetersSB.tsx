@@ -24,11 +24,11 @@ export function GaugeCircleSB({
   return (
     <div className="flex flex-col items-center">
       <svg width={size} height={size} aria-label={`${label} ${val}/5`}>
-        <circle cx={size/2} cy={size/2} r={r} strokeWidth={stroke} stroke="currentColor" className="text-gray-300" fill="none" />
+        <circle cx={size/2} cy={size/2} r={r} strokeWidth={stroke} stroke="currentColor" className="text-theme-secondary" fill="none" />
         <g transform={`rotate(-90 ${size/2} ${size/2})`}>
           {typeof value === "number" && (
             <circle cx={size/2} cy={size/2} r={r} strokeWidth={stroke} stroke="currentColor"
-              className="text-gray-900" fill="none" strokeDasharray={`${dash} ${gap}`} />
+              className="text-theme-primary" fill="none" strokeDasharray={`${dash} ${gap}`} />
           )}
         </g>
         {showValue && (
@@ -43,7 +43,7 @@ export function GaugeCircleSB({
           </text>
         )}
       </svg>
-      <div className="text-[10px] tracking-wide mt-1 text-gray-500">{label.toUpperCase()}</div>
+      <div className="mt-1 text-[10px] tracking-wide text-theme-secondary">{label.toUpperCase()}</div>
     </div>
   );
 }

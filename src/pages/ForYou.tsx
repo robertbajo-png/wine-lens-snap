@@ -9,10 +9,12 @@ import {
   ShieldCheck,
   Sparkles,
   Utensils,
-  Wine
+  Wine,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getAllCachedAnalyses } from "@/lib/wineCache";
+import { AmbientBackground } from "@/components/AmbientBackground";
+import { Banner } from "@/components/Banner";
 
 interface LandingStats {
   count: number;
@@ -76,7 +78,7 @@ const workflowSteps = [
   },
 ];
 
-const Index = () => {
+const ForYou = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<LandingStats>({ count: 0, latestWine: null, latestTime: null });
 
@@ -102,43 +104,39 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#070311] text-slate-100">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-36 top-24 h-72 w-72 rounded-full bg-[#8B5CF6]/30 blur-[140px]" />
-        <div className="absolute right-[-80px] top-40 h-80 w-80 rounded-full bg-[#38BDF8]/15 blur-[150px]" />
-        <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/70 to-transparent" />
-      </div>
+    <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
+      <AmbientBackground />
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
         <header className="py-8">
-          <div className="flex flex-col items-center justify-between gap-6 rounded-3xl border border-white/10 bg-white/5 px-6 py-5 backdrop-blur-md sm:flex-row">
+          <div className="flex flex-col items-center justify-between gap-6 rounded-3xl border border-theme-card bg-theme-elevated px-6 py-5 backdrop-blur-md sm:flex-row">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 shadow-lg shadow-purple-900/40">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-theme-elevated shadow-lg shadow-purple-900/40">
                 <Wine className="h-6 w-6 text-purple-100" />
               </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">WineSnap</p>
-                <p className="text-sm text-slate-200/80">Självlärande vinanalys med Supabase + AI</p>
+                <p className="text-sm text-theme-secondary">Självlärande vinanalys med Supabase + AI</p>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-1 text-xs uppercase tracking-[0.25em] text-slate-200/70">
+              <span className="inline-flex items-center gap-2 rounded-full border border-theme-card bg-theme-elevated px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary">
                 <Sparkles className="h-3.5 w-3.5" />
                 Beta
               </span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-slate-200 hover:text-white"
-                onClick={() => navigate("/historik")}
+                className="text-theme-secondary hover:text-theme-primary"
+                onClick={() => navigate("/me/wines")}
               >
                 Historik
               </Button>
               <Button
                 size="sm"
-                className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-white shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
-                onClick={() => navigate("/skanna")}
+                className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
+                onClick={() => navigate("/scan")}
               >
                 Starta skanning
               </Button>
@@ -146,19 +144,30 @@ const Index = () => {
           </div>
         </header>
 
+        {stats.count > 0 && (
+          <Banner
+            type="info"
+            title="Senaste vinprofil"
+            text={`${stats.latestWine ?? "Vinprofil"} analyserades ${stats.latestTime ?? "nyligen"}. Du har ${stats.count} sparade analyser.`}
+            ctaLabel="Öppna historiken"
+            onCta={() => navigate("/me/wines")}
+            className="mb-10"
+          />
+        )}
+
         <main className="flex flex-1 flex-col gap-24 pb-16">
           <section className="grid flex-1 items-center gap-10 lg:grid-cols-[1.2fr_1fr]">
             <div className="space-y-8">
-              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-1 text-sm text-purple-100 shadow-sm">
+              <span className="inline-flex w-fit items-center gap-2 rounded-full border border-theme-card bg-theme-elevated px-4 py-1 text-sm text-purple-100 shadow-sm">
                 <Sparkles className="h-4 w-4" />
                 Supersnabb vinanalys på svenska
               </span>
 
               <div className="space-y-4">
-                <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                <h1 className="text-4xl font-semibold tracking-tight text-theme-primary sm:text-5xl">
                   Fota etiketten. WineSnap skapar vinprofilen på sekunder.
                 </h1>
-                <p className="max-w-xl text-lg text-slate-200">
+                <p className="max-w-xl text-lg text-theme-secondary">
                   Kombinera kameran med GPT, Supabase och smart caching. Du får druvor, smakprofil, serveringstips och pairing-rekommendationer som sparas lokalt.
                 </p>
               </div>
@@ -166,7 +175,7 @@ const Index = () => {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button
                   size="lg"
-                  onClick={() => navigate("/skanna")}
+                  onClick={() => navigate("/scan")}
                   className="h-14 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] px-8 text-base font-semibold shadow-[0_20px_40px_-22px_rgba(123,63,228,0.95)]"
                 >
                   <Camera className="mr-2 h-5 w-5" />
@@ -175,8 +184,8 @@ const Index = () => {
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={() => navigate("/historik")}
-                  className="h-14 rounded-full border-white/20 bg-white/10 px-8 text-base text-slate-100 hover:bg-white/15"
+                  onClick={() => navigate("/me/wines")}
+                  className="h-14 rounded-full border-theme-card bg-theme-elevated px-8 text-base text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
                 >
                   Utforska historiken
                 </Button>
@@ -184,7 +193,7 @@ const Index = () => {
 
               <div className="grid gap-4 sm:grid-cols-3">
                 {heroStats.map(({ label, value, hint }) => (
-                  <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div key={label} className="rounded-2xl border border-theme-card bg-theme-elevated p-4">
                     <p
                       lang="sv"
                       className="text-xs uppercase tracking-[0.2em] text-purple-200/80 leading-4 text-pretty sm:tracking-wide"
@@ -193,29 +202,29 @@ const Index = () => {
                     </p>
                     <p
                       lang="sv"
-                      className="mt-2 text-xl font-semibold leading-tight text-white text-pretty break-words hyphens-auto sm:text-2xl"
+                      className="mt-2 text-xl font-semibold leading-tight text-theme-primary text-pretty break-words hyphens-auto sm:text-2xl"
                     >
                       {value}
                     </p>
-                    <p className="text-sm text-slate-300">{hint}</p>
+                    <p className="text-sm text-theme-secondary">{hint}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="relative hidden h-full min-h-[360px] rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-white/10 p-8 shadow-2xl shadow-purple-900/40 backdrop-blur lg:block">
-              <div className="pointer-events-none absolute inset-0 rounded-[32px] border border-white/5" />
+            <div className="relative hidden h-full min-h-[360px] rounded-[32px] border border-theme-card bg-gradient-to-br from-white/10 via-white/5 to-white/10 p-8 shadow-2xl shadow-purple-900/40 backdrop-blur lg:block">
+              <div className="pointer-events-none absolute inset-0 rounded-[32px] border border-theme-card" />
               <div className="flex h-full flex-col justify-between gap-6">
                 <div className="space-y-4 text-left">
-                  <div className="flex items-center justify-between text-xs text-slate-200/70">
+                  <div className="flex items-center justify-between text-xs text-theme-secondary">
                     <span className="inline-flex items-center gap-2 rounded-full bg-black/30 px-3 py-1 uppercase tracking-[0.25em]">
                       <Clock3 className="h-3.5 w-3.5" />
                       Realtidsvy
                     </span>
                     <span>Supabase Edge • GPT-4o mini</span>
                   </div>
-                  <h2 className="text-2xl font-semibold text-white">Så här ser nästa skanning ut</h2>
-                  <p className="text-sm text-slate-200/80">
+                  <h2 className="text-2xl font-semibold text-theme-primary">Så här ser nästa skanning ut</h2>
+                  <p className="text-sm text-theme-secondary">
                     WineSnap guidar dig från foto till klar analys med tydliga statussteg och sparar resultatet direkt i din historik.
                   </p>
                 </div>
@@ -224,9 +233,9 @@ const Index = () => {
                   {["Fånga etiketten", "Läser text", "Bygger vinprofil"].map((step) => (
                     <div
                       key={step}
-                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm text-slate-200"
+                      className="flex items-center gap-3 rounded-2xl border border-theme-card bg-black/25 px-4 py-3 text-sm text-theme-secondary"
                     >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#7B3FE4] to-[#9C5CFF] text-white">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[#7B3FE4] to-[#9C5CFF] text-theme-primary">
                         <Sparkles className="h-4 w-4" />
                       </div>
                       {step}
@@ -234,8 +243,8 @@ const Index = () => {
                   ))}
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-slate-200/80">
-                  <p className="font-medium text-white">Tips för bästa resultat</p>
+                <div className="rounded-2xl border border-theme-card bg-black/30 p-4 text-sm text-theme-secondary">
+                  <p className="font-medium text-theme-primary">Tips för bästa resultat</p>
                   <p>Fota i mjukt ljus och fyll ut etiketten så mycket som möjligt i kamerarutan.</p>
                 </div>
               </div>
@@ -244,21 +253,21 @@ const Index = () => {
 
           <section className="space-y-10">
             <div className="flex flex-col gap-3">
-              <h2 className="text-2xl font-semibold text-white sm:text-3xl">Varför vinälskare väljer WineSnap</h2>
-              <p className="max-w-2xl text-slate-200/80">
+              <h2 className="text-2xl font-semibold text-theme-primary sm:text-3xl">Varför vinälskare väljer WineSnap</h2>
+              <p className="max-w-2xl text-theme-secondary">
                 Designad för spontana butiksbesök och planerade middagar. WineSnap gör researchen åt dig och bygger en privat vinbank.
               </p>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               {featureCards.map(({ title, description, icon: Icon }) => (
-                <div key={title} className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-5">
-                  <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-white/5 blur-3xl" />
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-purple-100">
+                <div key={title} className="relative overflow-hidden rounded-2xl border border-theme-card bg-theme-elevated p-5">
+                  <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-theme-elevated blur-3xl" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-theme-elevated text-purple-100">
                     <Icon className="h-5 w-5" />
                   </div>
-                  <h3 className="mt-5 text-lg font-semibold text-white">{title}</h3>
-                  <p className="mt-3 text-sm text-slate-200/80">{description}</p>
+                  <h3 className="mt-5 text-lg font-semibold text-theme-primary">{title}</h3>
+                  <p className="mt-3 text-sm text-theme-secondary">{description}</p>
                 </div>
               ))}
             </div>
@@ -266,8 +275,8 @@ const Index = () => {
 
           <section className="space-y-12">
             <div className="flex flex-col gap-3">
-              <h2 className="text-2xl font-semibold text-white sm:text-3xl">Så snabbt är du igång</h2>
-              <p className="max-w-2xl text-slate-200/80">
+              <h2 className="text-2xl font-semibold text-theme-primary sm:text-3xl">Så snabbt är du igång</h2>
+              <p className="max-w-2xl text-theme-secondary">
                 Följ tre enkla steg för att göra din första AI-drivna vinanalys – helt i mobilen.
               </p>
             </div>
@@ -276,37 +285,37 @@ const Index = () => {
               {workflowSteps.map((step, index) => (
                 <div
                   key={step.title}
-                  className="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/8 to-white/5 p-6"
+                  className="relative overflow-hidden rounded-2xl border border-theme-card bg-gradient-to-br from-white/8 to-white/5 p-6"
                 >
-                  <div className="absolute -right-8 -top-6 h-20 w-20 rounded-full bg-white/5 blur-2xl" />
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-base font-semibold text-white">
+                  <div className="absolute -right-8 -top-6 h-20 w-20 rounded-full bg-theme-elevated blur-2xl" />
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-theme-elevated text-base font-semibold text-theme-primary">
                     {index + 1}
                   </span>
                   <p className="mt-4 text-sm font-semibold text-purple-100/90">{step.title}</p>
-                  <p className="mt-3 text-sm text-slate-200/80">{step.description}</p>
+                  <p className="mt-3 text-sm text-theme-secondary">{step.description}</p>
                 </div>
               ))}
             </div>
           </section>
 
           <section>
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-r from-[#7B3FE4]/20 via-[#8451ED]/20 to-[#38BDF8]/20 px-8 py-10 backdrop-blur">
+            <div className="relative overflow-hidden rounded-3xl border border-theme-card bg-gradient-to-r from-[#7B3FE4]/20 via-[#8451ED]/20 to-[#38BDF8]/20 px-8 py-10 backdrop-blur">
               <div className="absolute inset-y-0 right-0 w-2/5 bg-gradient-to-l from-black/20 to-transparent" />
               <div className="relative flex flex-col items-start gap-6 text-left sm:flex-row sm:items-center sm:justify-between">
                 <div className="max-w-2xl space-y-3">
-                  <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.3em] text-purple-100">
+                  <p className="inline-flex items-center gap-2 rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-xs uppercase tracking-[0.3em] text-purple-100">
                     <Sparkles className="h-3.5 w-3.5" />
                     Klart på minuter
                   </p>
-                  <h2 className="text-3xl font-semibold text-white">Bygg ditt vinbibliotek idag</h2>
-                  <p className="text-sm text-slate-200/85">
+                  <h2 className="text-3xl font-semibold text-theme-primary">Bygg ditt vinbibliotek idag</h2>
+                  <p className="text-sm text-theme-secondary">
                     Installera WineSnap som PWA eller kör direkt i webben. Nästa gång du står i butiken vet du om flaskan är värd att ta med hem.
                   </p>
                 </div>
                 <Button
                   size="lg"
-                  className="h-14 rounded-full bg-white/90 px-8 text-base font-semibold text-slate-900 transition hover:bg-white"
-                  onClick={() => navigate("/skanna")}
+                  className="h-14 rounded-full bg-theme-accent px-8 text-base font-semibold text-theme-primary shadow-theme-elevated transition hover:opacity-90"
+                  onClick={() => navigate("/scan")}
                 >
                   Kom igång
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -316,8 +325,8 @@ const Index = () => {
           </section>
         </main>
 
-        <footer className="mt-auto border-t border-white/10 bg-black/20 py-6">
-          <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 px-4 text-xs text-slate-400 sm:flex-row sm:px-6 lg:px-8">
+        <footer className="mt-auto border-t border-theme-card bg-black/20 py-6">
+          <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 px-4 text-xs text-theme-secondary sm:flex-row sm:px-6 lg:px-8">
             <span>© {new Date().getFullYear()} WineSnap. Byggd med Supabase, Vite och GPT.</span>
             <span className="flex items-center gap-2">
               <Sparkles className="h-3.5 w-3.5" />
@@ -330,4 +339,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default ForYou;

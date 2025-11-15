@@ -37,28 +37,28 @@ export function SystembolagetClassification({ result }: { result: WineAnalysisRe
   }
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-6 text-slate-800 shadow-sm">
+    <section className="rounded-2xl border border-theme-card bg-theme-elevated p-6 text-theme-secondary shadow-theme-elevated">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.32em] text-slate-500">
-          <Sparkles className="h-4 w-4 text-emerald-600" />
+        <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.32em] text-theme-secondary">
+          <Sparkles className="h-4 w-4 text-theme-accent" />
           Systembolagets klassificering
         </div>
-        <p className="text-xs text-slate-500">Grunden för smakprofilen och serveringsrekommendationerna.</p>
+        <p className="text-xs text-theme-secondary">Grunden för smakprofilen och serveringsrekommendationerna.</p>
       </header>
 
       <dl className="mt-6 grid gap-4 sm:grid-cols-3">
         {items.map((item) => (
           <div
             key={item.key}
-            className="rounded-xl border border-zinc-200 bg-zinc-50 p-4"
+            className="rounded-xl border border-theme-card bg-theme-surface p-4"
           >
-            <dt className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-              <span className="text-slate-700">{ICONS[item.key]}</span>
+            <dt className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-theme-secondary">
+              <span className="text-theme-accent">{ICONS[item.key]}</span>
               {LABELS[item.key]}
             </dt>
             <dd className="mt-2 space-y-1">
-              <p className="text-base font-semibold text-slate-900">{item.value}</p>
-              <span className="block text-xs text-slate-500">{DESCRIPTIONS[item.key]}</span>
+              <p className="text-base font-semibold text-theme-primary">{item.value}</p>
+              <span className="block text-xs text-theme-secondary">{DESCRIPTIONS[item.key]}</span>
             </dd>
           </div>
         ))}
