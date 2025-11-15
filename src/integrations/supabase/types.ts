@@ -138,6 +138,68 @@ export type Database = {
           },
         ]
       }
+      list_items: {
+        Row: {
+          created_at: string
+          id: string
+          list_id: string
+          scan_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          list_id: string
+          scan_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          list_id?: string
+          scan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "list_items_list_id_fkey"
+            columns: ["list_id"]
+            referencedRelation: "lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "list_items_scan_id_fkey"
+            columns: ["scan_id"]
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      lists: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lists_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       scans: {
         Row: {
           analysis_json: Json | null

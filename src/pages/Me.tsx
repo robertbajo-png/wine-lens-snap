@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
+import { WineListsSection } from "@/components/profile/WineListsSection";
 import { Camera, Loader2, LogOut, PenLine, UploadCloud } from "lucide-react";
 
 const getDisplayName = (metadata: Record<string, unknown> | undefined, email: string | null) => {
@@ -518,6 +519,8 @@ const Me = () => {
             ) : null}
           </CardContent>
         </Card>
+
+        <WineListsSection />
 
         <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
           <CardHeader>
