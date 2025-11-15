@@ -62,6 +62,39 @@ export type Database = {
         }
         Relationships: []
       }
+      explore_cards: {
+        Row: {
+          created_at: string
+          id: string
+          payload_json: Json
+          rank: number
+          subtitle: string | null
+          title: string
+          valid_from: string
+          valid_to: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload_json: Json
+          rank?: number
+          subtitle?: string | null
+          title: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload_json?: Json
+          rank?: number
+          subtitle?: string | null
+          title?: string
+          valid_from?: string
+          valid_to?: string | null
+        }
+        Relationships: []
+      }
       label_history: {
         Row: {
           argang: string | null
@@ -248,6 +281,60 @@ export type Database = {
           payload_json?: Json
           session_id?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      wine_index: {
+        Row: {
+          color: string | null
+          created_at: string
+          grapes_raw: string | null
+          id: string
+          image_url: string | null
+          notes: string | null
+          payload_json: Json | null
+          producer: string | null
+          rank: number
+          region: string | null
+          search_vector: unknown | null
+          source: string
+          style: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          grapes_raw?: string | null
+          id?: string
+          image_url?: string | null
+          notes?: string | null
+          payload_json?: Json | null
+          producer?: string | null
+          rank?: number
+          region?: string | null
+          search_vector?: unknown | null
+          source?: string
+          style?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          grapes_raw?: string | null
+          id?: string
+          image_url?: string | null
+          notes?: string | null
+          payload_json?: Json | null
+          producer?: string | null
+          rank?: number
+          region?: string | null
+          search_vector?: unknown | null
+          source?: string
+          style?: string | null
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
