@@ -5,7 +5,7 @@ import {
   ExploreIcon,
   FollowingIcon,
   ForYouIcon,
-  MyWinesIcon,
+  ProfileIcon,
   ScanIcon,
 } from "./TabIcons";
 
@@ -21,7 +21,7 @@ const tabs: TabItem[] = [
   { key: "explore", label: "Utforska", path: "/explore", icon: ExploreIcon },
   { key: "scan", label: "Skanna", path: "/scan", icon: ScanIcon },
   { key: "following", label: "Följer", path: "/following", icon: FollowingIcon },
-  { key: "my-wines", label: "Mina viner", path: "/me/wines", icon: MyWinesIcon },
+  { key: "profile", label: "Profil", path: "/me", icon: ProfileIcon },
 ];
 
 const BottomTabBar = () => {
