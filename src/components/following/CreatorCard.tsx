@@ -6,14 +6,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 
-type Account = Tables<"accounts">;
+type Creator = Tables<"creators">;
 
-type AccountCardProps = {
-  account: Account;
+type CreatorCardProps = {
+  creator: Creator;
   isFollowing: boolean;
   disabled?: boolean;
   isProcessing?: boolean;
-  onToggle: (accountId: string, nextState: boolean) => void;
+  onToggle: (creatorId: string, nextState: boolean) => void;
 };
 
 const numberFormatter = new Intl.NumberFormat("sv-SE");
@@ -26,31 +26,31 @@ const getInitials = (displayName: string) =>
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("") || "WS";
 
-const AccountCardComponent = ({
-  account,
+const CreatorCardComponent = ({
+  creator,
   isFollowing,
   disabled = false,
   isProcessing = false,
   onToggle,
-}: AccountCardProps) => {
-  const followerCount = numberFormatter.format(account.followers_count ?? 0);
-  const bio = account.bio?.trim() || "Fler listor och rekommendationer publiceras snart.";
+}: CreatorCardProps) => {
+  const followerCount = numberFormatter.format(creator.followers_count ?? 0);
+  const bio = creator.bio?.trim() || "Fler listor och rekommendationer publiceras snart.";
 
   return (
     <Card className="h-full border-theme-card/70 bg-theme-elevated/80 backdrop-blur">
       <CardContent className="flex h-full flex-col gap-5 p-5">
         <div className="flex items-center gap-4">
           <Avatar className="h-12 w-12 border border-theme-card/60 bg-theme-card/40 text-theme-primary">
-            {account.avatar_url ? (
-              <AvatarImage src={account.avatar_url} alt={account.display_name} />
+            {creator.avatar_url ? (
+              <AvatarImage src={creator.avatar_url} alt={creator.display_name} />
             ) : null}
             <AvatarFallback className="bg-theme-card/60 text-sm font-semibold uppercase tracking-wide text-theme-primary">
-              {getInitials(account.display_name)}
+              {getInitials(creator.display_name)}
             </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-base font-semibold text-theme-primary">{account.display_name}</p>
+              <p className="text-base font-semibold text-theme-primary">{creator.display_name}</p>
               <span className="rounded-full bg-theme-card/30 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.4em] text-theme-secondary/70">
                 Kuraterad
               </span>
@@ -70,7 +70,7 @@ const AccountCardComponent = ({
             type="button"
             aria-pressed={isFollowing}
             disabled={disabled || isProcessing}
-            onClick={() => onToggle(account.id, !isFollowing)}
+            onClick={() => onToggle(creator.id, !isFollowing)}
             variant={isFollowing ? "outline" : "default"}
             className={cn(
               "group flex items-center gap-2 rounded-full px-4 py-0 text-sm font-semibold",
@@ -92,7 +92,7 @@ const AccountCardComponent = ({
   );
 };
 
-const AccountCard = memo(AccountCardComponent);
-AccountCard.displayName = "AccountCard";
+const CreatorCard = memo(CreatorCardComponent);
+CreatorCard.displayName = "CreatorCard";
 
-export default AccountCard;
+export default CreatorCard;
