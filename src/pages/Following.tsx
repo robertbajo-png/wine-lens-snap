@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, LogIn, Sparkles, Users2 } from "lucide-react";
@@ -20,21 +20,22 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
-import type { Tables } from "@/integrations/supabase/types";
-import { supabase } from "@/lib/supabaseClient";
 import { followCreator, unfollowCreator } from "@/services/creatorFollows";
+import {
+  creatorsQueryKey,
+  fetchCreators,
+  fetchFollowingIds,
+  followingQueryKey,
+  type Creator,
+} from "@/features/following/queries";
+import { useFollowingFeedNotifications } from "@/hooks/useFollowingFeedNotifications";
 
 const numberFormatter = new Intl.NumberFormat("sv-SE");
-
-type Creator = Tables<"creators">;
 
 type ToggleFollowVariables = {
   creatorId: string;
   shouldFollow: boolean;
 };
-
-const creatorsQueryKey = ["following", "creators"] as const;
-const followingQueryKey = (userId: string | null) => ["following", "relationships", userId ?? "guest"] as const;
 
 type ToggleFollowContext = {
   previousCreators?: Creator[];
@@ -42,27 +43,12 @@ type ToggleFollowContext = {
   key?: ReturnType<typeof followingQueryKey>;
 };
 
-const fetchCreators = async (): Promise<Creator[]> => {
-  const { data, error } = await supabase.from("creators").select("*").order("display_name", { ascending: true });
-  if (error) {
-    throw error;
-  }
-  return data ?? [];
-};
-
-const fetchFollowingIds = async (userId: string): Promise<string[]> => {
-  const { data, error } = await supabase.from("user_follows").select("creator_id").eq("user_id", userId);
-  if (error) {
-    throw error;
-  }
-  return data?.map((row) => row.creator_id) ?? [];
-};
-
 const Following = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
   const [pendingUnfollowId, setPendingUnfollowId] = useState<string | null>(null);
+  const { newPostsCount, markFeedAsOpened } = useFollowingFeedNotifications();
 
   const {
     data: creators,
@@ -189,6 +175,13 @@ const Following = () => {
 
   const showSkeletons = creatorsLoading;
 
+  useEffect(() => {
+    if (!user?.id) {
+      return;
+    }
+    markFeedAsOpened();
+  }, [markFeedAsOpened, user?.id]);
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
       <AmbientBackground />
@@ -213,6 +206,12 @@ const Following = () => {
           <p className="max-w-2xl text-sm text-theme-secondary/80 sm:text-base">
             Följ redaktionens favoriter för att se butikslistor, livesändningar och nördiga rekommendationer så fort funktionen rullas ut.
           </p>
+          {user && newPostsCount > 0 ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-theme-card/70 bg-theme-card/30 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-theme-primary shadow-[0_10px_35px_-25px_rgba(132,81,237,1)]" role="status" aria-live="polite">
+              <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
+              {newPostsCount > 9 ? "9+" : newPostsCount} nya poster sedan senast
+            </div>
+          ) : null}
           <div className="flex flex-wrap justify-center gap-3 text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/70">
             <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/10 px-3 py-1">
               <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />

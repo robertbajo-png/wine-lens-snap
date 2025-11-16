@@ -469,9 +469,34 @@ export type Database = {
             foreignKeyName: "scans_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "profiles"
-          referencedColumns: ["id"]
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      user_feed_state: {
+        Row: {
+          last_opened: string
+          updated_at: string
+          user_id: string
         }
-      ]
+        Insert: {
+          last_opened?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          last_opened?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feed_state_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       user_settings: {
         Row: {
