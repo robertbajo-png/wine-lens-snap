@@ -1,38 +1,49 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Camera, LogIn, Sparkles, Users2 } from "lucide-react";
 
-import AccountCard from "@/components/following/AccountCard";
+import CreatorCard from "@/components/following/CreatorCard";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
 import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/lib/supabaseClient";
+import { followCreator, unfollowCreator } from "@/services/creatorFollows";
 
 const numberFormatter = new Intl.NumberFormat("sv-SE");
 
-type Account = Tables<"accounts">;
+type Creator = Tables<"creators">;
 
 type ToggleFollowVariables = {
-  accountId: string;
+  creatorId: string;
   shouldFollow: boolean;
 };
 
-const accountsQueryKey = ["following", "accounts"] as const;
+const creatorsQueryKey = ["following", "creators"] as const;
 const followingQueryKey = (userId: string | null) => ["following", "relationships", userId ?? "guest"] as const;
 
 type ToggleFollowContext = {
-  previousAccounts?: Account[];
+  previousCreators?: Creator[];
   previousFollowing?: string[];
   key?: ReturnType<typeof followingQueryKey>;
 };
 
-const fetchAccounts = async (): Promise<Account[]> => {
-  const { data, error } = await supabase.from("accounts").select("*").order("display_name", { ascending: true });
+const fetchCreators = async (): Promise<Creator[]> => {
+  const { data, error } = await supabase.from("creators").select("*").order("display_name", { ascending: true });
   if (error) {
     throw error;
   }
@@ -40,25 +51,26 @@ const fetchAccounts = async (): Promise<Account[]> => {
 };
 
 const fetchFollowingIds = async (userId: string): Promise<string[]> => {
-  const { data, error } = await supabase.from("follows").select("followee_id").eq("follower_id", userId);
+  const { data, error } = await supabase.from("user_follows").select("creator_id").eq("user_id", userId);
   if (error) {
     throw error;
   }
-  return data?.map((row) => row.followee_id) ?? [];
+  return data?.map((row) => row.creator_id) ?? [];
 };
 
 const Following = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
+  const [pendingUnfollowId, setPendingUnfollowId] = useState<string | null>(null);
 
   const {
-    data: accounts,
-    isLoading: accountsLoading,
-    error: accountsError,
-  } = useQuery<Account[]>({
-    queryKey: accountsQueryKey,
-    queryFn: fetchAccounts,
+    data: creators,
+    isLoading: creatorsLoading,
+    error: creatorsError,
+  } = useQuery<Creator[]>({
+    queryKey: creatorsQueryKey,
+    queryFn: fetchCreators,
   });
 
   const { data: followingData = [], isLoading: followingLoading } = useQuery<string[]>({
@@ -68,79 +80,70 @@ const Following = () => {
   });
 
   const followingSet = useMemo(() => new Set(followingData), [followingData]);
-  const curatedCount = accounts?.length ?? 0;
+  const curatedCount = creators?.length ?? 0;
   const totalFollowers = useMemo(
-    () => (accounts ?? []).reduce((sum, account) => sum + (account.followers_count ?? 0), 0),
-    [accounts],
+    () => (creators ?? []).reduce((sum, creator) => sum + (creator.followers_count ?? 0), 0),
+    [creators],
+  );
+
+  const creatorToUnfollow = useMemo(
+    () => creators?.find((creator) => creator.id === pendingUnfollowId) ?? null,
+    [creators, pendingUnfollowId],
   );
 
   const toggleFollowMutation = useMutation<void, Error, ToggleFollowVariables, ToggleFollowContext>({
-    mutationFn: async ({ accountId, shouldFollow }) => {
+    mutationFn: async ({ creatorId, shouldFollow }) => {
       if (!user?.id) {
-        throw new Error("Du behöver vara inloggad för att följa konton.");
+        throw new Error("Du behöver vara inloggad för att följa skapare.");
       }
 
       if (shouldFollow) {
-        const { error } = await supabase
-          .from("follows")
-          .upsert(
-            { follower_id: user.id, followee_id: accountId },
-            { onConflict: "follower_id,followee_id" },
-          );
-        if (error) {
-          throw error;
-        }
+        await followCreator(creatorId);
       } else {
-        const { error } = await supabase
-          .from("follows")
-          .delete()
-          .match({ follower_id: user.id, followee_id: accountId });
-        if (error) {
-          throw error;
-        }
+        await unfollowCreator(creatorId);
       }
     },
-    onMutate: async ({ accountId, shouldFollow }) => {
+    onMutate: async ({ creatorId, shouldFollow }) => {
       if (!user?.id) {
         return {};
       }
 
       const key = followingQueryKey(user.id);
       await Promise.all([
-        queryClient.cancelQueries({ queryKey: accountsQueryKey }),
+        queryClient.cancelQueries({ queryKey: creatorsQueryKey }),
         queryClient.cancelQueries({ queryKey: key }),
       ]);
 
-      const previousAccounts = queryClient.getQueryData<Account[]>(accountsQueryKey);
+      const previousCreators = queryClient.getQueryData<Creator[]>(creatorsQueryKey);
       const previousFollowing = queryClient.getQueryData<string[]>(key);
 
-      queryClient.setQueryData<Account[]>(accountsQueryKey, (old) => {
+      queryClient.setQueryData<Creator[]>(creatorsQueryKey, (old) => {
         if (!old) return old;
-        return old.map((account) =>
-          account.id === accountId
+        return old.map((creator) =>
+          creator.id === creatorId
             ? {
-                ...account,
-                followers_count: Math.max(0, account.followers_count + (shouldFollow ? 1 : -1)),
+                ...creator,
+                followers_count: Math.max(0, creator.followers_count + (shouldFollow ? 1 : -1)),
               }
-            : account,
+            : creator,
         );
       });
 
       queryClient.setQueryData<string[]>(key, (old = []) => {
         const next = new Set(old);
         if (shouldFollow) {
-          next.add(accountId);
+          next.add(creatorId);
         } else {
-          next.delete(accountId);
+          next.delete(creatorId);
         }
         return Array.from(next);
       });
 
-      return { previousAccounts, previousFollowing, key } satisfies ToggleFollowContext;
+      return { previousCreators, previousFollowing, key } satisfies ToggleFollowContext;
     },
     onError: (error, _variables, context) => {
-      if (context?.previousAccounts) {
-        queryClient.setQueryData(accountsQueryKey, context.previousAccounts);
+      if (context?.previousCreators) {
+        queryClient.setQueryData(creatorsQueryKey, context.previousCreators);
       }
       if (context?.previousFollowing && context.key) {
         queryClient.setQueryData(context.key, context.previousFollowing);
@@ -156,23 +159,35 @@ const Following = () => {
         return;
       }
       const key = followingQueryKey(user.id);
-      queryClient.invalidateQueries({ queryKey: accountsQueryKey });
+      queryClient.invalidateQueries({ queryKey: creatorsQueryKey });
       queryClient.invalidateQueries({ queryKey: key });
     },
   });
 
-  const handleToggleFollow = (accountId: string, nextState: boolean) => {
+  const handleToggleFollow = (creatorId: string, nextState: boolean) => {
     if (!user) {
       navigate(`/login?redirectTo=${encodeURIComponent("/following")}`);
       return;
     }
-    toggleFollowMutation.mutate({ accountId, shouldFollow: nextState });
+    if (!nextState) {
+      setPendingUnfollowId(creatorId);
+      return;
+    }
+    toggleFollowMutation.mutate({ creatorId, shouldFollow: nextState });
   };
 
-  const isProcessingAccount = (accountId: string) =>
-    toggleFollowMutation.isPending && toggleFollowMutation.variables?.accountId === accountId;
+  const confirmUnfollow = () => {
+    if (!pendingUnfollowId) {
+      return;
+    }
+    toggleFollowMutation.mutate({ creatorId: pendingUnfollowId, shouldFollow: false });
+    setPendingUnfollowId(null);
+  };
 
-  const showSkeletons = accountsLoading;
+  const isProcessingCreator = (creatorId: string) =>
+    toggleFollowMutation.isPending && toggleFollowMutation.variables?.creatorId === creatorId;
+
+  const showSkeletons = creatorsLoading;
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
@@ -194,14 +209,14 @@ const Following = () => {
             <Users2 className="h-4 w-4 text-theme-primary" aria-hidden="true" />
             Följer
           </span>
-          <h1 className="text-3xl font-semibold text-theme-primary sm:text-4xl">Kuraterade konton & listor</h1>
+          <h1 className="text-3xl font-semibold text-theme-primary sm:text-4xl">Kuraterade skapare & listor</h1>
           <p className="max-w-2xl text-sm text-theme-secondary/80 sm:text-base">
             Följ redaktionens favoriter för att se butikslistor, livesändningar och nördiga rekommendationer så fort funktionen rullas ut.
           </p>
           <div className="flex flex-wrap justify-center gap-3 text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/70">
             <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/10 px-3 py-1">
               <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
-              {curatedCount} konton
+              {curatedCount} skapare
             </span>
             <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/10 px-3 py-1">
               <Users2 className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
@@ -224,14 +239,14 @@ const Following = () => {
         </div>
 
         <div className="mt-10 space-y-6">
-          {accountsError ? (
+          {creatorsError ? (
             <Card className="border-theme-card/60 bg-theme-elevated/80 text-theme-primary">
               <CardContent className="space-y-2 p-6 text-center">
                 <p className="text-base font-semibold">Kunde inte ladda listan</p>
                 <p className="text-sm text-theme-secondary/80">
                   Kontrollera din uppkoppling och försök igen om en liten stund.
                 </p>
-                <Button variant="outline" className="rounded-full" onClick={() => queryClient.invalidateQueries({ queryKey: accountsQueryKey })}>
+                <Button variant="outline" className="rounded-full" onClick={() => queryClient.invalidateQueries({ queryKey: creatorsQueryKey })}>
                   Försök igen
                 </Button>
               </CardContent>
@@ -261,17 +276,17 @@ const Following = () => {
             </div>
           ) : null}
 
-          {!accountsLoading && !accountsError ? (
+          {!creatorsLoading && !creatorsError ? (
             <>
-              {accounts && accounts.length > 0 ? (
+              {creators && creators.length > 0 ? (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  {accounts.map((account) => (
-                    <AccountCard
-                      key={account.id}
-                      account={account}
-                      isFollowing={followingSet.has(account.id)}
+                  {creators.map((creator) => (
+                    <CreatorCard
+                      key={creator.id}
+                      creator={creator}
+                      isFollowing={followingSet.has(creator.id)}
                       disabled={!user || authLoading || followingLoading}
-                      isProcessing={isProcessingAccount(account.id)}
+                      isProcessing={isProcessingCreator(creator.id)}
                       onToggle={handleToggleFollow}
                     />
                   ))}
@@ -293,6 +308,30 @@ const Following = () => {
           ) : null}
         </div>
       </div>
+      <AlertDialog open={Boolean(pendingUnfollowId)} onOpenChange={(open) => !open && setPendingUnfollowId(null)}>
+        <AlertDialogContent className="border-theme-card/70 bg-theme-elevated/90 text-theme-primary">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Sluta följa {creatorToUnfollow?.display_name ?? "den här skaparen"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-theme-secondary/80">
+              Du kommer inte längre att se nya listor eller tips från den här skaparen i flödet.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-full" disabled={toggleFollowMutation.isPending}>
+              Behåll
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmUnfollow}
+              disabled={toggleFollowMutation.isPending}
+            >
+              Sluta följ
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

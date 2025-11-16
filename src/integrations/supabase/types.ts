@@ -41,6 +41,70 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_posts: {
+        Row: {
+          body_json: Json
+          created_at: string
+          creator_id: string
+          id: string
+          title: string
+          type: string
+        }
+        Insert: {
+          body_json: Json
+          created_at?: string
+          creator_id: string
+          id?: string
+          title: string
+          type: string
+        }
+        Update: {
+          body_json?: Json
+          created_at?: string
+          creator_id?: string
+          id?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_posts_creator_id_fkey"
+            columns: ["creator_id"]
+            referencedRelation: "creators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creators: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string
+          followers_count: number
+          handle: string
+          id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name: string
+          followers_count?: number
+          handle: string
+          id?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string
+          followers_count?: number
+          handle?: string
+          id?: string
+        }
+        Relationships: []
+      }
       explore_seed_cards: {
         Row: {
           created_at: string
@@ -160,6 +224,37 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      user_follows: {
+        Row: {
+          created_at: string
+          creator_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_follows_creator_id_fkey"
+            columns: ["creator_id"]
+            referencedRelation: "creators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_follows_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       follows: {
         Row: {
