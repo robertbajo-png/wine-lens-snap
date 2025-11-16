@@ -1,13 +1,18 @@
-import { useMemo, useState } from "react";
+import { type KeyboardEvent, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, LogIn, Sparkles, Users2 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { sv } from "date-fns/locale";
+import { Camera, LogIn, Newspaper, Sparkles, Users2 } from "lucide-react";
 
 import CreatorCard from "@/components/following/CreatorCard";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,13 +25,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Json, Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/lib/supabaseClient";
 import { followCreator, unfollowCreator } from "@/services/creatorFollows";
 
 const numberFormatter = new Intl.NumberFormat("sv-SE");
 
 type Creator = Tables<"creators">;
+type CreatorPost = Tables<"creator_posts">;
+
+type CreatorFeedPost = CreatorPost & { creator: Creator | null };
 
 type ToggleFollowVariables = {
   creatorId: string;
@@ -35,6 +43,8 @@ type ToggleFollowVariables = {
 
 const creatorsQueryKey = ["following", "creators"] as const;
 const followingQueryKey = (userId: string | null) => ["following", "relationships", userId ?? "guest"] as const;
+const feedQueryKey = (userId: string | null, followingIds: string[]) =>
+  ["following", "feed", userId ?? "guest", [...followingIds].sort().join(",")] as const;
 
 type ToggleFollowContext = {
   previousCreators?: Creator[];
@@ -58,11 +68,96 @@ const fetchFollowingIds = async (userId: string): Promise<string[]> => {
   return data?.map((row) => row.creator_id) ?? [];
 };
 
+const fetchFollowingFeed = async (creatorIds: string[]): Promise<CreatorFeedPost[]> => {
+  if (!creatorIds.length) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("creator_posts")
+    .select("*, creator:creators!creator_posts_creator_id_fkey(*)")
+    .in("creator_id", creatorIds)
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  if (error) {
+    throw error;
+  }
+
+  return (data as CreatorFeedPost[] | null) ?? [];
+};
+
+const POST_TYPE_LABELS: Record<string, string> = {
+  quick_take: "Snabbnotis",
+  longform: "Guide",
+  listicle: "Lista",
+};
+
+const isRecord = (value: Json | Record<string, unknown> | null | undefined): value is Record<string, Json> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
+
+const getPreviewFromBody = (bodyJson: Json): string => {
+  const fallback = "Öppna inlägget för mer detaljer.";
+
+  if (!isRecord(bodyJson)) {
+    return fallback;
+  }
+
+  if (isNonEmptyString(bodyJson.summary)) {
+    return bodyJson.summary.trim();
+  }
+
+  if (isNonEmptyString(bodyJson.text)) {
+    return bodyJson.text.trim();
+  }
+
+  const fromBlocks = Array.isArray(bodyJson.blocks)
+    ? bodyJson.blocks.find((block) => isRecord(block) && isNonEmptyString(block.text))
+    : null;
+  if (fromBlocks && isRecord(fromBlocks) && isNonEmptyString(fromBlocks.text)) {
+    return fromBlocks.text.trim();
+  }
+
+  const fromItems = Array.isArray(bodyJson.items)
+    ? bodyJson.items.find((item) => isRecord(item) && (isNonEmptyString(item.detail) || isNonEmptyString(item.title)))
+    : null;
+  if (fromItems && isRecord(fromItems)) {
+    if (isNonEmptyString(fromItems.detail)) {
+      return fromItems.detail.trim();
+    }
+    if (isNonEmptyString(fromItems.title)) {
+      return fromItems.title.trim();
+    }
+  }
+
+  if (isNonEmptyString(bodyJson.cta)) {
+    return bodyJson.cta.trim();
+  }
+
+  return fallback;
+};
+
+const truncateText = (text: string, maxLength = 200) =>
+  text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}…` : text;
+
+const formatPostTypeLabel = (type: string) => POST_TYPE_LABELS[type] ?? type.replace(/_/g, " ");
+
+const getInitials = (displayName: string) =>
+  displayName
+    .split(" ")
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
 const Following = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuth();
   const [pendingUnfollowId, setPendingUnfollowId] = useState<string | null>(null);
+  const [selectedPost, setSelectedPost] = useState<CreatorFeedPost | null>(null);
 
   const {
     data: creators,
@@ -75,8 +170,23 @@ const Following = () => {
 
   const { data: followingData = [], isLoading: followingLoading } = useQuery<string[]>({
     queryKey: followingQueryKey(user?.id ?? null),
-    queryFn: () => fetchFollowingIds(user!.id),
+    queryFn: async () => {
+      if (!user?.id) {
+        return [];
+      }
+      return fetchFollowingIds(user.id);
+    },
     enabled: Boolean(user?.id),
+  });
+
+  const {
+    data: feedPosts = [],
+    isLoading: feedLoading,
+    error: feedError,
+  } = useQuery<CreatorFeedPost[]>({
+    queryKey: feedQueryKey(user?.id ?? null, followingData),
+    queryFn: () => fetchFollowingFeed(followingData),
+    enabled: Boolean(user?.id && !followingLoading && followingData.length > 0),
   });
 
   const followingSet = useMemo(() => new Set(followingData), [followingData]);
@@ -161,6 +271,7 @@ const Following = () => {
       const key = followingQueryKey(user.id);
       queryClient.invalidateQueries({ queryKey: creatorsQueryKey });
       queryClient.invalidateQueries({ queryKey: key });
+      queryClient.invalidateQueries({ queryKey: ["following", "feed"] });
     },
   });
 
@@ -188,6 +299,20 @@ const Following = () => {
     toggleFollowMutation.isPending && toggleFollowMutation.variables?.creatorId === creatorId;
 
   const showSkeletons = creatorsLoading;
+  const showFeedSkeleton = followingLoading || feedLoading;
+  const showEmptyFollowState = Boolean(user) && !followingLoading && followingSet.size === 0;
+  const showFeedSection = Boolean(user);
+
+  const activatePost = (post: CreatorFeedPost) => {
+    setSelectedPost(post);
+  };
+
+  const handlePostKeyDown = (event: KeyboardEvent<HTMLDivElement>, post: CreatorFeedPost) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      activatePost(post);
+    }
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
@@ -238,74 +363,220 @@ const Following = () => {
           ) : null}
         </div>
 
-        <div className="mt-10 space-y-6">
-          {creatorsError ? (
-            <Card className="border-theme-card/60 bg-theme-elevated/80 text-theme-primary">
-              <CardContent className="space-y-2 p-6 text-center">
-                <p className="text-base font-semibold">Kunde inte ladda listan</p>
-                <p className="text-sm text-theme-secondary/80">
-                  Kontrollera din uppkoppling och försök igen om en liten stund.
-                </p>
-                <Button variant="outline" className="rounded-full" onClick={() => queryClient.invalidateQueries({ queryKey: creatorsQueryKey })}>
-                  Försök igen
-                </Button>
-              </CardContent>
-            </Card>
-          ) : null}
+        <div className="mt-10 space-y-10">
+          {showFeedSection ? (
+            <section className="space-y-4 rounded-3xl border border-theme-card/70 bg-theme-elevated/80 p-6 text-theme-primary">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/70">Ditt flöde</p>
+                  <h2 className="text-2xl font-semibold text-theme-primary">Nyheter från skapare du följer</h2>
+                  <p className="text-sm text-theme-secondary/80">Sorterade efter senast publicerat.</p>
+                </div>
+                <div className="rounded-2xl bg-theme-card/40 p-3 text-theme-primary/80">
+                  <Newspaper className="h-6 w-6" aria-hidden="true" />
+                </div>
+              </div>
 
-          {showSkeletons ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[0, 1, 2].map((key) => (
-                <Card key={key} className="border-theme-card/70 bg-theme-elevated/60">
-                  <CardContent className="space-y-4 p-5">
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-12 w-12 rounded-full bg-theme-card/60" />
-                      <div className="flex-1 space-y-2">
-                        <Skeleton className="h-4 w-1/2 bg-theme-card/60" />
-                        <Skeleton className="h-3 w-1/3 bg-theme-card/60" />
-                      </div>
-                    </div>
-                    <Skeleton className="h-16 w-full bg-theme-card/60" />
-                    <div className="flex items-center justify-between">
-                      <Skeleton className="h-3 w-24 bg-theme-card/60" />
-                      <Skeleton className="h-9 w-28 rounded-full bg-theme-card/60" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : null}
-
-          {!creatorsLoading && !creatorsError ? (
-            <>
-              {creators && creators.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {creators.map((creator) => (
-                    <CreatorCard
-                      key={creator.id}
-                      creator={creator}
-                      isFollowing={followingSet.has(creator.id)}
-                      disabled={!user || authLoading || followingLoading}
-                      isProcessing={isProcessingCreator(creator.id)}
-                      onToggle={handleToggleFollow}
-                    />
+              {showFeedSkeleton ? (
+                <div className="space-y-3">
+                  {[0, 1, 2].map((key) => (
+                    <Card key={`feed-skeleton-${key}`} className="border-theme-card/70 bg-theme-card/30">
+                      <CardContent className="space-y-4 p-5">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="h-10 w-10 rounded-full bg-theme-card/60" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-1/3 bg-theme-card/60" />
+                            <Skeleton className="h-3 w-1/4 bg-theme-card/60" />
+                          </div>
+                          <Skeleton className="h-5 w-20 rounded-full bg-theme-card/60" />
+                        </div>
+                        <Skeleton className="h-4 w-3/4 bg-theme-card/60" />
+                        <Skeleton className="h-3 w-full bg-theme-card/60" />
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
-              ) : (
-                <Card className="border-theme-card/70 bg-theme-elevated/80 text-theme-primary">
-                  <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
-                    <p className="text-base font-semibold">Listan är tom</p>
+              ) : null}
+
+              {showEmptyFollowState ? (
+                <Card className="border-theme-card/60 bg-theme-card/20 text-theme-primary">
+                  <CardContent className="space-y-3 p-6 text-center">
+                    <p className="text-base font-semibold">Följ minst en skapare för att se flödet.</p>
                     <p className="text-sm text-theme-secondary/80">
-                      Vi fyller på med fler tips. Under tiden kan du gå till Utforska och hitta etiketter att bevaka.
+                      Använd listan nedan för att hitta profiler du vill följa. Nya inlägg dyker upp här direkt.
                     </p>
-                    <Button variant="outline" className="rounded-full" onClick={() => navigate("/explore")}>
-                      Gå till Utforska
+                    <Button
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() =>
+                        document.getElementById("recommended-creators")?.scrollIntoView({ behavior: "smooth" })
+                      }
+                    >
+                      Visa rekommenderade skapare
                     </Button>
                   </CardContent>
                 </Card>
-              )}
-            </>
+              ) : null}
+
+              {!showFeedSkeleton && !showEmptyFollowState && followingSet.size > 0 ? (
+                <div className="space-y-4">
+                  {feedError ? (
+                    <Card className="border-theme-card/60 bg-theme-card/20 text-theme-primary">
+                      <CardContent className="space-y-2 p-5 text-center">
+                        <p className="text-base font-semibold">Kunde inte ladda flödet</p>
+                        <p className="text-sm text-theme-secondary/80">Försök igen eller uppdatera sidan.</p>
+                        <Button
+                          variant="outline"
+                          className="rounded-full"
+                          onClick={() => queryClient.invalidateQueries({ queryKey: ["following", "feed"] })}
+                        >
+                          Försök igen
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ) : null}
+
+                  {!feedLoading && !feedError && feedPosts.length === 0 ? (
+                    <Card className="border-theme-card/60 bg-theme-card/20 text-theme-primary">
+                      <CardContent className="space-y-2 p-6 text-center">
+                        <p className="text-base font-semibold">Inga inlägg än</p>
+                        <p className="text-sm text-theme-secondary/80">
+                          Dina favoritkreatörer har inte publicerat något nytt ännu. Kika tillbaka lite senare.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : null}
+
+                  {feedPosts.map((post) => {
+                    const preview = truncateText(getPreviewFromBody(post.body_json));
+                    const publishedAgo = formatDistanceToNow(new Date(post.created_at), {
+                      addSuffix: true,
+                      locale: sv,
+                    });
+                    const creatorName = post.creator?.display_name ?? "Okänd skapare";
+
+                    return (
+                      <Card
+                        key={post.id}
+                        className="cursor-pointer border-theme-card/70 bg-theme-card/20 transition hover:border-theme-primary/60 hover:bg-theme-card/30"
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Öppna inlägget ${post.title}`}
+                        onClick={() => activatePost(post)}
+                        onKeyDown={(event) => handlePostKeyDown(event, post)}
+                      >
+                        <CardContent className="space-y-4 p-5">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <Avatar className="h-10 w-10 border border-theme-card/60 bg-theme-card/40">
+                              {post.creator?.avatar_url ? (
+                                <AvatarImage src={post.creator.avatar_url} alt={creatorName} />
+                              ) : (
+                                <AvatarFallback className="bg-theme-card/50 text-sm text-theme-primary/80">
+                                  {getInitials(creatorName)}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <div className="flex-1 text-left">
+                              <p className="text-sm font-semibold text-theme-primary">{creatorName}</p>
+                              <p className="text-xs text-theme-secondary/70">{publishedAgo}</p>
+                            </div>
+                            <Badge className="rounded-full border-theme-card/70 text-xs uppercase tracking-[0.2em] text-theme-secondary/80" variant="outline">
+                              {formatPostTypeLabel(post.type)}
+                            </Badge>
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-lg font-semibold text-theme-primary">{post.title}</h3>
+                            <p className="text-sm text-theme-secondary/80">{preview}</p>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </section>
           ) : null}
+
+          <section id="recommended-creators" className="space-y-6">
+            <div className="space-y-1 text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/70">
+                Rekommenderade skapare
+              </p>
+              <h2 className="text-2xl font-semibold text-theme-primary">Utforska redaktionens favoriter</h2>
+            </div>
+
+            {creatorsError ? (
+              <Card className="border-theme-card/60 bg-theme-elevated/80 text-theme-primary">
+                <CardContent className="space-y-2 p-6 text-center">
+                  <p className="text-base font-semibold">Kunde inte ladda listan</p>
+                  <p className="text-sm text-theme-secondary/80">
+                    Kontrollera din uppkoppling och försök igen om en liten stund.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => queryClient.invalidateQueries({ queryKey: creatorsQueryKey })}
+                  >
+                    Försök igen
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {showSkeletons ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {[0, 1, 2].map((key) => (
+                  <Card key={key} className="border-theme-card/70 bg-theme-elevated/60">
+                    <CardContent className="space-y-4 p-5">
+                      <div className="flex items-center gap-4">
+                        <Skeleton className="h-12 w-12 rounded-full bg-theme-card/60" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-1/2 bg-theme-card/60" />
+                          <Skeleton className="h-3 w-1/3 bg-theme-card/60" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-16 w-full bg-theme-card/60" />
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-3 w-24 bg-theme-card/60" />
+                        <Skeleton className="h-9 w-28 rounded-full bg-theme-card/60" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : null}
+
+            {!creatorsLoading && !creatorsError ? (
+              <>
+                {creators && creators.length > 0 ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {creators.map((creator) => (
+                      <CreatorCard
+                        key={creator.id}
+                        creator={creator}
+                        isFollowing={followingSet.has(creator.id)}
+                        disabled={!user || authLoading || followingLoading}
+                        isProcessing={isProcessingCreator(creator.id)}
+                        onToggle={handleToggleFollow}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="border-theme-card/70 bg-theme-elevated/80 text-theme-primary">
+                    <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
+                      <p className="text-base font-semibold">Listan är tom</p>
+                      <p className="text-sm text-theme-secondary/80">
+                        Vi fyller på med fler tips. Under tiden kan du gå till Utforska och hitta etiketter att bevaka.
+                      </p>
+                      <Button variant="outline" className="rounded-full" onClick={() => navigate("/explore")}>
+                        Gå till Utforska
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : null}
+          </section>
         </div>
       </div>
       <AlertDialog open={Boolean(pendingUnfollowId)} onOpenChange={(open) => !open && setPendingUnfollowId(null)}>
@@ -332,6 +603,32 @@ const Following = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <Dialog open={Boolean(selectedPost)} onOpenChange={(open) => !open && setSelectedPost(null)}>
+        <DialogContent className="border-theme-card/80 bg-theme-elevated/95 text-theme-primary">
+          <DialogHeader>
+            <DialogTitle>{selectedPost?.title}</DialogTitle>
+            {selectedPost ? (
+              <DialogDescription className="text-theme-secondary/80">
+                {selectedPost.creator?.display_name ?? "Okänd skapare"} · {formatPostTypeLabel(selectedPost.type)} · {" "}
+                {formatDistanceToNow(new Date(selectedPost.created_at), { addSuffix: true, locale: sv })}
+              </DialogDescription>
+            ) : null}
+          </DialogHeader>
+          {selectedPost ? (
+            <div className="space-y-4">
+              <p className="text-sm text-theme-secondary/80">{getPreviewFromBody(selectedPost.body_json)}</p>
+              <Card className="border-theme-card/60 bg-theme-card/20 text-theme-secondary/80">
+                <CardContent className="space-y-2 p-4 text-sm">
+                  <p className="font-semibold text-theme-primary">Detaljerad läsning kommer snart</p>
+                  <p>
+                    Vi bygger en fullständig läsarupplevelse för kreatörsinlägg. Tills dess visar vi en kort förhandsvisning.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
