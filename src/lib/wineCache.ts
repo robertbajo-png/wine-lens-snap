@@ -30,11 +30,24 @@ interface StoredWineAnalysisV3 {
   ocrText?: string | null;
 }
 
+interface StoredWineAnalysisV4 {
+  version: 4;
+  timestamp: string;
+  result: WineAnalysisResult;
+  imageData?: string;
+  syncReady: boolean;
+  remoteId?: string | null;
+  labelHash?: string | null;
+  ocrText?: string | null;
+  saved: boolean;
+}
+
 type StoredWineAnalysis =
   | WineAnalysisResult
   | StoredWineAnalysisV1
   | StoredWineAnalysisV2
-  | StoredWineAnalysisV3;
+  | StoredWineAnalysisV3
+  | StoredWineAnalysisV4;
 
 export interface CachedWineAnalysisEntry {
   key: string;
@@ -45,6 +58,7 @@ export interface CachedWineAnalysisEntry {
   remoteId?: string | null;
   labelHash?: string | null;
   ocrText?: string | null;
+  saved: boolean;
 }
 
 // Normalize OCR text: trim, lowercase, remove non-alphanumeric
@@ -165,6 +179,21 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
     const parsed = JSON.parse(raw) as StoredWineAnalysis;
 
     if (parsed && typeof parsed === 'object' && 'version' in parsed) {
+      if ((parsed as StoredWineAnalysisV4).version === 4) {
+        const v4 = parsed as StoredWineAnalysisV4;
+        return {
+          key,
+          timestamp: v4.timestamp,
+          result: v4.result,
+          imageData: v4.imageData,
+          syncReady: Boolean(v4.syncReady),
+          remoteId: v4.remoteId ?? null,
+          labelHash: v4.labelHash ?? null,
+          ocrText: v4.ocrText ?? null,
+          saved: Boolean(v4.saved),
+        };
+      }
+
       if ((parsed as StoredWineAnalysisV3).version === 3) {
         const v3 = parsed as StoredWineAnalysisV3;
         return {
@@ -176,6 +205,7 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
           remoteId: v3.remoteId ?? null,
           labelHash: v3.labelHash ?? null,
           ocrText: v3.ocrText ?? null,
+          saved: true,
         };
       }
 
@@ -190,6 +220,7 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
           remoteId: null,
           labelHash: deriveLabelHash(null, v2.result),
           ocrText: null,
+          saved: true,
         };
       }
 
@@ -203,6 +234,7 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
         remoteId: null,
         labelHash: deriveLabelHash(null, v1.result),
         ocrText: null,
+        saved: true,
       };
     }
 
@@ -216,6 +248,7 @@ function parseStoredValue(key: string, raw: string | null): CachedWineAnalysisEn
         remoteId: null,
         labelHash: deriveLabelHash(null, parsed as WineAnalysisResult),
         ocrText: null,
+        saved: true,
       };
     }
   } catch (error) {
@@ -233,9 +266,10 @@ function createStoredPayload(data: {
   remoteId?: string | null;
   labelHash?: string | null;
   ocrText?: string | null;
-}): StoredWineAnalysisV3 {
+  saved: boolean;
+}): StoredWineAnalysisV4 {
   return {
-    version: 3,
+    version: 4,
     timestamp: data.timestamp,
     result: data.result,
     imageData: data.imageData,
@@ -243,6 +277,7 @@ function createStoredPayload(data: {
     remoteId: data.remoteId ?? null,
     labelHash: data.labelHash ?? null,
     ocrText: data.ocrText ?? null,
+    saved: data.saved,
   };
 }
 
@@ -260,6 +295,27 @@ export function getCachedAnalysis(ocrText: string): WineAnalysisResult | null {
   return null;
 }
 
+export function getCachedAnalysisEntry(ocrText: string): CachedWineAnalysisEntry | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const key = getCacheKey(ocrText);
+    return parseStoredValue(key, localStorage.getItem(key));
+  } catch (error) {
+    console.error('Error reading cached analysis entry:', error);
+  }
+  return null;
+}
+
+export function getCachedAnalysisEntryByKey(key: string): CachedWineAnalysisEntry | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return parseStoredValue(key, localStorage.getItem(key));
+  } catch (error) {
+    console.error('Error reading cached analysis by key:', error);
+  }
+  return null;
+}
+
 export function setCachedAnalysis(
   ocrText: string,
   result: WineAnalysisResult,
@@ -268,6 +324,7 @@ export function setCachedAnalysis(
     rawOcr?: string | null;
     remoteId?: string | null;
     labelHash?: string | null;
+    saved?: boolean;
   } = {},
 ): void {
   if (typeof window === 'undefined') return;
@@ -284,6 +341,7 @@ export function setCachedAnalysis(
       remoteId,
       labelHash,
       ocrText: rawOcr,
+      saved: Boolean(options.saved),
     });
     localStorage.setItem(key, JSON.stringify(payload));
     emitCacheUpdatedEvent();
@@ -329,6 +387,10 @@ export function getAllCachedAnalyses(): CachedWineAnalysisEntry[] {
   return entries.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }
 
+export function getSavedAnalyses(): CachedWineAnalysisEntry[] {
+  return getAllCachedAnalyses().filter(entry => entry.saved);
+}
+
 export function removeCachedAnalysis(key: string): void {
   if (typeof window === 'undefined') return;
   try {
@@ -337,6 +399,18 @@ export function removeCachedAnalysis(key: string): void {
   } catch (error) {
     console.error('Error removing cached analysis:', error);
   }
+}
+
+export function setAnalysisSavedState(key: string, saved: boolean): CachedWineAnalysisEntry | null {
+  return updateCachedAnalysisEntry(key, entry => {
+    const timestamp = saved ? new Date().toISOString() : entry.timestamp;
+    return {
+      ...entry,
+      saved,
+      timestamp,
+      syncReady: saved ? true : entry.syncReady,
+    };
+  });
 }
 
 function updateCachedAnalysisEntry(
@@ -366,6 +440,7 @@ function updateCachedAnalysisEntry(
       remoteId: updated.remoteId ?? null,
       labelHash: updated.labelHash ?? null,
       ocrText: updated.ocrText ?? null,
+      saved: updated.saved,
     });
     localStorage.setItem(key, JSON.stringify(payload));
     emitCacheUpdatedEvent();
@@ -390,7 +465,7 @@ export function markAnalysesReadyForSync(): number {
       if (!key || !key.startsWith(CACHE_KEY_PREFIX)) continue;
 
       const parsed = parseStoredValue(key, localStorage.getItem(key));
-      if (parsed && !parsed.syncReady && !parsed.remoteId) {
+      if (parsed && parsed.saved && !parsed.syncReady && !parsed.remoteId) {
         keysToUpdate.push({ key, entry: parsed });
       }
     }
@@ -404,6 +479,7 @@ export function markAnalysesReadyForSync(): number {
         remoteId: entry.remoteId ?? null,
         labelHash: entry.labelHash ?? null,
         ocrText: entry.ocrText ?? null,
+        saved: entry.saved,
       });
       localStorage.setItem(key, JSON.stringify(payload));
       updated += 1;
@@ -580,6 +656,7 @@ export function seedDemoAnalyses(): CachedWineAnalysisEntry[] {
         remoteId: null,
         labelHash: computeLabelHash(entry.ocrText),
         ocrText: entry.ocrText,
+        saved: true,
       });
       const key = `${DEMO_CACHE_PREFIX}${index + 1}`;
       const raw = JSON.stringify(payload);
