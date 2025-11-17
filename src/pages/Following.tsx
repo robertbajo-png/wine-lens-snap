@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useMemo, useState } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
@@ -25,66 +25,29 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
-import type { Json, Tables } from "@/integrations/supabase/types";
-import { supabase } from "@/lib/supabaseClient";
+import type { Json } from "@/integrations/supabase/types";
 import { followCreator, unfollowCreator } from "@/services/creatorFollows";
+import {
+  type Creator,
+  type CreatorFeedPost,
+  fetchCreators,
+  fetchFollowingFeed,
+  fetchFollowingIds,
+} from "@/services/followingFeed";
+import { creatorsQueryKey, feedQueryKey, feedMetaQueryKey, followingQueryKey } from "@/lib/followingQueries";
+import { useFollowingFeedNotifications } from "@/hooks/useFollowingFeedNotifications";
 
 const numberFormatter = new Intl.NumberFormat("sv-SE");
-
-type Creator = Tables<"creators">;
-type CreatorPost = Tables<"creator_posts">;
-
-type CreatorFeedPost = CreatorPost & { creator: Creator | null };
 
 type ToggleFollowVariables = {
   creatorId: string;
   shouldFollow: boolean;
 };
 
-const creatorsQueryKey = ["following", "creators"] as const;
-const followingQueryKey = (userId: string | null) => ["following", "relationships", userId ?? "guest"] as const;
-const feedQueryKey = (userId: string | null, followingIds: string[]) =>
-  ["following", "feed", userId ?? "guest", [...followingIds].sort().join(",")] as const;
-
 type ToggleFollowContext = {
   previousCreators?: Creator[];
   previousFollowing?: string[];
   key?: ReturnType<typeof followingQueryKey>;
-};
-
-const fetchCreators = async (): Promise<Creator[]> => {
-  const { data, error } = await supabase.from("creators").select("*").order("display_name", { ascending: true });
-  if (error) {
-    throw error;
-  }
-  return data ?? [];
-};
-
-const fetchFollowingIds = async (userId: string): Promise<string[]> => {
-  const { data, error } = await supabase.from("user_follows").select("creator_id").eq("user_id", userId);
-  if (error) {
-    throw error;
-  }
-  return data?.map((row) => row.creator_id) ?? [];
-};
-
-const fetchFollowingFeed = async (creatorIds: string[]): Promise<CreatorFeedPost[]> => {
-  if (!creatorIds.length) {
-    return [];
-  }
-
-  const { data, error } = await supabase
-    .from("creator_posts")
-    .select("*, creator:creators!creator_posts_creator_id_fkey(*)")
-    .in("creator_id", creatorIds)
-    .order("created_at", { ascending: false })
-    .limit(25);
-
-  if (error) {
-    throw error;
-  }
-
-  return (data as CreatorFeedPost[] | null) ?? [];
 };
 
 const POST_TYPE_LABELS: Record<string, string> = {
@@ -158,6 +121,8 @@ const Following = () => {
   const { user, loading: authLoading } = useAuth();
   const [pendingUnfollowId, setPendingUnfollowId] = useState<string | null>(null);
   const [selectedPost, setSelectedPost] = useState<CreatorFeedPost | null>(null);
+  const { newPostsCount, isFetched: notificationsReady, markAsOpened } = useFollowingFeedNotifications();
+  const hasMarkedRef = useRef(false);
 
   const {
     data: creators,
@@ -188,6 +153,39 @@ const Following = () => {
     queryFn: () => fetchFollowingFeed(followingData),
     enabled: Boolean(user?.id && !followingLoading && followingData.length > 0),
   });
+
+  useEffect(() => {
+    if (!user?.id) {
+      hasMarkedRef.current = false;
+      return;
+    }
+
+    if (!notificationsReady) {
+      return;
+    }
+
+    if (newPostsCount === 0 && hasMarkedRef.current) {
+      return;
+    }
+
+    const delay = newPostsCount > 0 ? 3000 : 0;
+    const timer = window.setTimeout(() => {
+      markAsOpened().catch(() => {
+        /* noop */
+      });
+      hasMarkedRef.current = true;
+    }, delay);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [markAsOpened, newPostsCount, notificationsReady, user?.id]);
+
+  useEffect(() => {
+    if (newPostsCount > 0) {
+      hasMarkedRef.current = false;
+    }
+  }, [newPostsCount]);
 
   const followingSet = useMemo(() => new Set(followingData), [followingData]);
   const curatedCount = creators?.length ?? 0;
@@ -272,6 +270,7 @@ const Following = () => {
       queryClient.invalidateQueries({ queryKey: creatorsQueryKey });
       queryClient.invalidateQueries({ queryKey: key });
       queryClient.invalidateQueries({ queryKey: ["following", "feed"] });
+      queryClient.invalidateQueries({ queryKey: feedMetaQueryKey(user.id) });
     },
   });
 
@@ -302,6 +301,8 @@ const Following = () => {
   const showFeedSkeleton = followingLoading || feedLoading;
   const showEmptyFollowState = Boolean(user) && !followingLoading && followingSet.size === 0;
   const showFeedSection = Boolean(user);
+  const showNewPostsBadge = newPostsCount > 0;
+  const newPostsBadgeLabel = showNewPostsBadge ? (newPostsCount > 99 ? "99+" : `${newPostsCount}`) : null;
 
   const activatePost = (post: CreatorFeedPost) => {
     setSelectedPost(post);
@@ -330,10 +331,21 @@ const Following = () => {
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 pb-24 pt-24 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center gap-5 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/20 px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
-            <Users2 className="h-4 w-4 text-theme-primary" aria-hidden="true" />
-            Följer
-          </span>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/20 px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
+              <Users2 className="h-4 w-4 text-theme-primary" aria-hidden="true" />
+              Följer
+            </span>
+            {showNewPostsBadge && newPostsBadgeLabel ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-[#F06292]/15 px-3 py-1 text-[0.75rem] font-semibold text-[#F06292]"
+                aria-live="polite"
+              >
+                <Sparkles className="h-3 w-3" aria-hidden="true" />
+                {newPostsBadgeLabel} nya inlägg
+              </span>
+            ) : null}
+          </div>
           <h1 className="text-3xl font-semibold text-theme-primary sm:text-4xl">Kuraterade skapare & listor</h1>
           <p className="max-w-2xl text-sm text-theme-secondary/80 sm:text-base">
             Följ redaktionens favoriter för att se butikslistor, livesändningar och nördiga rekommendationer så fort funktionen rullas ut.
