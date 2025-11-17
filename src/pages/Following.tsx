@@ -54,6 +54,9 @@ const POST_TYPE_LABELS: Record<string, string> = {
   quick_take: "Snabbnotis",
   longform: "Guide",
   listicle: "Lista",
+  tip: "Tips",
+  article: "Artikel",
+  pairing: "Matchning",
 };
 
 const isRecord = (value: Json | Record<string, unknown> | null | undefined): value is Record<string, Json> =>
