@@ -19,7 +19,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   clearCache,
-  getAllCachedAnalyses,
+  getSavedAnalyses,
   removeCachedAnalysis,
   seedDemoAnalyses,
   type CachedWineAnalysisEntry,
@@ -85,7 +85,7 @@ const History = () => {
   const openLoggedRef = useRef(false);
 
   const loadEntries = useCallback(() => {
-    setEntries(getAllCachedAnalyses());
+    setEntries(getSavedAnalyses());
   }, []);
 
   const refreshEntries = useCallback(
@@ -200,7 +200,7 @@ const History = () => {
   const handleClearAll = () => {
     clearCache();
     refreshEntries();
-    const updated = getAllCachedAnalyses();
+    const updated = getSavedAnalyses();
     setDevStatus(updated.length === 0 ? "Historiken rensades." : "Vissa poster kunde inte tas bort.");
   };
 
@@ -319,7 +319,7 @@ const History = () => {
                 ? "Laddar historik"
                 : entries.length === 0
                 ? "Tom historik"
-                : `${entries.length} sparade analyser`}
+                : `${entries.length} sparade viner`}
             </Badge>
           </div>
 
@@ -409,9 +409,9 @@ const History = () => {
         ) : entries.length === 0 ? (
           <Card className="border border-dashed border-theme-card bg-theme-elevated text-center text-theme-primary shadow-xl backdrop-blur">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-2xl text-theme-primary">Ingen historik ännu</CardTitle>
+              <CardTitle className="text-2xl text-theme-primary">Du har inga sparade viner ännu.</CardTitle>
               <CardDescription className="text-base text-theme-secondary">
-                Dina analyser sparas automatiskt här varje gång du fotar en vinflaska med WineSnap.
+                Skanna en flaska och spara dina favoriter här.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4 pb-10">
@@ -421,7 +421,7 @@ const History = () => {
                 aria-label="Starta din första skanning"
               >
                 <Camera className="h-4 w-4" />
-                Starta första skanningen
+                Skanna vin
               </Button>
               <Button
                 variant="outline"

@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Camera, Wine, Loader2, Download, Sparkles } from "lucide-react";
+import { BookmarkPlus, Camera, Download, Loader2, Sparkles, Trash2, Wine } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
-import { getCachedAnalysis, setCachedAnalysis, computeLabelHash, type WineAnalysisResult } from "@/lib/wineCache";
+import {
+  getCachedAnalysisEntry,
+  setCachedAnalysis,
+  computeLabelHash,
+  getCacheKey,
+  setAnalysisSavedState,
+  type WineAnalysisResult,
+} from "@/lib/wineCache";
 import { sha1Base64, getOcrCache, setOcrCache } from "@/lib/ocrCache";
 import { ProgressBanner } from "@/components/ProgressBanner";
 import { Banner } from "@/components/Banner";
@@ -131,6 +138,11 @@ const WineSnap = () => {
   const [progressNote, setProgressNote] = useState<string | null>(null);
   const [progressPercent, setProgressPercent] = useState<number | null>(null);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
+  const [currentCacheKey, setCurrentCacheKey] = useState<string | null>(null);
+  const [currentOcrText, setCurrentOcrText] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
   const [remoteScanId, setRemoteScanId] = useState<string | null>(null);
   const [persistingScan, setPersistingScan] = useState(false);
   const { setTabState } = useTabStateContext();
@@ -349,9 +361,13 @@ const WineSnap = () => {
       }
 
       const cacheLookupKey = !noTextFound && ocrText ? ocrText : processedImage;
-      const cached = getCachedAnalysis(cacheLookupKey);
-      if (cached) {
-        setResults(cached);
+      const cacheKey = getCacheKey(cacheLookupKey);
+      const cachedEntry = getCachedAnalysisEntry(cacheLookupKey);
+      if (cachedEntry) {
+        setResults(cachedEntry.result);
+        setCurrentCacheKey(cacheKey);
+        setIsSaved(cachedEntry.saved);
+        setCurrentOcrText(!noTextFound ? ocrText ?? null : cacheLookupKey);
         if (!noTextFound) {
           setBanner({
             type: "info",
@@ -482,11 +498,15 @@ const WineSnap = () => {
         setRemoteScanId(resolvedRemoteId ?? null);
         const labelHashMeta = typeof data?._meta?.label_hash === "string" ? data._meta.label_hash : undefined;
         const rawOcrValue = !noTextFound && ocrText ? ocrText : null;
+        setCurrentCacheKey(cacheKey);
+        setCurrentOcrText(rawOcrValue ?? cacheLookupKey);
+        setIsSaved(false);
         setCachedAnalysis(cacheLookupKey, result, {
           imageData: processedImage,
           rawOcr: rawOcrValue,
           remoteId: resolvedRemoteId ?? null,
           labelHash: labelHashMeta,
+          saved: false,
         });
         trackEvent("scan_success", {
           source: note ?? "analysis",
@@ -705,6 +725,11 @@ const WineSnap = () => {
     setProgressNote(null);
     setProgressPercent(null);
     setProgressLabel(null);
+    setCurrentCacheKey(null);
+    setCurrentOcrText(null);
+    setIsSaved(false);
+    setIsSaving(false);
+    setIsRemoving(false);
     setRemoteScanId(null);
     setPersistingScan(false);
     autoOpenedRef.current = false;
@@ -730,6 +755,71 @@ const WineSnap = () => {
     if (isProcessing) return;
     handleReset();
   };
+
+  const handleSaveWine = useCallback(() => {
+    if (!results || !currentCacheKey) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const updated = setAnalysisSavedState(currentCacheKey, true);
+      if (!updated) {
+        const keySource = currentOcrText ?? currentCacheKey;
+        const derivedLabelHash = computeLabelHash(keySource ?? results.originaltext ?? results.vin ?? null);
+        setCachedAnalysis(keySource, results, {
+          imageData: previewImage ?? undefined,
+          rawOcr: currentOcrText,
+          remoteId: remoteScanId,
+          labelHash: derivedLabelHash ?? undefined,
+          saved: true,
+        });
+        setCurrentCacheKey(getCacheKey(keySource));
+      }
+      setIsSaved(true);
+      triggerHaptic();
+      toast({
+        title: "Vinet har lagts till i dina sparade viner.",
+        description: results.vin,
+      });
+    } catch (error) {
+      console.error("Failed to save wine", error);
+      toast({
+        title: "Kunde inte spara vinet",
+        description: "Försök igen om en liten stund.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [currentCacheKey, currentOcrText, previewImage, remoteScanId, results, toast, triggerHaptic]);
+
+  const handleRemoveWine = useCallback(() => {
+    if (!currentCacheKey) {
+      return;
+    }
+
+    setIsRemoving(true);
+    try {
+      const updated = setAnalysisSavedState(currentCacheKey, false);
+      if (updated) {
+        setIsSaved(false);
+        toast({
+          title: "Borttaget ur Mina viner",
+          description: updated.result.vin,
+        });
+      }
+    } catch (error) {
+      console.error("Failed to remove saved wine", error);
+      toast({
+        title: "Kunde inte ta bort vinet",
+        description: "Försök igen om en liten stund.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRemoving(false);
+    }
+  }, [currentCacheKey, toast]);
 
   const stageFallbackLabels: Record<Exclude<ProgressKey, null>, string> = {
     prep: "Förbereder…",
@@ -795,7 +885,7 @@ const WineSnap = () => {
 
   // --- spara historik (lokalt + supabase) när resultat finns ---
   useEffect(() => {
-    if (!results) return;
+    if (!results || !isSaved) return;
     import("../lib/history").then(({ saveHistory }) => {
       saveHistory({
         ts: new Date().toISOString(),
@@ -808,7 +898,7 @@ const WineSnap = () => {
         _meta: results._meta ?? null,
       });
     });
-  }, [results]);
+  }, [isSaved, results]);
 
   // Show results view if we have results
   if (results && !isProcessing) {
@@ -881,6 +971,28 @@ const WineSnap = () => {
                 land_region={results.land_region}
                 typ={results.typ}
               />
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Button
+                  onClick={handleSaveWine}
+                  disabled={isSaved || isSaving || !currentCacheKey}
+                  className="h-12 w-full justify-center rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)] disabled:from-[#7B3FE4]/40 disabled:via-[#8451ED]/40 disabled:to-[#9C5CFF]/40 sm:w-auto sm:min-w-[220px]"
+                >
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookmarkPlus className="mr-2 h-4 w-4" />} 
+                  {isSaved ? "Sparat" : "Spara till mina viner"}
+                </Button>
+                {isSaved ? (
+                  <Button
+                    variant="outline"
+                    onClick={handleRemoveWine}
+                    disabled={isRemoving}
+                    className="h-12 w-full justify-center rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80 sm:w-auto"
+                  >
+                    {isRemoving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} 
+                    Ta bort ur mina viner
+                  </Button>
+                ) : null}
+              </div>
 
               {user ? (
                 <WineListsPanel
@@ -968,7 +1080,7 @@ const WineSnap = () => {
               )}
 
               <p className="text-xs text-theme-secondary opacity-80">
-                Resultatet sparas lokalt tillsammans med etikettbilden.
+                Spara profilen för att lägga till den i dina viner. Osparade skanningar rensas när du lämnar sidan.
               </p>
             </div>
 
@@ -1126,7 +1238,7 @@ const WineSnap = () => {
               {[
                 "Justera flaskan tills guidelinjen blir grön.",
                 "Vi kör OCR och AI-analys i bakgrunden.",
-                "Resultatet sparas i historiken automatiskt.",
+                "Spara själv när du vill lägga till vinet i historiken.",
               ].map((tip, idx) => (
                 <div key={tip} className="rounded-2xl border border-theme-card bg-black/25 p-3">
                   <span className="mb-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-theme-elevated text-xs font-semibold text-theme-primary">
