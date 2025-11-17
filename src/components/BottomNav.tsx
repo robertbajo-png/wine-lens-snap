@@ -13,6 +13,7 @@ import { TAB_DEFINITIONS, getDefaultTabPath, type TabDefinition, type TabKey } f
 import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { trackEvent } from "@/lib/telemetry";
+import { useFollowingFeedNotifications } from "@/hooks/useFollowingFeedNotifications";
 
 const iconMap: Record<TabKey, ComponentType<SVGProps<SVGSVGElement>>> = {
   "for-you": ForYouIcon,
@@ -28,6 +29,7 @@ const BottomNav = () => {
   const { stateMap } = useTabStateContext();
   const triggerHaptic = useHapticFeedback();
   const { user, loading } = useAuth();
+  const { newPostsCount } = useFollowingFeedNotifications();
 
   const activeKey = useMemo(() => {
     const current = TAB_DEFINITIONS.find((tab) =>
@@ -124,6 +126,9 @@ const BottomNav = () => {
               );
             }
 
+            const showFollowingBadge = tab.key === "following" && newPostsCount > 0;
+            const badgeLabel = newPostsCount > 99 ? "99+" : `${newPostsCount}`;
+
             return (
               <li key={tab.key} className="flex justify-center">
                 <button
@@ -135,7 +140,17 @@ const BottomNav = () => {
                     isActive ? "text-theme-primary" : "text-theme-secondary/70",
                   )}
                 >
-                  <Icon className="h-5 w-5" aria-hidden="true" />
+                  <span className="relative inline-flex">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                    {showFollowingBadge ? (
+                      <span
+                        className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[#F06292] px-1 text-[0.55rem] font-semibold leading-none text-white shadow"
+                        aria-hidden="true"
+                      >
+                        {badgeLabel}
+                      </span>
+                    ) : null}
+                  </span>
                   <span>{tab.label}</span>
                 </button>
               </li>
