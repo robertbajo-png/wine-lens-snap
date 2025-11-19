@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import type { Tables } from "@/integrations/supabase/types";
 import type { WineAnalysisResult } from "@/lib/wineCache";
+import { normalizeAnalysisJson } from "@/lib/analysisSchema";
 
 export type WineListSummary = {
   id: string;
@@ -30,7 +31,8 @@ const parseWineAnalysis = (value: unknown): Partial<WineAnalysisResult> | null =
     return null;
   }
 
-  return value as Partial<WineAnalysisResult>;
+  const normalized = normalizeAnalysisJson(value as Partial<WineAnalysisResult>);
+  return (normalized ?? (value as Partial<WineAnalysisResult>)) ?? null;
 };
 
 const extractCount = (value: unknown): number => {

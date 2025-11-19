@@ -160,6 +160,14 @@ export interface WineAnalysisResult {
     source: "web" | "heuristic";
     evidence_links: string[];
   };
+  mode?: "label_only" | "label+web";
+  confidence?: number;
+  sources?: string[];
+  summary?: string;
+  grapes?: string[];
+  style?: string | null;
+  food_pairings?: string[];
+  warnings?: string[];
   _meta?: {
     meters_source?: "web" | "derived";
     confidence?: {

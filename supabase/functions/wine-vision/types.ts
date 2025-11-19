@@ -45,6 +45,14 @@ export type WineAnalysisResult = WineSummary & {
   producer?: string;
   foodPairing?: string[];
   tastingNotes?: string;
+  mode?: "label_only" | "label+web";
+  confidence?: number;
+  sources?: string[];
+  summary?: string;
+  grapes?: string[];
+  style?: string | null;
+  food_pairings?: string[];
+  warnings?: string[];
 };
 
 export interface WineSearchResult {
