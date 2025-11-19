@@ -29,6 +29,16 @@ import EvidenceAccordion from "@/components/result/EvidenceAccordion";
 import ActionBar from "@/components/result/ActionBar";
 import ResultSkeleton from "@/components/result/ResultSkeleton";
 import { WineListsPanel } from "@/components/result/WineListsPanel";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
 import {
   supportsOffscreenCanvas,
@@ -47,6 +57,7 @@ const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
 const WEB_EVIDENCE_THRESHOLD = 2;
 const HTTP_LINK_REGEX = /^https?:\/\//i;
+const CONFIDENCE_THRESHOLD = 0.7;
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
 
 type BannerState = {
@@ -146,6 +157,10 @@ const WineSnap = () => {
   const [isRemoving, setIsRemoving] = useState(false);
   const [remoteScanId, setRemoteScanId] = useState<string | null>(null);
   const [persistingScan, setPersistingScan] = useState(false);
+  const [isRefineDialogOpen, setIsRefineDialogOpen] = useState(false);
+  const [refineVintage, setRefineVintage] = useState("");
+  const [refineGrape, setRefineGrape] = useState("");
+  const [refineStyle, setRefineStyle] = useState("");
   const { setTabState } = useTabStateContext();
   const triggerHaptic = useHapticFeedback();
 
@@ -478,6 +493,14 @@ const WineSnap = () => {
           sockerhalt: data.sockerhalt || "–",
           syra: data.syra || "–",
           källa: data.källa || "–",
+          mode: data.mode,
+          confidence: typeof data.confidence === "number" ? data.confidence : undefined,
+          sources: data.sources,
+          summary: data.summary,
+          grapes: data.grapes,
+          style: data.style,
+          food_pairings: data.food_pairings,
+          warnings: data.warnings,
           // Behåll inkomna meters oförändrade; ingen client-side påhitt
           meters:
             data.meters && typeof data.meters === "object"
@@ -825,6 +848,51 @@ const WineSnap = () => {
     }
   }, [currentCacheKey, toast]);
 
+  const persistRefinedResult = useCallback(
+    (updated: WineAnalysisResult) => {
+      const keySource = currentOcrText ?? results?.originaltext ?? results?.vin ?? null;
+      if (!keySource) return;
+
+      setCachedAnalysis(keySource, updated, {
+        imageData: previewImage ?? undefined,
+        rawOcr: currentOcrText,
+        remoteId: remoteScanId,
+        saved: isSaved,
+      });
+    },
+    [currentOcrText, isSaved, previewImage, remoteScanId, results?.originaltext, results?.vin],
+  );
+
+  const handleApplyRefinements = useCallback(() => {
+    if (!results) return;
+
+    const trimmedVintage = refineVintage.trim();
+    const trimmedGrape = refineGrape.trim();
+    const trimmedStyle = refineStyle.trim();
+
+    const updated: WineAnalysisResult = {
+      ...results,
+      årgång: trimmedVintage || results.årgång,
+      druvor: trimmedGrape || results.druvor,
+      typ: trimmedStyle || results.typ,
+      style: trimmedStyle || results.style,
+      grapes: trimmedGrape
+        ? trimmedGrape
+            .split(/[,/&;]/)
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : results.grapes,
+    };
+
+    setResults(updated);
+    persistRefinedResult(updated);
+    toast({
+      title: "Detaljer uppdaterade",
+      description: "Vi använder dina insikter för en säkrare profil.",
+    });
+    setIsRefineDialogOpen(false);
+  }, [persistRefinedResult, refineGrape, refineStyle, refineVintage, results, toast]);
+
   const stageFallbackLabels: Record<Exclude<ProgressKey, null>, string> = {
     prep: "Förbereder…",
     ocr: "Tolkar etikett…",
@@ -850,6 +918,25 @@ const WineSnap = () => {
       }));
     };
   }, [setTabState]);
+
+  useEffect(() => {
+    if (!results) {
+      setRefineVintage("");
+      setRefineGrape("");
+      setRefineStyle("");
+      return;
+    }
+
+    setRefineVintage(results.årgång && results.årgång !== "–" ? results.årgång : "");
+    const grapeCandidate =
+      results.druvor && results.druvor !== "–"
+        ? results.druvor
+        : Array.isArray(results.grapes) && results.grapes.length
+          ? results.grapes[0] ?? ""
+          : "";
+    setRefineGrape(grapeCandidate ?? "");
+    setRefineStyle(results.typ && results.typ !== "–" ? results.typ : results.style ?? results.färgtyp ?? "");
+  }, [results]);
 
   // --- helpers ---
   const hasNumeric = (value: unknown) => typeof value === "number" && Number.isFinite(value);
@@ -909,197 +996,373 @@ const WineSnap = () => {
     const showInstallCTA = isInstallable && !isInstalled;
     const pairings = Array.isArray(results.passar_till)
       ? (results.passar_till.filter(Boolean) as string[])
-      : [];
+      : Array.isArray(results.food_pairings)
+        ? (results.food_pairings.filter(Boolean) as string[])
+        : [];
     const ocrText = results.originaltext && results.originaltext !== "–"
       ? results.originaltext
       : results.evidence?.etiketttext;
+    const isLabelOnly = results.mode === "label_only";
+    const confidenceValue = typeof results.confidence === "number" ? results.confidence : null;
+    const needsRefinement = Boolean(
+      isLabelOnly || (confidenceValue !== null && confidenceValue < CONFIDENCE_THRESHOLD),
+    );
+    const refinementReason = isLabelOnly
+      ? "Det här bygger bara på etiketten – lägg till detaljer eller försök igen."
+      : "Analysen är osäker – förbättra resultatet med fler detaljer.";
+    const showDetailedSections = !isLabelOnly;
+    const grapeSuggestions = Array.from(
+      new Set(
+        [
+          ...(Array.isArray(results.grapes) ? results.grapes.filter(Boolean) : []),
+          ...(results.druvor ? results.druvor.split(/[,/&;]/).map((item) => item.trim()).filter(Boolean) : []),
+        ].slice(0, 6),
+      ),
+    );
+    const styleSuggestions = Array.from(
+      new Set(
+        [results.style, results.typ, results.färgtyp]
+          .filter((value): value is string => Boolean(value && value !== "–"))
+          .slice(0, 6),
+      ),
+    );
 
     return (
-      <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
-        <AmbientBackground />
+      <>
+        <Dialog open={isRefineDialogOpen} onOpenChange={setIsRefineDialogOpen}>
+          <DialogContent className="border-theme-card bg-theme-elevated text-theme-primary">
+            <DialogHeader>
+              <DialogTitle>Förfina resultatet</DialogTitle>
+              <DialogDescription className="text-theme-secondary">
+                Hjälp oss säkra analysen genom att lägga till detaljer eller skanna etiketten igen.
+              </DialogDescription>
+            </DialogHeader>
 
-        <input
-          id="wineImageUpload"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileChange}
-          className="hidden"
-        />
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-theme-card bg-theme-elevated/50 p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-semibold text-theme-primary">Ta en ny bild</p>
+                    <p className="text-sm text-theme-secondary">Fota etiketten igen för att få fler källor.</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsRefineDialogOpen(false);
+                      handleRetryScan();
+                    }}
+                    className="border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
+                  >
+                    <Camera className="mr-2 h-4 w-4" />
+                    Starta ny skanning
+                  </Button>
+                </div>
+              </div>
 
-        <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-32 pt-10 sm:pt-16">
-          <header className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">WineSnap</p>
-              <p className="text-sm text-theme-secondary">Din digitala sommelier</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="refineVintage">Årgång (valfritt)</Label>
+                  <Input
+                    id="refineVintage"
+                    inputMode="numeric"
+                    value={refineVintage}
+                    onChange={(event) => setRefineVintage(event.target.value)}
+                    placeholder="t.ex. 2019"
+                    className="border-theme-card bg-theme-canvas text-theme-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="refineStyle">Stil</Label>
+                  <Input
+                    id="refineStyle"
+                    value={refineStyle}
+                    onChange={(event) => setRefineStyle(event.target.value)}
+                    placeholder="t.ex. Chianti Classico"
+                    className="border-theme-card bg-theme-canvas text-theme-primary"
+                  />
+                  {styleSuggestions.length > 0 && (
+                    <div className="flex flex-wrap gap-2 text-xs text-theme-secondary">
+                      {styleSuggestions.map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          className="rounded-full border border-theme-card px-3 py-1 text-theme-primary hover:border-theme-primary"
+                          onClick={() => setRefineStyle(item)}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="refineGrape">Druva</Label>
+                <Input
+                  id="refineGrape"
+                  value={refineGrape}
+                  onChange={(event) => setRefineGrape(event.target.value)}
+                  placeholder="t.ex. Sangiovese"
+                  className="border-theme-card bg-theme-canvas text-theme-primary"
+                />
+                {grapeSuggestions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 text-xs text-theme-secondary">
+                    {grapeSuggestions.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className="rounded-full border border-theme-card px-3 py-1 text-theme-primary hover:border-theme-primary"
+                        onClick={() => setRefineGrape(item)}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-theme-secondary hover:text-theme-primary"
-                onClick={() => navigate("/me")}
-              >
-                Profil
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-                onClick={() => navigate("/me/wines")}
-              >
-                Historik
-              </Button>
-              {showInstallCTA && (
+
+            <DialogFooter className="mt-4 flex items-center gap-2 sm:justify-between">
+              <p className="text-xs text-theme-secondary">Vi sparar dina manuella justeringar tillsammans med etiketten.</p>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => setIsRefineDialogOpen(false)} className="text-theme-primary">
+                  Avbryt
+                </Button>
+                <Button onClick={handleApplyRefinements} className="bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary">
+                  Spara detaljer
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
+          <AmbientBackground />
+
+          <input
+            id="wineImageUpload"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-32 pt-10 sm:pt-16">
+            <header className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">WineSnap</p>
+                <p className="text-sm text-theme-secondary">Din digitala sommelier</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-theme-secondary hover:text-theme-primary"
+                  onClick={() => navigate("/me")}
+                >
+                  Profil
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-                  onClick={handleInstall}
+                  onClick={() => navigate("/me/wines")}
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  Installera app
+                  Historik
                 </Button>
-              )}
-            </div>
-          </header>
-
-          {banner && <Banner {...banner} className="mb-6" />}
-
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
-            <div className="space-y-6">
-              <ResultHeader
-                vin={results.vin}
-                ar={results.årgång}
-                producent={results.producent}
-                land_region={results.land_region}
-                typ={results.typ}
-              />
-
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <Button
-                  onClick={handleSaveWine}
-                  disabled={isSaved || isSaving || !currentCacheKey}
-                  className="h-12 w-full justify-center rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)] disabled:from-[#7B3FE4]/40 disabled:via-[#8451ED]/40 disabled:to-[#9C5CFF]/40 sm:w-auto sm:min-w-[220px]"
-                >
-                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookmarkPlus className="mr-2 h-4 w-4" />} 
-                  {isSaved ? "Sparat" : "Spara till mina viner"}
-                </Button>
-                {isSaved ? (
+                {showInstallCTA && (
                   <Button
                     variant="outline"
-                    onClick={handleRemoveWine}
-                    disabled={isRemoving}
-                    className="h-12 w-full justify-center rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80 sm:w-auto"
+                    size="sm"
+                    className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
+                    onClick={handleInstall}
                   >
-                    {isRemoving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} 
-                    Ta bort ur mina viner
+                    <Download className="mr-2 h-4 w-4" />
+                    Installera app
                   </Button>
-                ) : null}
+                )}
               </div>
+            </header>
 
-              {user ? (
-                <WineListsPanel
-                  scanId={remoteScanId}
-                  ensureScanId={ensureRemoteScan}
-                  isPersistingScan={persistingScan}
+            {banner && <Banner {...banner} className="mb-4" />}
+            {isLabelOnly && (
+              <Banner
+                type="warning"
+                title="Endast etikettdata"
+                text="Det här bygger bara på etiketten – viss information kan saknas."
+                className="mb-4"
+              />
+            )}
+
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
+              <div className="space-y-6">
+                <ResultHeader
+                  vin={results.vin}
+                  ar={results.årgång}
+                  producent={results.producent}
+                  land_region={results.land_region}
+                  typ={results.typ}
                 />
-              ) : (
-                <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
-                  <CardContent className="flex flex-col gap-3 text-sm text-theme-secondary sm:flex-row sm:items-center sm:justify-between">
+
+                {needsRefinement && (
+                  <div className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-theme-elevated/70 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="font-semibold text-theme-primary">Logga in för att spara vinet</p>
-                      <p>Skapa listor som Favoriter, Köp igen och Gästlista med ditt konto.</p>
+                      <p className="text-sm font-semibold text-theme-primary">Förfina resultat</p>
+                      <p className="text-sm text-theme-secondary">{refinementReason}</p>
+                      {confidenceValue !== null && (
+                        <p className="text-xs text-theme-secondary/80">Säkerhet: {(confidenceValue * 100).toFixed(0)}%</p>
+                      )}
                     </div>
                     <Button
                       variant="outline"
-                      className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
-                      onClick={() => navigate("/login?redirectTo=/scan")}
+                      onClick={() => setIsRefineDialogOpen(true)}
+                      className="border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
                     >
-                      Logga in
+                      Förfina resultat
                     </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              <section className="rounded-2xl border border-theme-card bg-gradient-to-br from-[hsl(var(--surface-elevated)/1)] via-[hsl(var(--surface-elevated)/0.8)] to-[hsl(var(--surface-elevated)/0.6)] p-4 backdrop-blur-sm">
-                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-theme-primary">Smakprofil</h3>
-                  <div className="flex flex-col items-end gap-1 text-right">
-                    <span className="inline-flex items-center rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-theme-secondary">
-                      Källa: {sourceLabel}
-                    </span>
-                    <span className="text-[11px] text-theme-secondary">{sourceDescription}</span>
                   </div>
+                )}
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    onClick={handleSaveWine}
+                    disabled={isSaved || isSaving || !currentCacheKey}
+                    className="h-12 w-full justify-center rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)] disabled:from-[#7B3FE4]/40 disabled:via-[#8451ED]/40 disabled:to-[#9C5CFF]/40 sm:w-auto sm:min-w-[220px]"
+                  >
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookmarkPlus className="mr-2 h-4 w-4" />}
+                    {isSaved ? "Sparat" : "Spara till mina viner"}
+                  </Button>
+                  {isSaved ? (
+                    <Button
+                      variant="outline"
+                      onClick={handleRemoveWine}
+                      disabled={isRemoving}
+                      className="h-12 w-full justify-center rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80 sm:w-auto"
+                    >
+                      {isRemoving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                      Ta bort ur mina viner
+                    </Button>
+                  ) : null}
                 </div>
-                {showVerifiedMeters ? (
-                  <MetersRow
-                    meters={results.meters}
-                    estimated={results?._meta?.meters_source === "derived"}
+
+                {user ? (
+                  <WineListsPanel
+                    scanId={remoteScanId}
+                    ensureScanId={ensureRemoteScan}
+                    isPersistingScan={persistingScan}
                   />
                 ) : (
-                  <Banner
-                    type="warning"
-                    title="Smakprofil saknas"
-                    text={missingSourceText}
-                    ctaLabel="Ny skanning"
-                    onCta={handleRetryScan}
+                  <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
+                    <CardContent className="flex flex-col gap-3 text-sm text-theme-secondary sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="font-semibold text-theme-primary">Logga in för att spara vinet</p>
+                        <p>Skapa listor som Favoriter, Köp igen och Gästlista med ditt konto.</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                        onClick={() => navigate("/login?redirectTo=/scan")}
+                      >
+                        Logga in
+                      </Button>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {showDetailedSections ? (
+                  <section className="rounded-2xl border border-theme-card bg-gradient-to-br from-[hsl(var(--surface-elevated)/1)] via-[hsl(var(--surface-elevated)/0.8)] to-[hsl(var(--surface-elevated)/0.6)] p-4 backdrop-blur-sm">
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-theme-primary">Smakprofil</h3>
+                      <div className="flex flex-col items-end gap-1 text-right">
+                        <span className="inline-flex items-center rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-theme-secondary">
+                          Källa: {sourceLabel}
+                        </span>
+                        <span className="text-[11px] text-theme-secondary">{sourceDescription}</span>
+                      </div>
+                    </div>
+                    {showVerifiedMeters ? (
+                      <MetersRow
+                        meters={results.meters}
+                        estimated={results?._meta?.meters_source === "derived"}
+                      />
+                    ) : (
+                      <Banner
+                        type="warning"
+                        title="Smakprofil saknas"
+                        text={missingSourceText}
+                        ctaLabel="Ny skanning"
+                        onCta={handleRetryScan}
+                      />
+                    )}
+                  </section>
+                ) : (
+                  <Card className="border-theme-card/80 bg-theme-elevated/60">
+                    <CardContent className="text-sm text-theme-secondary">
+                      <p className="font-semibold text-theme-primary">Vi visar bara etikettinfo</p>
+                      <p>Smakprofil, serveringstips och matmatchningar döljs tills vi har mer källor.</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {showDetailedSections && (
+                  <KeyFacts
+                    druvor={results.druvor}
+                    fargtyp={results.färgtyp}
+                    klassificering={results.klassificering}
+                    alkoholhalt={results.alkoholhalt}
+                    volym={results.volym}
+                    sockerhalt={results.sockerhalt}
+                    syra={results.syra}
                   />
                 )}
-              </section>
 
-              <KeyFacts
-                druvor={results.druvor}
-                fargtyp={results.färgtyp}
-                klassificering={results.klassificering}
-                alkoholhalt={results.alkoholhalt}
-                volym={results.volym}
-                sockerhalt={results.sockerhalt}
-                syra={results.syra}
-              />
+                {showDetailedSections && (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <ClampTextCard title="Karaktär" text={results.karaktär} />
+                    <ClampTextCard title="Smak" text={results.smak} />
+                  </div>
+                )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ClampTextCard title="Karaktär" text={results.karaktär} />
-                <ClampTextCard title="Smak" text={results.smak} />
+                {showDetailedSections && <Pairings items={pairings} />}
+
+                {showDetailedSections && <ServingCard servering={results.servering} />}
+
+                <EvidenceAccordion
+                  ocr={ocrText}
+                  hits={
+                    sourceStatus?.evidence_links?.length
+                      ? sourceStatus.evidence_links
+                      : results.evidence?.webbträffar
+                  }
+                  primary={results.källa}
+                />
+
+                {results.detekterat_språk && (
+                  <p className="text-xs text-theme-secondary opacity-80">
+                    Upptäckt språk: {results.detekterat_språk.toUpperCase()}
+                  </p>
+                )}
+
+                <p className="text-xs text-theme-secondary opacity-80">
+                  Spara profilen för att lägga till den i dina viner. Osparade skanningar rensas när du lämnar sidan.
+                </p>
               </div>
 
-              <Pairings items={pairings} />
-
-              <ServingCard servering={results.servering} />
-
-              <EvidenceAccordion
-                ocr={ocrText}
-                hits={
-                  sourceStatus?.evidence_links?.length
-                    ? sourceStatus.evidence_links
-                    : results.evidence?.webbträffar
-                }
-                primary={results.källa}
-              />
-
-              {results.detekterat_språk && (
-                <p className="text-xs text-theme-secondary opacity-80">
-                  Upptäckt språk: {results.detekterat_språk.toUpperCase()}
-                </p>
+              {previewImage && (
+                <aside className="lg:sticky lg:top-24">
+                  <div className="overflow-hidden rounded-3xl border border-theme-card bg-black/40 shadow-xl backdrop-blur">
+                    <img src={previewImage} alt="Skannad vinetikett" className="h-full w-full object-cover" />
+                  </div>
+                </aside>
               )}
-
-              <p className="text-xs text-theme-secondary opacity-80">
-                Spara profilen för att lägga till den i dina viner. Osparade skanningar rensas när du lämnar sidan.
-              </p>
             </div>
-
-            {previewImage && (
-              <aside className="lg:sticky lg:top-24">
-                <div className="overflow-hidden rounded-3xl border border-theme-card bg-black/40 shadow-xl backdrop-blur">
-                  <img src={previewImage} alt="Skannad vinetikett" className="h-full w-full object-cover" />
-                </div>
-              </aside>
-            )}
           </div>
-        </div>
 
-        <ActionBar onNewScan={handleReset} />
-      </div>
+          <ActionBar onNewScan={handleReset} />
+        </div>
+      </>
     );
   }
 
