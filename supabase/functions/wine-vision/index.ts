@@ -519,6 +519,51 @@ function ensureSourceStatus(value: unknown): SourceStatus {
   return { source, evidence_links: sanitizeEvidenceLinks(record.evidence_links) };
 }
 
+type AnalysisMode = "label_only" | "label+web";
+
+const parseGrapeList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return ensureStringArray(value).map((item) => item.trim()).filter((item) => item.length > 0);
+  }
+
+  if (typeof value !== "string") return [];
+
+  return value
+    .split(/[;,]/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+};
+
+const normalizeAnalysisMetadata = (result: WineAnalysisResult): WineAnalysisResult => {
+  const sources = sanitizeEvidenceLinks(result.sources ?? result.evidence?.webbträffar ?? []);
+  const mode: AnalysisMode = sources.length > 0 ? "label+web" : "label_only";
+  const confidenceBase = typeof result.confidence === "number" ? result.confidence : mode === "label+web" ? 0.7 : 0.4;
+  const confidence = Math.min(1, Math.max(0, confidenceBase));
+
+  const summary = typeof result.summary === "string" && result.summary.length > 0
+    ? result.summary
+    : result.karaktär && result.karaktär !== "-"
+      ? result.karaktär
+      : result.smak || "";
+
+  const grapes = parseGrapeList(result.grapes ?? result.druvor);
+  const style = result.style ?? result.typ ?? result.färgtyp ?? null;
+  const food_pairings = ensureStringArray(result.food_pairings ?? result.passar_till);
+  const warnings = ensureStringArray(result.warnings);
+
+  return {
+    ...result,
+    sources,
+    mode,
+    confidence,
+    summary,
+    grapes,
+    style,
+    food_pairings,
+    warnings,
+  };
+};
+
 const hasLabelSignal = (value: unknown): boolean =>
   typeof value === "string" && !isBlank(value) && value.trim() !== "-";
 
@@ -1720,6 +1765,8 @@ WEB_JSON:
       : (Object.keys(fromTrusted).length ? (fromTrusted as unknown as WineSearchResult) : null);
 
     finalData = fillMissingFields(finalData, combinedWeb ?? WEB_JSON, ocrText, allowHeuristics);
+
+    finalData = normalizeAnalysisMetadata(finalData);
 
     if (!cacheNote && heuristicsAuto) {
       cacheNote = webMeta.fastPathHit ? "fastpath" : "fastpath_heuristic";

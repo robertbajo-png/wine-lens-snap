@@ -18,6 +18,7 @@ import { Camera, Compass, Filter, Flame, Grip, Search, Sparkles } from "lucide-r
 import { supabase } from "@/lib/supabaseClient";
 import type { Tables } from "@/integrations/supabase/types";
 import type { WineAnalysisResult } from "@/lib/wineCache";
+import { normalizeAnalysisJson } from "@/lib/analysisSchema";
 import { useAuth } from "@/auth/AuthProvider";
 import { trackEvent } from "@/lib/telemetry";
 
@@ -423,7 +424,7 @@ const parseQuickFilterPayload = (payload: unknown): QuickFilter | null => {
 };
 
 const normalizeScanRow = (row: ScanRow): ExploreScan => {
-  const analysis = (row.analysis_json as WineAnalysisResult | null) ?? null;
+  const analysis = normalizeAnalysisJson(row.analysis_json as WineAnalysisResult | null);
   const createdAt = row.created_at ?? new Date().toISOString();
   const createdAtMs = Date.parse(createdAt);
 

@@ -2,6 +2,7 @@ import type { TablesInsert } from "@/integrations/supabase/types";
 import { supabase } from "@/lib/supabaseClient";
 import type { CachedWineAnalysisEntry } from "@/lib/wineCache";
 import { computeLabelHash } from "@/lib/wineCache";
+import { normalizeAnalysisJson } from "@/lib/analysisSchema";
 
 const FIVE_MINUTES_MS = 5 * 60 * 1000;
 
@@ -171,15 +172,18 @@ export async function syncLocalScans(entries: CachedWineAnalysisEntry[]): Promis
     insertedCandidates.push(candidate);
   }
 
-  const insertPayloads: TablesInsert<'scans'>[] = insertedCandidates.map((candidate) => ({
-    id: candidate.remoteId,
-    label_hash: candidate.labelHash ?? null,
-    raw_ocr: candidate.rawOcr,
-    image_thumb: candidate.entry.imageData ?? null,
-    analysis_json: candidate.entry.result,
-    vintage: parseVintage(candidate.entry.result.årgång),
-    created_at: candidate.timestampIso,
-  }));
+  const insertPayloads: TablesInsert<'scans'>[] = insertedCandidates.map((candidate) => {
+    const normalizedResult = normalizeAnalysisJson(candidate.entry.result) ?? candidate.entry.result;
+    return {
+      id: candidate.remoteId,
+      label_hash: candidate.labelHash ?? null,
+      raw_ocr: candidate.rawOcr,
+      image_thumb: candidate.entry.imageData ?? null,
+      analysis_json: normalizedResult,
+      vintage: parseVintage(normalizedResult.årgång),
+      created_at: candidate.timestampIso,
+    };
+  });
 
   if (insertPayloads.length > 0) {
     const { error } = await supabase.from("scans").insert(insertPayloads);

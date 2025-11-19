@@ -13,6 +13,7 @@ import {
   setAnalysisSavedState,
   type WineAnalysisResult,
 } from "@/lib/wineCache";
+import { normalizeAnalysisJson } from "@/lib/analysisSchema";
 import { sha1Base64, getOcrCache, setOcrCache } from "@/lib/ocrCache";
 import { ProgressBanner } from "@/components/ProgressBanner";
 import { Banner } from "@/components/Banner";
@@ -364,7 +365,8 @@ const WineSnap = () => {
       const cacheKey = getCacheKey(cacheLookupKey);
       const cachedEntry = getCachedAnalysisEntry(cacheLookupKey);
       if (cachedEntry) {
-        setResults(cachedEntry.result);
+        const cachedResult = normalizeAnalysisJson(cachedEntry.result) ?? cachedEntry.result;
+        setResults(cachedResult as WineAnalysisResult);
         setCurrentCacheKey(cacheKey);
         setIsSaved(cachedEntry.saved);
         setCurrentOcrText(!noTextFound ? ocrText ?? null : cacheLookupKey);
@@ -488,7 +490,9 @@ const WineSnap = () => {
           _meta: data._meta,
         };
 
-        setResults(result);
+        const normalizedResult = normalizeAnalysisJson(result) ?? result;
+
+        setResults(normalizedResult as WineAnalysisResult);
         const resolvedRemoteId =
           typeof data?._meta?.existing_scan_id === "string"
             ? data._meta.existing_scan_id
@@ -501,7 +505,7 @@ const WineSnap = () => {
         setCurrentCacheKey(cacheKey);
         setCurrentOcrText(rawOcrValue ?? cacheLookupKey);
         setIsSaved(false);
-        setCachedAnalysis(cacheLookupKey, result, {
+        setCachedAnalysis(cacheLookupKey, normalizedResult as WineAnalysisResult, {
           imageData: processedImage,
           rawOcr: rawOcrValue,
           remoteId: resolvedRemoteId ?? null,
