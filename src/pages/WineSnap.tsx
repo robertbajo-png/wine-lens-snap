@@ -172,7 +172,18 @@ const WineSnap = () => {
   const shouldAutoRetakeRef = useRef(false);
   const workerRef = useRef<Worker | null>(null);
   const currentImageRef = useRef<PipelineSource | null>(null);
+  const scanStartTimeRef = useRef<number | null>(null);
   const ensureScanPromiseRef = useRef<Promise<string> | null>(null);
+
+  const getResponseTimeMs = () => {
+    if (scanStartTimeRef.current === null) {
+      return undefined;
+    }
+
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const elapsed = Math.round(now - scanStartTimeRef.current);
+    return elapsed >= 0 ? elapsed : undefined;
+  };
   useEffect(() => {
     const lang = navigator.language || "sv-SE";
     prewarmOcr(lang).catch(() => {
@@ -277,6 +288,8 @@ const WineSnap = () => {
     if (!activeSource) {
       return;
     }
+
+    scanStartTimeRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
 
     const trigger = cameraModeRef.current ? "camera" : autoOpenedRef.current ? "auto" : "upload";
     trackEvent("scan_start", {
@@ -396,9 +409,12 @@ const WineSnap = () => {
           title: "Klart!",
           description: "Analys hämtad från cache.",
         });
-        trackEvent("scan_success", {
+        trackEvent("scan_succeeded", {
           source: "cache",
           noTextFound,
+          mode: (cachedResult as WineAnalysisResult).mode,
+          confidence: (cachedResult as WineAnalysisResult).confidence,
+          responseTimeMs: getResponseTimeMs(),
         });
         setProgressStep(null);
         setProgressNote(null);
@@ -535,9 +551,12 @@ const WineSnap = () => {
           labelHash: labelHashMeta,
           saved: false,
         });
-        trackEvent("scan_success", {
+        trackEvent("scan_succeeded", {
           source: note ?? "analysis",
           noTextFound,
+          mode: normalizedResult.mode,
+          confidence: normalizedResult.confidence,
+          responseTimeMs: getResponseTimeMs(),
         });
 
         if (!noTextFound) {
@@ -600,9 +619,12 @@ const WineSnap = () => {
         }
       }
 
-      trackEvent("scan_fail", {
+      const reasonCategory = error instanceof Error && error.name === "AbortError" ? "timeout" : "error";
+      trackEvent("scan_failed", {
         reason: errorMessage,
         name: error instanceof Error ? error.name : undefined,
+        category: reasonCategory,
+        responseTimeMs: getResponseTimeMs(),
       });
 
       const retryAction = currentImageRef.current
@@ -634,6 +656,7 @@ const WineSnap = () => {
       setProgressNote(null);
       setProgressPercent(null);
       setProgressLabel(null);
+      scanStartTimeRef.current = null;
 
       if (shouldAutoRetakeRef.current && cameraModeRef.current) {
         autoRetakeTimerRef.current = window.setTimeout(() => {

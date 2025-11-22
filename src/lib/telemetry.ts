@@ -3,8 +3,8 @@ import { supabase } from "@/lib/supabaseClient";
 export type TelemetryEventName =
   | "tab_select"
   | "scan_start"
-  | "scan_success"
-  | "scan_fail"
+  | "scan_succeeded"
+  | "scan_failed"
   | "history_open"
   | "profile_open"
   | "explore_opened"
