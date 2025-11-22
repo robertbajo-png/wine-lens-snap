@@ -9,6 +9,7 @@ export type ThemeTokens = {
 };
 
 export type ThemeName = "dark" | "light";
+export type ThemePreference = ThemeName | "system";
 
 export const darkTheme: ThemeTokens = {
   bgCanvas: "262 52% 6%",
@@ -38,7 +39,26 @@ export const themeTokensByName: Record<ThemeName, ThemeTokens> = {
 const toCssVariableName = (token: keyof ThemeTokens) =>
   `--${token.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`)}`;
 
-export const applyTheme = (tokens: ThemeTokens) => {
+const setBodyThemeClass = (theme: ThemeName) => {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  const body = document.body;
+  body.classList.add("app-theme");
+  body.classList.remove("theme-dark", "theme-light");
+  body.classList.add(`theme-${theme}`);
+};
+
+export const detectSystemTheme = (): ThemeName => {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return "light";
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+
+export const applyTheme = (tokens: ThemeTokens, themeName: ThemeName) => {
   if (typeof document === "undefined") {
     return;
   }
@@ -50,9 +70,9 @@ export const applyTheme = (tokens: ThemeTokens) => {
     root.style.setProperty(cssVariable, tokens[key]);
   });
 
-  document.body.classList.add("app-theme");
+  setBodyThemeClass(themeName);
 };
 
 export const applyThemeByName = (theme: ThemeName) => {
-  applyTheme(themeTokensByName[theme]);
+  applyTheme(themeTokensByName[theme], theme);
 };

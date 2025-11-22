@@ -23,11 +23,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 import { WineListsSection } from "@/components/profile/WineListsSection";
-import { Camera, Loader2, LogOut, PenLine, UploadCloud } from "lucide-react";
+import { useTheme } from "@/ui/ThemeProvider";
+import type { ThemePreference } from "@/ui/theme";
+import { Camera, Laptop, Loader2, LogOut, Moon, PenLine, SunMedium, UploadCloud } from "lucide-react";
 
 const getDisplayName = (metadata: Record<string, unknown> | undefined, email: string | null) => {
   const candidate =
@@ -64,6 +67,7 @@ const Me = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, signOut } = useAuth();
+  const { themePreference, setThemePreference } = useTheme();
   const [profile, setProfile] = useState<{ displayName: string | null; avatarUrl: string | null } | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -72,6 +76,7 @@ const Me = () => {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [themeSaving, setThemeSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const avatarObjectUrlRef = useRef<string | null>(null);
 
@@ -103,6 +108,29 @@ const Me = () => {
   const previewInitials = useMemo(
     () => getInitials((formDisplayName && formDisplayName.trim().length > 0 ? formDisplayName : displayName) ?? ""),
     [displayName, formDisplayName],
+  );
+  const themeOptions = useMemo(
+    () => [
+      {
+        value: "light" as const,
+        title: "Ljust läge",
+        description: "Ljus bakgrund och högsta kontrast för detaljer.",
+        Icon: SunMedium,
+      },
+      {
+        value: "dark" as const,
+        title: "Mörkt läge",
+        description: "Skonsamt för ögonen i dunkla miljöer.",
+        Icon: Moon,
+      },
+      {
+        value: "system" as const,
+        title: "Följ systeminställning",
+        description: "Använd samma tema som din enhet.",
+        Icon: Laptop,
+      },
+    ],
+    [],
   );
 
   const clearAvatarObjectUrl = useCallback(() => {
@@ -236,6 +264,46 @@ const Me = () => {
       setAvatarPreview(previewUrl);
     },
     [avatarUrl, clearAvatarObjectUrl, resetAvatarPreview, toast],
+  );
+
+  const handleThemeChange = useCallback(
+    async (nextPreference: ThemePreference) => {
+      if (nextPreference === themePreference) {
+        return;
+      }
+
+      setThemeSaving(true);
+      try {
+        await setThemePreference(nextPreference);
+        toast({
+          title: "Tema uppdaterat",
+          description: "Ditt val sparades.",
+        });
+      } catch (error) {
+        console.error("Failed to update theme preference", error);
+        toast({
+          title: "Kunde inte spara temat",
+          description: "Försök igen om en stund.",
+          variant: "destructive",
+        });
+      } finally {
+        setThemeSaving(false);
+      }
+    },
+    [setThemePreference, themePreference, toast],
+  );
+
+  const handleThemeValueChange = useCallback(
+    (value: string) => {
+      if (themeSaving) {
+        return;
+      }
+
+      if (value === "light" || value === "dark" || value === "system") {
+        void handleThemeChange(value);
+      }
+    },
+    [handleThemeChange, themeSaving],
   );
 
   const handleSignOut = async () => {
@@ -517,6 +585,45 @@ const Me = () => {
                 <p>{email}</p>
               </div>
             ) : null}
+          </CardContent>
+        </Card>
+
+        <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
+          <CardHeader>
+            <CardTitle className="text-theme-primary">Utseende</CardTitle>
+            <CardDescription className="text-theme-secondary">
+              Välj hur WineSnap ska se ut. Ditt val sparas i profilen eller lokalt.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <RadioGroup
+              value={themePreference}
+              onValueChange={handleThemeValueChange}
+              className="grid gap-3 sm:grid-cols-3"
+            >
+              {themeOptions.map(({ value, title, description, Icon }) => (
+                <label
+                  key={value}
+                  htmlFor={`theme-${value}`}
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border border-theme-card/80 bg-theme-elevated/80 p-3 transition hover:border-theme-card ${themeSaving ? "opacity-70" : ""}`}
+                >
+                  <RadioGroupItem
+                    id={`theme-${value}`}
+                    value={value}
+                    disabled={themeSaving}
+                    className="mt-1 text-theme-primary"
+                  />
+                  <div className="space-y-1 text-left">
+                    <div className="flex items-center gap-2 text-theme-primary">
+                      <Icon className="h-4 w-4" />
+                      <span className="font-medium">{title}</span>
+                    </div>
+                    <p className="text-sm text-theme-secondary">{description}</p>
+                  </div>
+                </label>
+              ))}
+            </RadioGroup>
+            {themeSaving ? <p className="text-sm text-theme-secondary">Sparar temat...</p> : null}
           </CardContent>
         </Card>
 
