@@ -2,44 +2,71 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import "./styles/global.css";
-import { applyThemeByName, themeTokensByName, type ThemeName } from "./ui/theme";
+import {
+  applyThemeByName,
+  detectSystemTheme,
+  themeTokensByName,
+  type ThemeName,
+  type ThemePreference,
+} from "./ui/theme";
 
 const SETTINGS_STORAGE_KEY = "winesnap.settings";
-const THEME_STORAGE_KEY = "winesnap.theme";
+const THEME_STORAGE_KEY = "winesnap_theme";
+const LEGACY_THEME_STORAGE_KEY = "winesnap.theme";
 
-const resolveInitialTheme = (): ThemeName => {
+const sanitizePreference = (theme?: string | null): ThemePreference => {
+  if (!theme) {
+    return "system";
+  }
+
+  if (theme === "system") {
+    return "system";
+  }
+
+  return theme in themeTokensByName ? (theme as ThemeName) : "system";
+};
+
+const resolveStoredPreference = (): ThemePreference => {
   if (typeof window === "undefined") {
-    return "dark";
+    return "system";
   }
 
   const storedSettings = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
   if (storedSettings) {
     try {
       const parsed = JSON.parse(storedSettings) as { theme?: string | null };
-      if (parsed && typeof parsed.theme === "string" && parsed.theme in themeTokensByName) {
-        return parsed.theme as ThemeName;
-      }
+      return sanitizePreference(parsed?.theme);
     } catch (error) {
       console.warn("[Theme] Failed to parse stored settings", error);
     }
   }
 
-  const legacyTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+  const storedPreference = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (storedPreference) {
+    return sanitizePreference(storedPreference);
+  }
+
+  const legacyTheme = window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
   if (legacyTheme) {
     try {
       const parsed = JSON.parse(legacyTheme) as string;
-      if (parsed in themeTokensByName) {
-        return parsed as ThemeName;
-      }
+      return sanitizePreference(parsed);
     } catch (error) {
       console.warn("[Theme] Failed to parse stored theme", error);
-      if (legacyTheme in themeTokensByName) {
-        return legacyTheme as ThemeName;
-      }
+      return sanitizePreference(legacyTheme);
     }
   }
 
-  return "dark";
+  return "system";
+};
+
+const resolveInitialTheme = (): ThemeName => {
+  const preference = resolveStoredPreference();
+  if (preference === "system") {
+    return detectSystemTheme();
+  }
+
+  return preference;
 };
 
 // Apply the chosen app theme globally (default: dark)

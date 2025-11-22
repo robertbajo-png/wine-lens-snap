@@ -10,27 +10,28 @@ import {
 } from "react";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
-import type { ThemeName } from "@/ui/theme";
-import { applyThemeByName, themeTokensByName } from "@/ui/theme";
+import type { ThemeName, ThemePreference } from "@/ui/theme";
+import { themeTokensByName } from "@/ui/theme";
 
 const SETTINGS_STORAGE_KEY = "winesnap.settings";
+const THEME_STORAGE_KEY = "winesnap_theme";
 const LEGACY_THEME_STORAGE_KEY = "winesnap.theme";
 const DEFAULT_LANGUAGE = "sv-SE";
 
 export type Settings = {
-  theme: ThemeName;
+  theme: ThemePreference;
   lang: string;
   pushOptIn: boolean;
 };
 
 type SettingsContextValue = {
   settings: Settings;
-  theme: ThemeName;
+  theme: ThemePreference;
   lang: string;
   pushOptIn: boolean;
   loading: boolean;
   error: string | null;
-  setTheme: (theme: ThemeName) => Promise<void>;
+  setTheme: (theme: ThemePreference) => Promise<void>;
   setLang: (lang: string) => Promise<void>;
   setPushOptIn: (pushOptIn: boolean) => Promise<void>;
   updateSettings: (changes: Partial<Settings>) => Promise<void>;
@@ -81,12 +82,16 @@ const detectBrowserLanguage = () => {
   return normalized || DEFAULT_LANGUAGE;
 };
 
-const sanitizeTheme = (theme?: string | null): ThemeName => {
+const sanitizeTheme = (theme?: string | null): ThemePreference => {
   if (!theme) {
-    return "dark";
+    return "system";
   }
 
-  return theme in themeTokensByName ? (theme as ThemeName) : "dark";
+  if (theme === "system") {
+    return "system";
+  }
+
+  return theme in themeTokensByName ? (theme as ThemeName) : "system";
 };
 
 const sanitizeLanguage = (lang?: string | null): string => {
@@ -119,6 +124,15 @@ const readLocalSettings = (): Settings => {
     }
   }
 
+  const storedPreference = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (storedPreference) {
+    return sanitizeSettings({
+      theme: storedPreference,
+      lang: null,
+      pushOptIn: null,
+    });
+  }
+
   const legacyTheme = window.localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
   const theme = legacyTheme
     ? (() => {
@@ -146,6 +160,7 @@ const persistLocalSettings = (value: Settings) => {
   try {
     window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(value));
     window.localStorage.setItem(LEGACY_THEME_STORAGE_KEY, JSON.stringify(value.theme));
+    window.localStorage.setItem(THEME_STORAGE_KEY, value.theme);
   } catch (error) {
     console.warn("[Settings] Failed to persist settings", error);
   }
@@ -156,9 +171,7 @@ const SettingsContext = createContext<SettingsContextValue | undefined>(undefine
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const [settings, setSettings] = useState<Settings>(() => {
-    const initial = readLocalSettings();
-    applyThemeByName(initial.theme);
-    return initial;
+    return readLocalSettings();
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,10 +180,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
-
-  useEffect(() => {
-    applyThemeByName(settings.theme);
-  }, [settings.theme]);
 
   useEffect(() => {
     persistLocalSettings(settings);
@@ -291,7 +300,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const setTheme = useCallback(
-    (theme: ThemeName) => updateSettings({ theme }),
+    (theme: ThemePreference) => updateSettings({ theme }),
     [updateSettings],
   );
 
