@@ -986,7 +986,7 @@ const Explore = () => {
       <AmbientBackground />
       <div className="absolute right-4 top-6 z-20">
         <Button
-          className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+          className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
           onClick={handleStartNewScan}
           aria-label="Starta ny skanning"
         >
@@ -996,7 +996,7 @@ const Explore = () => {
       </div>
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-10 px-4 pb-24 pt-20 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3 text-center">
-          <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/20 px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
+          <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
             <Compass className="h-4 w-4 text-theme-primary" aria-hidden="true" />
             Utforska
           </span>
@@ -1007,7 +1007,7 @@ const Explore = () => {
           </p>
         </div>
 
-        <div className="flex flex-col gap-6 rounded-3xl border border-theme-card/60 bg-theme-elevated/80 p-8 backdrop-blur">
+        <div className="flex flex-col gap-6 rounded-3xl border border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface-alt)/0.8)] p-8 shadow-theme-card backdrop-blur">
           <label className="flex flex-col gap-2 text-left">
             <span className="text-xs font-semibold uppercase tracking-[0.28em] text-theme-secondary/60">Sök i vinarkivet</span>
             <div className="relative">
@@ -1017,7 +1017,7 @@ const Explore = () => {
                 placeholder={SEARCH_PLACEHOLDER}
                 value={paramsFilters.label ?? ""}
                 onChange={(event) => handleSearchFilterChange("label", event.target.value)}
-                className="h-12 rounded-full border-theme-card/60 bg-theme-card/20 pl-10 text-theme-secondary placeholder:text-theme-secondary/50"
+                className="h-12 rounded-full border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface)/0.2)] pl-10 text-theme-secondary placeholder:text-theme-secondary/50"
               />
             </div>
           </label>
@@ -1026,7 +1026,7 @@ const Explore = () => {
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Druva</Label>
               <Select value={effectiveFilters.grape ?? FILTER_EMPTY_VALUE} onValueChange={(value) => handleSearchFilterChange("grape", value)}>
-                <SelectTrigger className="h-11 rounded-2xl border-theme-card/50 bg-theme-card/20 text-left text-sm text-theme-secondary">
+                <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla druvor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1043,7 +1043,7 @@ const Explore = () => {
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Region</Label>
               <Select value={effectiveFilters.region ?? FILTER_EMPTY_VALUE} onValueChange={(value) => handleSearchFilterChange("region", value)}>
-                <SelectTrigger className="h-11 rounded-2xl border-theme-card/50 bg-theme-card/20 text-left text-sm text-theme-secondary">
+                <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla regioner" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1060,7 +1060,7 @@ const Explore = () => {
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Stil</Label>
               <Select value={effectiveFilters.style ?? FILTER_EMPTY_VALUE} onValueChange={(value) => handleSearchFilterChange("style", value)}>
-                <SelectTrigger className="h-11 rounded-2xl border-theme-card/50 bg-theme-card/20 text-left text-sm text-theme-secondary">
+                <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla stilar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1079,7 +1079,7 @@ const Explore = () => {
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-theme-secondary/60">
               <Grip className="h-4 w-4" aria-hidden="true" />
               Indexerade flaskor
-              <span className="rounded-full bg-theme-card/30 px-2 py-0.5 text-[10px] text-theme-secondary/80">
+              <span className="rounded-full bg-[hsl(var(--color-surface)/0.3)] px-2 py-0.5 text-[10px] text-theme-secondary/80">
                 {wineIndex.length}
               </span>
             </div>
@@ -1087,14 +1087,14 @@ const Explore = () => {
               variant="ghost"
               size="sm"
               onClick={handleClearFilters}
-              className="self-start rounded-full border border-transparent text-theme-secondary hover:border-theme-card/40 hover:bg-theme-card/20"
+              className="self-start rounded-full border border-transparent text-theme-secondary hover:border-[hsl(var(--color-border)/0.4)] hover:bg-[hsl(var(--color-surface)/0.2)]"
             >
               Rensa filter
             </Button>
           </div>
         </div>
 
-        <section className="rounded-3xl border border-theme-card/50 bg-theme-elevated/70 p-8 backdrop-blur">
+        <section className="rounded-3xl border border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface-alt)/0.75)] p-8 shadow-theme-card backdrop-blur">
           <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <Flame className="h-5 w-5 text-theme-primary" aria-hidden="true" />
@@ -1103,13 +1103,13 @@ const Explore = () => {
                 <p className="text-base text-theme-secondary/80">Mest skannade druvor just nu</p>
               </div>
             </div>
-            <Badge className="bg-theme-card/60 text-theme-primary">Live från dina senaste skanningar</Badge>
+            <Badge className="bg-[hsl(var(--color-surface-alt)/0.6)] text-theme-primary">Live från dina senaste skanningar</Badge>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {trendItems.map((trend) => (
               <div
                 key={trend.label}
-                className="rounded-2xl border border-theme-card/40 bg-theme-card/20 p-5 shadow-[0_18px_45px_-30px_rgba(123,63,228,0.9)]"
+                className="rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] p-5 shadow-theme-card"
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Druva</p>
                 <h3 className="mt-2 text-2xl font-semibold text-theme-primary">{trend.label}</h3>
@@ -1119,7 +1119,7 @@ const Explore = () => {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-theme-card/50 bg-theme-card/20 p-8">
+        <section className="rounded-3xl border border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] p-8 shadow-theme-card">
           <div className="mb-6 flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-theme-primary" aria-hidden="true" />
             <div>
@@ -1129,7 +1129,7 @@ const Explore = () => {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {styleItems.map((style) => (
-              <div key={style.label} className="rounded-2xl border border-theme-card/40 bg-theme-elevated/80 p-4">
+              <div key={style.label} className="rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface-alt)/0.8)] p-4">
                 <p className="text-xs uppercase tracking-[0.3em] text-theme-secondary/60">Stil</p>
                 <h3 className="mt-1 text-lg font-semibold text-theme-primary">{style.label}</h3>
                 <p className="text-sm text-theme-secondary/70">{style.detail}</p>
@@ -1138,7 +1138,7 @@ const Explore = () => {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-theme-card/50 bg-theme-elevated/70 p-8 backdrop-blur">
+        <section className="rounded-3xl border border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface-alt)/0.75)] p-8 shadow-theme-card backdrop-blur">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
@@ -1162,8 +1162,8 @@ const Explore = () => {
                     onClick={() => handleSelectFilter(filter.id)}
                     className={`rounded-full px-4 ${
                       isActive
-                        ? "bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary"
-                        : "border-theme-card/50 bg-theme-card/20 text-theme-secondary/80"
+                        ? "bg-theme-accent text-theme-on-accent shadow-theme-card"
+                        : "border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.6)] text-theme-secondary/80"
                     }`}
                     aria-pressed={isActive}
                   >
@@ -1183,7 +1183,7 @@ const Explore = () => {
             {showScansSkeleton && (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="h-24 animate-pulse rounded-2xl bg-theme-card/30" />
+                  <div key={index} className="h-24 animate-pulse rounded-2xl bg-[hsl(var(--color-surface)/0.3)]" />
                 ))}
               </div>
             )}
@@ -1197,7 +1197,7 @@ const Explore = () => {
                   aria-label={`Öppna ${scan.title}`}
                   onClick={() => handleScanOpen(scan)}
                   onKeyDown={(event) => handleScanCardKeyDown(event, scan)}
-                  className="flex cursor-pointer flex-col gap-4 rounded-2xl border border-theme-card/40 bg-theme-card/20 p-4 outline-none transition hover:border-theme-primary/50 focus-visible:ring-2 focus-visible:ring-theme-primary/60 sm:flex-row sm:items-center"
+                  className="flex cursor-pointer flex-col gap-4 rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] p-4 outline-none transition hover:border-[hsl(var(--color-accent)/0.5)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent)/0.6)] sm:flex-row sm:items-center"
                 >
                   <div className="flex w-full flex-1 flex-col gap-1">
                     <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-theme-secondary/60">
@@ -1214,7 +1214,7 @@ const Explore = () => {
                   <div className="flex flex-col items-start gap-2 text-sm text-theme-secondary/70 sm:items-end">
                     {scan.grapesRaw && <span>{scan.grapesRaw}</span>}
                     {scan.style && (
-                      <span className="rounded-full border border-theme-card/40 px-3 py-1 text-xs uppercase tracking-[0.3em]">
+                      <span className="rounded-full border border-[hsl(var(--color-border)/0.4)] px-3 py-1 text-xs uppercase tracking-[0.3em]">
                         {scan.style}
                       </span>
                     )}
