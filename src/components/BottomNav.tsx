@@ -89,7 +89,7 @@ const BottomNav = () => {
   return (
     <nav
       aria-label="Huvudnavigation"
-      className="sticky bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-theme-elevated/80 py-3 backdrop-blur-lg"
+      className="sticky bottom-0 left-0 right-0 z-40 border-t border-[hsl(var(--color-border)/0.7)] bg-[hsl(var(--color-surface))] py-3 shadow-theme-bottom-nav"
       style={safeAreaPadding}
     >
       <div className="mx-auto flex w-full max-w-3xl items-center justify-center px-4">
@@ -109,7 +109,7 @@ const BottomNav = () => {
                   <button
                     type="button"
                     onClick={() => handleNavigate(tab)}
-                    className="group relative -translate-y-6 transform rounded-full border-4 border-theme-canvas bg-gradient-to-br from-[#7B3FE4] via-[#8451ED] to-[#B095FF] p-4 text-white shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B095FF] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                    className="group relative -translate-y-6 transform rounded-full border-4 border-[hsl(var(--color-surface))] bg-[hsl(var(--color-accent))] p-4 text-[hsl(var(--color-on-accent))] shadow-[0_20px_45px_-18px_hsl(var(--color-accent))] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-on-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--color-surface))]"
                     aria-label={scanAriaLabel}
                   >
                     {showProcessingIndicator && (
@@ -136,8 +136,10 @@ const BottomNav = () => {
                   onClick={() => handleNavigate(tab)}
                   aria-label={tab.label}
                   className={cn(
-                    "flex flex-col items-center gap-1 rounded-full px-3 py-2 text-[0.7rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B095FF]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
-                    isActive ? "text-theme-primary" : "text-theme-secondary/70",
+                    "flex flex-col items-center gap-1 rounded-full px-3 py-2 text-[0.7rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent))]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--color-surface))]",
+                    isActive
+                      ? "text-[hsl(var(--color-accent))]"
+                      : "text-[hsl(var(--color-text-muted))]",
                   )}
                 >
                   <span className="relative inline-flex">

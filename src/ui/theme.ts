@@ -17,6 +17,7 @@ export type ThemeTokens = {
   colorDanger: string;
   colorOnAccent: string;
   shadowCard: string;
+  shadowBottomNav: string;
 };
 
 export type ThemeName = "dark" | "light";
@@ -41,6 +42,7 @@ export const darkTheme: ThemeTokens = {
   colorDanger: "0 81% 66%",
   colorOnAccent: "0 0% 100%",
   shadowCard: "0 10px 30px rgba(0, 0, 0, 0.35)",
+  shadowBottomNav: "0 -4px 20px rgba(0, 0, 0, 0.45)",
 };
 
 export const lightTheme: ThemeTokens = {
@@ -62,6 +64,7 @@ export const lightTheme: ThemeTokens = {
   colorDanger: "0 61% 54%",
   colorOnAccent: "0 0% 100%",
   shadowCard: "0 10px 30px rgba(31, 27, 22, 0.08)",
+  shadowBottomNav: "0 -4px 20px rgba(31, 27, 22, 0.12)",
 };
 
 export const themeTokensByName: Record<ThemeName, ThemeTokens> = {
