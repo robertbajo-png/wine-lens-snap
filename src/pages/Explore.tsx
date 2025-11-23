@@ -22,6 +22,7 @@ import { normalizeAnalysisJson } from "@/lib/analysisSchema";
 import { useAuth } from "@/auth/AuthProvider";
 import { trackEvent } from "@/lib/telemetry";
 import { logEvent } from "@/lib/logger";
+import { withTimeoutFallback } from "@/lib/fallback";
 
 const SEARCH_PLACEHOLDER = "Sök bland etiketter, producenter eller anteckningar";
 const TREND_LIMIT = 3;
@@ -333,6 +334,21 @@ const FALLBACK_CURATED_LIBRARY: ExploreScan[] = FALLBACK_CURATED_SEEDS.map((seed
   source: "curated",
 }));
 
+const FALLBACK_WINE_INDEX_ROWS: WineIndexRow[] = FALLBACK_CURATED_LIBRARY.map((scan) => ({
+  id: scan.id,
+  created_at: scan.createdAt,
+  title: scan.title,
+  producer: scan.producer ?? null,
+  region: scan.region ?? null,
+  grapes_raw: scan.grapesRaw ?? null,
+  style: scan.style ?? null,
+  color: scan.color ?? null,
+  notes: scan.notes ?? null,
+  image_url: scan.image ?? null,
+  rank: null,
+  payload_json: null,
+}));
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -593,74 +609,92 @@ const formatRelativeTime = (iso: string) => {
   return "nyligen";
 };
 
-const fetchRecentScans = async (): Promise<ScanRow[]> => {
-  const { data, error } = await supabase
-    .from("scans")
-    .select("id,created_at,analysis_json,image_thumb")
-    .order("created_at", { ascending: false })
-    .limit(MAX_SCANS_FETCH);
+const fetchRecentScans = async (): Promise<ScanRow[]> =>
+  withTimeoutFallback(
+    async () => {
+      const { data, error } = await supabase
+        .from("scans")
+        .select("id,created_at,analysis_json,image_thumb")
+        .order("created_at", { ascending: false })
+        .limit(MAX_SCANS_FETCH);
 
-  if (error) {
-    throw error;
-  }
+      if (error) {
+        throw error;
+      }
 
-  return data ?? [];
-};
+      return data ?? [];
+    },
+    () => [],
+    { context: "fetch_recent_scans" },
+  );
 
-const fetchExploreCards = async (): Promise<ExploreCardRow[]> => {
-  const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("explore_cards")
-    .select("id,created_at,title,subtitle,payload_json,rank,valid_from,valid_to")
-    .lte("valid_from", nowIso)
-    .or(`valid_to.is.null,valid_to.gte.${nowIso}`)
-    .order("rank", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false });
+const fetchExploreCards = async (): Promise<ExploreCardRow[]> =>
+  withTimeoutFallback(
+    async () => {
+      const nowIso = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("explore_cards")
+        .select("id,created_at,title,subtitle,payload_json,rank,valid_from,valid_to")
+        .lte("valid_from", nowIso)
+        .or(`valid_to.is.null,valid_to.gte.${nowIso}`)
+        .order("rank", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false });
 
-  if (error) {
-    throw error;
-  }
+      if (error) {
+        throw error;
+      }
 
-  return data ?? [];
-};
+      return data ?? [];
+    },
+    () => [],
+    { context: "fetch_explore_cards" },
+  );
 
 const WINE_INDEX_FETCH_LIMIT = 120;
 
-const fetchWineIndexRows = async (filters: SearchFilters): Promise<WineIndexRow[]> => {
-  let query = supabase
-    .from("wine_index")
-    .select("id,created_at,title,producer,region,grapes_raw,style,color,notes,image_url,rank,payload_json")
-    .order("rank", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: false })
-    .limit(WINE_INDEX_FETCH_LIMIT);
+const fetchWineIndexRows = async (filters: SearchFilters): Promise<WineIndexRow[]> =>
+  withTimeoutFallback(
+    async () => {
+      let query = supabase
+        .from("wine_index")
+        .select("id,created_at,title,producer,region,grapes_raw,style,color,notes,image_url,rank,payload_json")
+        .order("rank", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(WINE_INDEX_FETCH_LIMIT);
 
-  if (filters.region) {
-    query = query.ilike("region", buildIlikePattern(filters.region));
-  }
+      if (filters.region) {
+        query = query.ilike("region", buildIlikePattern(filters.region));
+      }
 
-  if (filters.style) {
-    query = query.ilike("style", buildIlikePattern(filters.style));
-  }
+      if (filters.style) {
+        query = query.ilike("style", buildIlikePattern(filters.style));
+      }
 
-  if (filters.grape) {
-    query = query.ilike("grapes_raw", buildIlikePattern(filters.grape));
-  }
+      if (filters.grape) {
+        query = query.ilike("grapes_raw", buildIlikePattern(filters.grape));
+      }
 
-  if (filters.label) {
-    const labelPattern = buildIlikePattern(filters.label);
-    query = query.or(
-      `title.ilike.${labelPattern},producer.ilike.${labelPattern},notes.ilike.${labelPattern}`,
-    );
-  }
+      if (filters.label) {
+        const labelPattern = buildIlikePattern(filters.label);
+        query = query.or(
+          `title.ilike.${labelPattern},producer.ilike.${labelPattern},notes.ilike.${labelPattern}`,
+        );
+      }
 
-  const { data, error } = await query;
+      const { data, error } = await query;
 
-  if (error) {
-    throw error;
-  }
+      if (error) {
+        throw error;
+      }
 
-  return data ?? [];
-};
+      return data ?? [];
+    },
+    () =>
+      FALLBACK_WINE_INDEX_ROWS.filter((row) =>
+        matchesSearchFilters(normalizeWineIndexRow(row), filters),
+      ),
+    { context: "fetch_wine_index" },
+  );
 
 const Explore = () => {
   const navigate = useNavigate();

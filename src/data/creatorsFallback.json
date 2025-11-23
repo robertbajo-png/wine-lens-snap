@@ -1,0 +1,74 @@
+[
+  {
+    "id": "8e4f1613-625f-4a96-b19f-8fe5b555a0ff",
+    "handle": "fermentista",
+    "display_name": "Fermentista Studio",
+    "bio": "Taktiska guider om maceration och amfora-fermentering.",
+    "avatar_url": "https://cdn.winesnap.app/creators/fermentista.jpg",
+    "followers_count": 3120
+  },
+  {
+    "id": "5bf718fc-2d2d-4a53-897a-d6d19fc111a8",
+    "handle": "nordvin-clara",
+    "display_name": "Clara Nordvin",
+    "bio": "Sommelier i Stockholm som lyfter småskaliga nordiska producenter.",
+    "avatar_url": "https://cdn.winesnap.app/creators/clara.jpg",
+    "followers_count": 4280
+  },
+  {
+    "id": "61f6e0fe-7300-4bb5-8b54-4fce0c5f10c5",
+    "handle": "amaro-anders",
+    "display_name": "Anders \"Amaro\" Lind",
+    "bio": "Skapare av Wine Lens kvällsbrev med fokus på bitters, orangevin och pet-nat.",
+    "avatar_url": "https://cdn.winesnap.app/creators/anders.jpg",
+    "followers_count": 3890
+  },
+  {
+    "id": "d9a4c1c2-89b3-49d7-87d2-1b5cfa4a4d01",
+    "handle": "nordicsomm",
+    "display_name": "The Nordic Somm",
+    "bio": "Sommelier utbildad i Köpenhamn med fokus på biodynamiska viner och nordiskt mat–vin-tänk.",
+    "avatar_url": "https://winesnap-assets.example.com/creators/nordicsomm.png",
+    "followers_count": 5120
+  },
+  {
+    "id": "7a9b99af-3f3f-4f8c-9fdd-21aaf5a7f6f0",
+    "handle": "wineminimalist",
+    "display_name": "Wine Minimalist",
+    "bio": "Enkel vinkunskap utan fluff. Fokus på producent, region och rena tips.",
+    "avatar_url": "https://winesnap-assets.example.com/creators/wineminimalist.png",
+    "followers_count": 6010
+  },
+  {
+    "id": "0fd1851c-c3a3-4f4e-8c75-f7f6380b9f45",
+    "handle": "terroirdame",
+    "display_name": "La Dame du Terroir",
+    "bio": "Fransyska i Stockholm som lyfter Bourgogne, Loire och små terroir-drivna gårdar.",
+    "avatar_url": "https://winesnap-assets.example.com/creators/terroirdame.png",
+    "followers_count": 4450
+  },
+  {
+    "id": "ce7b994b-8e1c-41b0-b8a5-a3c6428a3bf1",
+    "handle": "cellargeek",
+    "display_name": "The Cellar Geek",
+    "bio": "Nörd, samlare och arkiverare. Tips om lagringspotential och smart källarbygge.",
+    "avatar_url": "https://winesnap-assets.example.com/creators/cellargeek.png",
+    "followers_count": 3580
+  },
+  {
+    "id": "7fbf2eed-18f1-4f6d-9d11-2f2de709f601",
+    "handle": "foodwineeveryday",
+    "display_name": "Everyday Food & Wine",
+    "bio": "Journalist och hemmakock. Prisvärda viner till vardagsmat och riktiga middagar.",
+    "avatar_url": "https://winesnap-assets.example.com/creators/foodwineeveryday.png",
+    "followers_count": 2740
+  },
+  {
+    "id": "c7b4c9c3-01a5-4b8e-a0a4-1d0d8d5f8d8c",
+    "handle": "winesnap_team",
+    "display_name": "WineSnap Team",
+    "bio": "Officiella tips och nyheter från WineSnap. Trender, stilar och utbildning.",
+    "avatar_url": "https://winesnap-assets.example.com/creators/winesnap_team.png",
+    "followers_count": 9230
+  }
+]

@@ -132,6 +132,7 @@ const Following = () => {
     data: creators,
     isLoading: creatorsLoading,
     error: creatorsError,
+    refetch: refetchCreators,
   } = useQuery<Creator[]>({
     queryKey: creatorsQueryKey,
     queryFn: fetchCreators,
@@ -152,6 +153,7 @@ const Following = () => {
     data: feedPosts = [],
     isLoading: feedLoading,
     error: feedError,
+    refetch: refetchFeed,
   } = useQuery<CreatorFeedPost[]>({
     queryKey: feedQueryKey(user?.id ?? null, followingData),
     queryFn: () => fetchFollowingFeed(followingData),
@@ -442,19 +444,19 @@ const Following = () => {
               {!showFeedSkeleton && !showEmptyFollowState && followingSet.size > 0 ? (
                 <div className="space-y-4">
                   {feedError ? (
-                    <Card className="border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface)/0.2)] text-theme-primary shadow-theme-card">
-                      <CardContent className="space-y-2 p-5 text-center">
-                        <p className="text-base font-semibold">Kunde inte ladda flödet</p>
-                        <p className="text-sm text-theme-secondary/80">Försök igen eller uppdatera sidan.</p>
-                        <Button
-                          variant="outline"
-                          className="rounded-full"
-                          onClick={() => queryClient.invalidateQueries({ queryKey: ["following", "feed"] })}
-                        >
-                          Försök igen
-                        </Button>
-                      </CardContent>
-                    </Card>
+                <Card className="border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface)/0.2)] text-theme-primary shadow-theme-card">
+                  <CardContent className="space-y-2 p-5 text-center">
+                    <p className="text-base font-semibold">Kunde inte ladda flödet</p>
+                    <p className="text-sm text-theme-secondary/80">Försök igen eller uppdatera sidan.</p>
+                    <Button
+                      variant="outline"
+                      className="rounded-full"
+                      onClick={() => refetchFeed()}
+                    >
+                      Försök igen
+                    </Button>
+                  </CardContent>
+                </Card>
                   ) : null}
 
                   {!feedLoading && !feedError && feedPosts.length === 0 ? (
@@ -536,7 +538,7 @@ const Following = () => {
                   <Button
                     variant="outline"
                     className="rounded-full"
-                    onClick={() => queryClient.invalidateQueries({ queryKey: creatorsQueryKey })}
+                    onClick={() => refetchCreators()}
                   >
                     Försök igen
                   </Button>
