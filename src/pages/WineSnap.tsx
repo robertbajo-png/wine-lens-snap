@@ -52,6 +52,7 @@ import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { trackEvent } from "@/lib/telemetry";
 import { supabase } from "@/lib/supabaseClient";
+import { logError, logEvent } from "@/lib/logger";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -292,6 +293,11 @@ const WineSnap = () => {
     scanStartTimeRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
 
     const trigger = cameraModeRef.current ? "camera" : autoOpenedRef.current ? "auto" : "upload";
+    void logEvent("scan_started", {
+      trigger,
+      hasSource: Boolean(activeSource),
+      retried: Boolean(source),
+    });
     trackEvent("scan_start", {
       trigger,
       hasSource: Boolean(activeSource),
@@ -408,6 +414,13 @@ const WineSnap = () => {
         toast({
           title: "Klart!",
           description: "Analys hämtad från cache.",
+        });
+        void logEvent("scan_succeeded", {
+          source: "cache",
+          noTextFound,
+          mode: (cachedResult as WineAnalysisResult).mode,
+          confidence: (cachedResult as WineAnalysisResult).confidence,
+          responseTimeMs: getResponseTimeMs(),
         });
         trackEvent("scan_succeeded", {
           source: "cache",
@@ -551,6 +564,13 @@ const WineSnap = () => {
           labelHash: labelHashMeta,
           saved: false,
         });
+        void logEvent("scan_succeeded", {
+          source: note ?? "analysis",
+          noTextFound,
+          mode: normalizedResult.mode,
+          confidence: normalizedResult.confidence,
+          responseTimeMs: getResponseTimeMs(),
+        });
         trackEvent("scan_succeeded", {
           source: note ?? "analysis",
           noTextFound,
@@ -620,6 +640,12 @@ const WineSnap = () => {
       }
 
       const reasonCategory = error instanceof Error && error.name === "AbortError" ? "timeout" : "error";
+      void logEvent("scan_failed", {
+        reason: errorMessage,
+        name: error instanceof Error ? error.name : undefined,
+        category: reasonCategory,
+        responseTimeMs: getResponseTimeMs(),
+      });
       trackEvent("scan_failed", {
         reason: errorMessage,
         name: error instanceof Error ? error.name : undefined,
@@ -650,6 +676,16 @@ const WineSnap = () => {
           variant: "destructive",
         });
       }
+
+      void logError(
+        "WineSnap",
+        "processWineImage",
+        errorMessage,
+        {
+          category: reasonCategory,
+          responseTimeMs: getResponseTimeMs(),
+        },
+      );
     } finally {
       setIsProcessing(false);
       setProgressStep(null);
