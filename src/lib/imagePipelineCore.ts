@@ -280,8 +280,8 @@ async function preprocess(
   env: PipelineEnvironment,
 ): Promise<{ canvas: CanvasLike; exported: CanvasExportResult; width: number; height: number }> {
   const {
-    maxSide = 1200,
-    quality = 0.68,
+    maxSide = 2048,
+    quality = 0.9,
     grayscale = true,
     contrast = 1.12,
   } = options || {};

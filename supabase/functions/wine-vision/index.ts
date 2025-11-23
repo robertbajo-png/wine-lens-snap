@@ -1393,6 +1393,7 @@ Deno.serve(async (req) => {
     const vintageHint = typeof reqJson?.vintage === "string" && reqJson.vintage.trim() ? reqJson.vintage.trim() : null;
     const geminiOnly = reqJson?.geminiOnly === true;
     const skipCache = reqJson?.forceFresh === true || reqJson?.skipCache === true;
+    const labelOnly = reqJson?.labelOnly === true;
 
     if (!imageBase64) {
       return new Response(JSON.stringify({ ok: false, error: "Missing image data" }), {
@@ -1548,42 +1549,60 @@ Deno.serve(async (req) => {
       fallback_mode: true,
     };
 
-    const { web: webResult, meta: webMeta } = await parallelWeb(ocrText, imageBase64);
-    let webJson: WineSearchResult | null = webResult ? { ...webResult, fallback_mode: false } : null;
+    let webJson: WineSearchResult | null = null;
+    let webResult: WineSearchResult | null = null;
+    let webMeta: WebMeta = {
+      fastPathHit: false,
+      pplx_ms: null,
+      gemini_ms: null,
+      pplx_status: "skipped",
+      gemini_status: "skipped",
+    };
 
-    if (!webJson && PERPLEXITY_GATEWAY_URL && PERPLEXITY_API_KEY) {
-      try {
-        const fast = await safeWebFetch(
-          PERPLEXITY_GATEWAY_URL,
-          {
-            method: "POST",
-            headers: {
-              "content-type": "application/json",
-              authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+    if (!labelOnly) {
+      const result = await parallelWeb(ocrText, imageBase64);
+      webResult = result.web;
+      webMeta = result.meta;
+      webJson = webResult ? { ...webResult, fallback_mode: false } : null;
+
+      if (!webJson && PERPLEXITY_GATEWAY_URL && PERPLEXITY_API_KEY) {
+        try {
+          const fast = await safeWebFetch(
+            PERPLEXITY_GATEWAY_URL,
+            {
+              method: "POST",
+              headers: {
+                "content-type": "application/json",
+                authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+              },
+              body: JSON.stringify({ q: ocrText, max_results: CFG.MAX_WEB_URLS }),
             },
-            body: JSON.stringify({ q: ocrText, max_results: CFG.MAX_WEB_URLS }),
-          },
-          CFG.FAST_TIMEOUT_MS,
-        );
+            CFG.FAST_TIMEOUT_MS,
+          );
 
-        if (fast?.ok) {
-          const gatewayJson = await fast.json().catch(() => null);
-          const normalizedFast = normalizeGatewayResult(gatewayJson);
-          if (normalizedFast) {
-            webJson = { ...normalizedFast, fallback_mode: false };
-            console.log(
-              `[${new Date().toISOString()}] Fast gateway search success – using ${webJson.källor?.[0] ?? "unknown source"}`,
-            );
+          if (fast?.ok) {
+            const gatewayJson = await fast.json().catch(() => null);
+            const normalizedFast = normalizeGatewayResult(gatewayJson);
+            if (normalizedFast) {
+              webJson = { ...normalizedFast, fallback_mode: false };
+              console.log(
+                `[${new Date().toISOString()}] Fast gateway search success – using ${
+                  webJson.källor?.[0] ?? "unknown source"
+                }`,
+              );
+            }
           }
+        } catch (fastError) {
+          console.warn("[wine-vision] Fast gateway search failed", fastError);
         }
-      } catch (fastError) {
-        console.warn("[wine-vision] Fast gateway search failed", fastError);
       }
+    } else {
+      cacheNote = "label_only_fallback";
     }
 
     const WEB_JSON: WineSearchResult = webJson ? { ...webJson } : { ...defaultWeb };
 
-    if (!webResult && PERPLEXITY_API_KEY) {
+    if (!webResult && PERPLEXITY_API_KEY && !labelOnly) {
       if (webMeta.pplx_status === "timeout") {
         cacheNote = "perplexity_timeout";
       } else if (webMeta.pplx_status === "error") {

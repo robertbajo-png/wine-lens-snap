@@ -71,6 +71,7 @@ const WEB_EVIDENCE_THRESHOLD = 2;
 const HTTP_LINK_REGEX = /^https?:\/\//i;
 const CONFIDENCE_THRESHOLD = 0.7;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const ANALYSIS_TIMEOUT_MS = 8000;
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
 type ScanStatus = "idle" | "processing" | "success" | "error";
 
@@ -330,9 +331,9 @@ const WineSnap = () => {
     setIsProcessing(true);
     setBanner(null);
     setProgressStep("prep");
-    setProgressNote("Förbereder bilden…");
+    setProgressNote("Komprimerar bilden (max 2048px, 90% JPG)…");
     setProgressPercent(5);
-    setProgressLabel("Skannar…");
+    setProgressLabel("Förbereder…");
     shouldAutoRetakeRef.current = false;
     if (autoRetakeTimerRef.current) {
       window.clearTimeout(autoRetakeTimerRef.current);
@@ -342,8 +343,8 @@ const WineSnap = () => {
     const options: PipelineOptions = {
       autoCrop: { fallbackCropPct: 0.1 },
       preprocess: {
-        maxSide: 1200,
-        quality: 0.68,
+        maxSide: 2048,
+        quality: 0.9,
         grayscale: true,
         contrast: 1.12,
       },
@@ -472,30 +473,55 @@ const WineSnap = () => {
         );
       }
 
-      const abortController = new AbortController();
-      const timeoutId = setTimeout(() => abortController.abort(), 25000);
+      const callAnalysis = async (labelOnly: boolean) => {
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), ANALYSIS_TIMEOUT_MS);
 
-      const functionUrl = `${supabaseUrl}/functions/v1/wine-vision`;
-      const response = await fetch(functionUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${supabaseAnonKey}`,
-          apikey: supabaseAnonKey,
-        },
-        body: JSON.stringify({
-          ocrText,
-          imageBase64: processedImage,
-          noTextFound,
-          uiLang,
-          ocr_image_hash: ocrKey,
-          geminiOnly: true,
-          skipCache: true,
-        }),
-        signal: abortController.signal,
-      });
+        const functionUrl = `${supabaseUrl}/functions/v1/wine-vision`;
+        const response = await fetch(functionUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseAnonKey}`,
+            apikey: supabaseAnonKey,
+          },
+          body: JSON.stringify({
+            ocrText,
+            imageBase64: processedImage,
+            noTextFound,
+            uiLang,
+            ocr_image_hash: ocrKey,
+            geminiOnly: true,
+            skipCache: true,
+            labelOnly,
+          }),
+          signal: abortController.signal,
+        });
 
-      clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
+        return response;
+      };
+
+      let response: Response | null = null;
+      let analysisMode: "full" | "label_only" = "full";
+
+      try {
+        response = await callAnalysis(false);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") {
+          setProgressLabel("Etikettläge");
+          setProgressNote("Webbsökning tog för lång tid – visar etikettinfo.");
+          setProgressPercent(65);
+          analysisMode = "label_only";
+          response = await callAnalysis(true);
+        } else {
+          throw error;
+        }
+      }
+
+      if (!response) {
+        throw new Error("Analysen kunde inte startas");
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -519,6 +545,7 @@ const WineSnap = () => {
       }
 
       const { ok, data, note, timings }: AnalysisResponse = await response.json();
+      const resolvedNote = analysisMode === "label_only" ? note ?? "label_only_fallback" : note;
       if (import.meta.env.DEV && timings) {
         console.debug("WineSnap analysis timings", timings);
       }
@@ -598,7 +625,7 @@ const WineSnap = () => {
           latencyMs: getResponseTimeMs(),
         });
         trackEvent("scan_succeeded", {
-          source: note ?? "analysis",
+          source: resolvedNote ?? "analysis",
           noTextFound,
           mode: normalizedResult.mode,
           confidence: normalizedResult.confidence,
@@ -606,19 +633,19 @@ const WineSnap = () => {
         });
 
         if (!noTextFound) {
-          if (note === "hit_memory" || note === "hit_supabase") {
+          if (resolvedNote === "hit_memory" || resolvedNote === "hit_supabase") {
             setBanner({
               type: "info",
               title: "Sparad analys",
               text: "Hämtade sparad profil för snabbare upplevelse.",
             });
-          } else if (note === "hit_analysis_cache" || note === "hit_analysis_cache_get") {
+          } else if (resolvedNote === "hit_analysis_cache" || resolvedNote === "hit_analysis_cache_get") {
             setBanner({
               type: "info",
               title: "Snabbladdad profil",
               text: "⚡ Hämtade färdig vinprofil från global cache.",
             });
-          } else if (note === "perplexity_timeout") {
+          } else if (resolvedNote === "perplexity_timeout") {
             setBanner({
               type: "warning",
               title: "Endast etikettinfo",
@@ -626,7 +653,7 @@ const WineSnap = () => {
               ctaLabel: "Försök igen",
               onCta: handleRetryScan,
             });
-          } else if (note === "perplexity_failed") {
+          } else if (resolvedNote === "perplexity_failed") {
             setBanner({
               type: "warning",
               title: "Endast etikettinfo",
@@ -634,11 +661,19 @@ const WineSnap = () => {
               ctaLabel: "Försök igen",
               onCta: handleRetryScan,
             });
-          } else if (note === "fastpath" || note === "fastpath_heuristic") {
+          } else if (resolvedNote === "fastpath" || resolvedNote === "fastpath_heuristic") {
             setBanner({
               type: "info",
               title: "Snabbanalys",
               text: "⚡ Snabbanalys – fyller profil utan webbsvar.",
+            });
+          } else if (resolvedNote === "label_only_fallback") {
+            setBanner({
+              type: "warning",
+              title: "Endast etikettinfo",
+              text: "Webbsökningen avbröts – visar analys baserad på etiketten.",
+              ctaLabel: "Försök igen",
+              onCta: handleRetryScan,
             });
           } else {
             setBanner({
