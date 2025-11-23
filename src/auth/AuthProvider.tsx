@@ -51,9 +51,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
 
       if (_event === "SIGNED_IN" && session?.user) {
+        const rawProvider = session.user.app_metadata?.provider;
+        const provider =
+          rawProvider === "google" || rawProvider === "apple" ? rawProvider : "email";
         void logEvent(
           "login_succeeded",
-          { provider: session.user.app_metadata?.provider ?? "unknown" },
+          { provider },
           { userId: session.user.id },
         );
       }

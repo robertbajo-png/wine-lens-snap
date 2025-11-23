@@ -36,6 +36,7 @@ import {
 } from "@/services/followingFeed";
 import { creatorsQueryKey, feedQueryKey, feedMetaQueryKey, followingQueryKey } from "@/lib/followingQueries";
 import { useFollowingFeedNotifications } from "@/hooks/useFollowingFeedNotifications";
+import { logEvent } from "@/lib/logger";
 
 const numberFormatter = new Intl.NumberFormat("sv-SE");
 
@@ -274,6 +275,11 @@ const Following = () => {
       queryClient.invalidateQueries({ queryKey: key });
       queryClient.invalidateQueries({ queryKey: ["following", "feed"] });
       queryClient.invalidateQueries({ queryKey: feedMetaQueryKey(user.id) });
+    },
+    onSuccess: (_data, variables) => {
+      if (variables.shouldFollow) {
+        void logEvent("follow_added", { creator_id: variables.creatorId });
+      }
     },
   });
 

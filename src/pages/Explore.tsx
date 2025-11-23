@@ -21,6 +21,7 @@ import type { WineAnalysisResult } from "@/lib/wineCache";
 import { normalizeAnalysisJson } from "@/lib/analysisSchema";
 import { useAuth } from "@/auth/AuthProvider";
 import { trackEvent } from "@/lib/telemetry";
+import { logEvent } from "@/lib/logger";
 
 const SEARCH_PLACEHOLDER = "Sök bland etiketter, producenter eller anteckningar";
 const TREND_LIMIT = 3;
@@ -668,6 +669,20 @@ const Explore = () => {
   const sessionIdRef = useRef<string>();
   const exploreOpenedRef = useRef(false);
 
+  const logExploreCardOpened = (cardType: "trend" | "style" | "quick_filter") => {
+    void logEvent("explore_card_opened", { card_type: cardType });
+  };
+
+  const handleExploreCardKeyDown = (
+    event: KeyboardEvent<HTMLDivElement>,
+    cardType: "trend" | "style",
+  ) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      logExploreCardOpened(cardType);
+    }
+  };
+
   if (!sessionIdRef.current) {
     sessionIdRef.current = createExploreSessionId();
   }
@@ -802,6 +817,7 @@ const Explore = () => {
   const handleSelectFilter = (filterId: string) => {
     const next = availableFilters.find((filter) => filter.id === filterId);
     if (!next) return;
+    logExploreCardOpened("quick_filter");
     const params = new URLSearchParams(searchParams);
     params.set("filter", filterId);
     params.set(next.field, next.value);
@@ -1110,6 +1126,10 @@ const Explore = () => {
               <div
                 key={trend.label}
                 className="rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] p-5 shadow-theme-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => logExploreCardOpened("trend")}
+                onKeyDown={(event) => handleExploreCardKeyDown(event, "trend")}
               >
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Druva</p>
                 <h3 className="mt-2 text-2xl font-semibold text-theme-primary">{trend.label}</h3>
@@ -1129,7 +1149,14 @@ const Explore = () => {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {styleItems.map((style) => (
-              <div key={style.label} className="rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface-alt)/0.8)] p-4">
+              <div
+                key={style.label}
+                className="rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface-alt)/0.8)] p-4"
+                role="button"
+                tabIndex={0}
+                onClick={() => logExploreCardOpened("style")}
+                onKeyDown={(event) => handleExploreCardKeyDown(event, "style")}
+              >
                 <p className="text-xs uppercase tracking-[0.3em] text-theme-secondary/60">Stil</p>
                 <h3 className="mt-1 text-lg font-semibold text-theme-primary">{style.label}</h3>
                 <p className="text-sm text-theme-secondary/70">{style.detail}</p>
