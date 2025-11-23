@@ -9,6 +9,7 @@ import History from "@/pages/History";
 import About from "@/pages/About";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
+import LoginCallback from "@/pages/LoginCallback";
 import Me from "@/pages/Me";
 
 const LoadingScreen = () => (
@@ -70,6 +71,7 @@ export const router = createBrowserRouter([
     ],
   },
   { path: "/login", element: <Login /> },
+  { path: "/login/callback", element: <LoginCallback /> },
   { path: "/om", element: <About /> },
   { path: "/skanna", element: <Navigate to="/scan" replace /> },
   { path: "/historik", element: <Navigate to="/me/wines" replace /> },

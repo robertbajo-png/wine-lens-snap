@@ -97,10 +97,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return trimmed;
     })();
 
+    const callbackUrl = new URL("/login/callback", window.location.origin);
+    callbackUrl.searchParams.set("redirectTo", safeRedirectPath);
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: new URL(safeRedirectPath, window.location.origin).toString(),
+        redirectTo: callbackUrl.toString(),
       },
     });
 
