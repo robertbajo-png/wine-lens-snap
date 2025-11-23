@@ -292,11 +292,14 @@ const WineSnap = () => {
 
     scanStartTimeRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
 
+    const modeHint = cameraModeRef.current ? "camera" : "manual";
+    const labelHashPresent = Boolean(
+      computeLabelHash(currentOcrText ?? results?.originaltext ?? results?.vin ?? null),
+    );
     const trigger = cameraModeRef.current ? "camera" : autoOpenedRef.current ? "auto" : "upload";
     void logEvent("scan_started", {
-      trigger,
-      hasSource: Boolean(activeSource),
-      retried: Boolean(source),
+      modeHint,
+      labelHashPresent,
     });
     trackEvent("scan_start", {
       trigger,
@@ -416,11 +419,12 @@ const WineSnap = () => {
           description: "Analys hämtad från cache.",
         });
         void logEvent("scan_succeeded", {
-          source: "cache",
-          noTextFound,
-          mode: (cachedResult as WineAnalysisResult).mode,
-          confidence: (cachedResult as WineAnalysisResult).confidence,
-          responseTimeMs: getResponseTimeMs(),
+          mode: (cachedResult as WineAnalysisResult).mode ?? "label_only",
+          confidence:
+            typeof (cachedResult as WineAnalysisResult).confidence === "number"
+              ? (cachedResult as WineAnalysisResult).confidence
+              : null,
+          latencyMs: getResponseTimeMs(),
         });
         trackEvent("scan_succeeded", {
           source: "cache",
@@ -565,11 +569,9 @@ const WineSnap = () => {
           saved: false,
         });
         void logEvent("scan_succeeded", {
-          source: note ?? "analysis",
-          noTextFound,
-          mode: normalizedResult.mode,
-          confidence: normalizedResult.confidence,
-          responseTimeMs: getResponseTimeMs(),
+          mode: normalizedResult.mode ?? "label_only",
+          confidence: typeof normalizedResult.confidence === "number" ? normalizedResult.confidence : null,
+          latencyMs: getResponseTimeMs(),
         });
         trackEvent("scan_succeeded", {
           source: note ?? "analysis",
@@ -639,18 +641,31 @@ const WineSnap = () => {
         }
       }
 
-      const reasonCategory = error instanceof Error && error.name === "AbortError" ? "timeout" : "error";
+      const latencyMs = getResponseTimeMs();
+      const normalizedReason: "network" | "ai_error" | "timeout" | "other" = (() => {
+        if (error instanceof Error && error.name === "AbortError") {
+          return "timeout";
+        }
+
+        const lowered = errorMessage.toLowerCase();
+        if (lowered.includes("network") || lowered.includes("fetch")) {
+          return "network";
+        }
+        if (lowered.includes("ai") || lowered.includes("model")) {
+          return "ai_error";
+        }
+        return "other";
+      })();
+
       void logEvent("scan_failed", {
-        reason: errorMessage,
-        name: error instanceof Error ? error.name : undefined,
-        category: reasonCategory,
-        responseTimeMs: getResponseTimeMs(),
+        reason: normalizedReason,
+        latencyMs,
       });
       trackEvent("scan_failed", {
         reason: errorMessage,
         name: error instanceof Error ? error.name : undefined,
-        category: reasonCategory,
-        responseTimeMs: getResponseTimeMs(),
+        category: normalizedReason,
+        responseTimeMs: latencyMs,
       });
 
       const retryAction = currentImageRef.current
@@ -682,8 +697,8 @@ const WineSnap = () => {
         "processWineImage",
         errorMessage,
         {
-          category: reasonCategory,
-          responseTimeMs: getResponseTimeMs(),
+          category: normalizedReason,
+          responseTimeMs: latencyMs,
         },
       );
     } finally {
