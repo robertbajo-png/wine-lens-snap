@@ -98,6 +98,10 @@ body.app-theme .shadow-theme-card {
   box-shadow: var(--shadow-card);
 }
 
+body.app-theme .shadow-theme-bottom-nav {
+  box-shadow: var(--shadow-bottom-nav);
+}
+
 body.app-theme .text-theme-on-accent {
   color: hsl(var(--color-on-accent));
 }
