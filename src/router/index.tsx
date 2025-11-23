@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import { Navigate, Outlet, createBrowserRouter, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthProvider";
 import BottomTabLayout from "@/layouts/BottomTabLayout";
 import ForYou from "@/pages/ForYou";
@@ -18,12 +21,70 @@ const LoadingScreen = () => (
   </div>
 );
 
+const GuardSkeleton = () => (
+  <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-12 text-theme-secondary">
+    <div className="space-y-3 text-center">
+      <Skeleton className="mx-auto h-4 w-24" />
+      <Skeleton className="mx-auto h-6 w-48" />
+      <Skeleton className="mx-auto h-3 w-64" />
+    </div>
+    <div className="grid gap-4 sm:grid-cols-2">
+      {[...Array(4)].map((_, index) => (
+        <div key={index} className="space-y-3 rounded-2xl border border-theme-card bg-theme-elevated p-4 shadow-sm">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-5 w-40" />
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-11/12" />
+            <Skeleton className="h-3 w-10/12" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-20" />
+            <Skeleton className="h-9 w-24" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+const LoginPrompt = ({ to }: { to: string }) => (
+  <div className="mx-auto flex min-h-[50vh] max-w-xl flex-col items-center justify-center gap-4 px-4 text-center">
+    <div className="space-y-2">
+      <p className="text-sm uppercase tracking-[0.2em] text-theme-secondary">Begränsad sida</p>
+      <h1 className="text-2xl font-semibold text-theme-primary">Du behöver logga in</h1>
+      <p className="text-theme-secondary">
+        Logga in för att se din profil och historik. Vi sparar din destination så att du kommer rätt efteråt.
+      </p>
+    </div>
+    <div className="flex flex-wrap justify-center gap-3">
+      <Button asChild className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] px-6 text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]">
+        <a href={to}>Logga in</a>
+      </Button>
+      <Button asChild variant="ghost" className="rounded-full border border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80">
+        <a href="/scan">Fortsätt till skanning</a>
+      </Button>
+    </div>
+  </div>
+);
+
 const ProtectedRoute = () => {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const [showSkeleton, setShowSkeleton] = useState(true);
+
+  useEffect(() => {
+    if (!loading) {
+      setShowSkeleton(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => setShowSkeleton(false), 1000);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
 
   if (loading) {
-    return <LoadingScreen />;
+    return showSkeleton ? <GuardSkeleton /> : <LoadingScreen />;
   }
 
   if (!user) {
@@ -34,7 +95,7 @@ const ProtectedRoute = () => {
     }
 
     const to = params.size > 0 ? `/login?${params.toString()}` : "/login";
-    return <Navigate to={to} replace />;
+    return <LoginPrompt to={to} />;
   }
 
   return <Outlet />;
