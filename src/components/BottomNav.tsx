@@ -89,7 +89,7 @@ const BottomNav = () => {
   return (
     <nav
       aria-label="Huvudnavigation"
-      className="sticky bottom-0 left-0 right-0 z-40 border-t border-[hsl(var(--color-border)/0.7)] bg-[hsl(var(--color-surface))] py-3 shadow-theme-bottom-nav"
+      className="sticky bottom-0 left-0 right-0 z-40 border-t border-[var(--bottom-nav-border)] bg-[var(--bottom-nav-bg)] py-3 shadow-theme-bottom-nav backdrop-blur"
       style={safeAreaPadding}
     >
       <div className="mx-auto flex w-full max-w-3xl items-center justify-center px-4">
@@ -109,7 +109,7 @@ const BottomNav = () => {
                   <button
                     type="button"
                     onClick={() => handleNavigate(tab)}
-                    className="group relative -translate-y-6 transform rounded-full border-4 border-[hsl(var(--color-surface))] bg-[hsl(var(--color-accent))] p-4 text-[hsl(var(--color-on-accent))] shadow-[0_20px_45px_-18px_hsl(var(--color-accent))] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-on-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--color-surface))]"
+                    className="group relative -translate-y-6 transform rounded-full border-4 border-[var(--bottom-nav-bg)] bg-[hsl(var(--color-accent))] p-4 text-[hsl(var(--color-on-accent))] shadow-[0_20px_45px_-18px_hsl(var(--color-accent))] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-on-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bottom-nav-bg)]"
                     aria-label={scanAriaLabel}
                   >
                     {showProcessingIndicator && (
@@ -136,10 +136,10 @@ const BottomNav = () => {
                   onClick={() => handleNavigate(tab)}
                   aria-label={tab.label}
                   className={cn(
-                    "flex flex-col items-center gap-1 rounded-full px-3 py-2 text-[0.7rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent))]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--color-surface))]",
+                    "flex flex-col items-center gap-1 rounded-full px-3 py-2 text-[0.7rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent))]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bottom-nav-bg)]",
                     isActive
-                      ? "text-[hsl(var(--color-accent))]"
-                      : "text-[hsl(var(--color-text-muted))]",
+                      ? "text-[var(--bottom-nav-active)] drop-shadow-[0_6px_18px_rgba(0,0,0,0.24)]"
+                      : "text-[var(--bottom-nav-inactive)] hover:text-[var(--bottom-nav-active)]",
                   )}
                 >
                   <span className="relative inline-flex">
