@@ -10,6 +10,7 @@ import {
 import type { AuthOtpResponse, Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { useSyncScans } from "@/hooks/useSyncScans";
+import { logEvent } from "@/lib/logger";
 
 type AuthContextValue = {
   user: User | null;
@@ -48,6 +49,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
+
+      if (_event === "SIGNED_IN" && session?.user) {
+        void logEvent(
+          "login_succeeded",
+          { provider: session.user.app_metadata?.provider ?? "unknown" },
+          { userId: session.user.id },
+        );
+      }
     });
 
     return () => {
