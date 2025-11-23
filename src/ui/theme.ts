@@ -6,6 +6,17 @@ export type ThemeTokens = {
   textSecondary: string;
   accentPrimary: string;
   cardBorder: string;
+  colorBackground: string;
+  colorSurface: string;
+  colorSurfaceAlt: string;
+  colorBorder: string;
+  colorText: string;
+  colorTextMuted: string;
+  colorAccent: string;
+  colorAccentSoft: string;
+  colorDanger: string;
+  colorOnAccent: string;
+  shadowCard: string;
 };
 
 export type ThemeName = "dark" | "light";
@@ -19,6 +30,17 @@ export const darkTheme: ThemeTokens = {
   textSecondary: "260 28% 78%",
   accentPrimary: "271 86% 67%",
   cardBorder: "262 36% 28%",
+  colorBackground: "36 20% 5%",
+  colorSurface: "34 17% 8%",
+  colorSurfaceAlt: "36 17% 11%",
+  colorBorder: "35 15% 16%",
+  colorText: "37 50% 94%",
+  colorTextMuted: "38 24% 72%",
+  colorAccent: "7 71% 57%",
+  colorAccentSoft: "15 31% 18%",
+  colorDanger: "0 81% 66%",
+  colorOnAccent: "0 0% 100%",
+  shadowCard: "0 10px 30px rgba(0, 0, 0, 0.35)",
 };
 
 export const lightTheme: ThemeTokens = {
@@ -29,6 +51,17 @@ export const lightTheme: ThemeTokens = {
   textSecondary: "262 20% 38%",
   accentPrimary: "268 85% 58%",
   cardBorder: "260 28% 80%",
+  colorBackground: "45 22% 96%",
+  colorSurface: "0 0% 100%",
+  colorSurfaceAlt: "38 24% 93%",
+  colorBorder: "40 21% 86%",
+  colorText: "33 17% 10%",
+  colorTextMuted: "34 14% 32%",
+  colorAccent: "7 60% 45%",
+  colorAccentSoft: "13 63% 92%",
+  colorDanger: "0 61% 54%",
+  colorOnAccent: "0 0% 100%",
+  shadowCard: "0 10px 30px rgba(31, 27, 22, 0.08)",
 };
 
 export const themeTokensByName: Record<ThemeName, ThemeTokens> = {

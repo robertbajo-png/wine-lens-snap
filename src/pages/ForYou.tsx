@@ -10,8 +10,8 @@ const ForYou = () => {
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
       <AmbientBackground />
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center px-4 py-24 text-center sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center gap-4 rounded-3xl border border-theme-card/60 bg-theme-elevated/80 px-8 py-12 backdrop-blur">
-          <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/30 px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/80">
+        <div className="flex flex-col items-center gap-4 rounded-3xl border border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface-alt)/0.9)] px-8 py-12 shadow-theme-card backdrop-blur">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.6)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/80">
             <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
             För dig
           </span>
@@ -23,7 +23,7 @@ const ForYou = () => {
             <span className="text-sm font-medium uppercase tracking-[0.3em] text-theme-secondary/60">Kommer snart</span>
             <Button
               size="lg"
-              className="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] px-6 text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] transition hover:opacity-90"
+              className="group inline-flex items-center gap-2 rounded-full bg-theme-accent px-6 text-theme-on-accent shadow-theme-card transition hover:opacity-90"
               onClick={() => navigate("/scan")}
             >
               <Camera className="h-4 w-4 transition group-hover:-translate-y-0.5" aria-hidden="true" />

@@ -22,12 +22,12 @@ body,
 
 /* Aktiveras från main.tsx */
 body.app-theme {
-  color: hsl(var(--text-primary));
-  background-color: hsl(var(--bg-canvas));
+  color: hsl(var(--color-text));
+  background-color: hsl(var(--color-background));
   background-image:
-    radial-gradient(120% 120% at 15% 10%, hsl(var(--accent-primary) / 0.18), transparent),
-    radial-gradient(120% 120% at 85% 90%, hsl(var(--accent-primary) / 0.12), transparent),
-    radial-gradient(140% 140% at 50% -20%, hsl(var(--bg-surface) / 0.65), transparent);
+    radial-gradient(120% 120% at 15% 10%, hsl(var(--color-accent) / 0.18), transparent),
+    radial-gradient(120% 120% at 85% 90%, hsl(var(--color-accent) / 0.12), transparent),
+    radial-gradient(140% 140% at 50% -20%, hsl(var(--color-surface) / 0.65), transparent);
   background-attachment: fixed;
 }
 
@@ -42,48 +42,68 @@ body.app-theme h6 {
 
 body.app-theme p,
 body.app-theme .text-theme-secondary {
-  color: hsl(var(--text-secondary));
+  color: hsl(var(--color-text-muted));
 }
 
 /* ========= Utility helpers ========= */
 body.app-theme .bg-theme-canvas {
-  background-color: hsl(var(--bg-canvas));
+  background-color: hsl(var(--color-background));
 }
 
 body.app-theme .bg-theme-surface {
-  background-color: hsl(var(--bg-surface));
+  background-color: hsl(var(--color-surface));
+}
+
+body.app-theme .bg-theme-surface-alt {
+  background-color: hsl(var(--color-surface-alt));
 }
 
 body.app-theme .bg-theme-elevated {
-  background-color: hsl(var(--surface-elevated));
+  background-color: hsl(var(--color-surface-alt));
 }
 
 body.app-theme .text-theme-primary {
-  color: hsl(var(--text-primary));
+  color: hsl(var(--color-text));
 }
 
 body.app-theme .text-theme-secondary {
-  color: hsl(var(--text-secondary));
+  color: hsl(var(--color-text-muted));
 }
 
 body.app-theme .bg-theme-accent {
-  background-color: hsl(var(--accent-primary));
+  background-color: hsl(var(--color-accent));
 }
 
 body.app-theme .text-theme-accent {
-  color: hsl(var(--accent-primary));
+  color: hsl(var(--color-accent));
+}
+
+body.app-theme .bg-theme-accent-soft {
+  background-color: hsl(var(--color-accent-soft));
 }
 
 body.app-theme .border-theme-card {
-  border-color: hsl(var(--card-border));
+  border-color: hsl(var(--color-border));
 }
 
 body.app-theme .ring-theme-card {
-  --tw-ring-color: hsl(var(--card-border));
+  --tw-ring-color: hsl(var(--color-border));
 }
 
 body.app-theme .shadow-theme-elevated {
-  box-shadow: 0 24px 60px -30px hsla(var(--accent-primary) / 0.55);
+  box-shadow: var(--shadow-card);
+}
+
+body.app-theme .shadow-theme-card {
+  box-shadow: var(--shadow-card);
+}
+
+body.app-theme .text-theme-on-accent {
+  color: hsl(var(--color-on-accent));
+}
+
+body.app-theme .bg-theme-danger-soft {
+  background-color: hsl(var(--color-danger) / 0.16);
 }
 
 /* ========= Override light utilities to match dark theme ========= */

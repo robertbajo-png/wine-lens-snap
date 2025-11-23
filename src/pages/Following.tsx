@@ -323,7 +323,7 @@ const Following = () => {
       <AmbientBackground />
       <div className="absolute right-4 top-6 z-20">
         <Button
-          className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+          className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
           onClick={() => navigate("/scan")}
           aria-label="Starta ny skanning"
         >
@@ -335,13 +335,13 @@ const Following = () => {
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 pb-24 pt-24 sm:px-6 lg:px-8">
         <div className="flex flex-col items-center gap-5 text-center">
           <div className="flex flex-wrap items-center justify-center gap-3">
-            <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/20 px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
               <Users2 className="h-4 w-4 text-theme-primary" aria-hidden="true" />
               Följer
             </span>
             {showNewPostsBadge && newPostsBadgeLabel ? (
               <span
-                className="inline-flex items-center gap-1 rounded-full bg-[#F06292]/15 px-3 py-1 text-[0.75rem] font-semibold text-[#F06292]"
+                className="inline-flex items-center gap-1 rounded-full bg-theme-accent-soft px-3 py-1 text-[0.75rem] font-semibold text-theme-accent"
                 aria-live="polite"
               >
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
@@ -354,15 +354,15 @@ const Following = () => {
             Följ redaktionens favoriter för att se butikslistor, livesändningar och nördiga rekommendationer så fort funktionen rullas ut.
           </p>
           <div className="flex flex-wrap justify-center gap-3 text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/70">
-            <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/10 px-3 py-1">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.1)] px-3 py-1">
               <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
               {curatedCount} skapare
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/10 px-3 py-1">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.1)] px-3 py-1">
               <Users2 className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
               {followingSet.size} följer du
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-theme-card/40 bg-theme-card/10 px-3 py-1">
+            <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.1)] px-3 py-1">
               {numberFormatter.format(totalFollowers)} följare totalt
             </span>
           </div>
@@ -380,14 +380,14 @@ const Following = () => {
 
         <div className="mt-10 space-y-10">
           {showFeedSection ? (
-            <section className="space-y-4 rounded-3xl border border-theme-card/70 bg-theme-elevated/80 p-6 text-theme-primary">
+            <section className="space-y-4 rounded-3xl border border-[hsl(var(--color-border)/0.7)] bg-[hsl(var(--color-surface-alt)/0.8)] p-6 text-theme-primary shadow-theme-card">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="space-y-1">
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/70">Ditt flöde</p>
                   <h2 className="text-2xl font-semibold text-theme-primary">Nyheter från skapare du följer</h2>
                   <p className="text-sm text-theme-secondary/80">Sorterade efter senast publicerat.</p>
                 </div>
-                <div className="rounded-2xl bg-theme-card/40 p-3 text-theme-primary/80">
+                <div className="rounded-2xl bg-[hsl(var(--color-surface)/0.4)] p-3 text-theme-primary/80">
                   <Newspaper className="h-6 w-6" aria-hidden="true" />
                 </div>
               </div>
@@ -395,18 +395,18 @@ const Following = () => {
               {showFeedSkeleton ? (
                 <div className="space-y-3">
                   {[0, 1, 2].map((key) => (
-                    <Card key={`feed-skeleton-${key}`} className="border-theme-card/70 bg-theme-card/30">
+                    <Card key={`feed-skeleton-${key}`} className="border-[hsl(var(--color-border)/0.7)] bg-[hsl(var(--color-surface)/0.3)]">
                       <CardContent className="space-y-4 p-5">
                         <div className="flex items-center gap-3">
-                          <Skeleton className="h-10 w-10 rounded-full bg-theme-card/60" />
+                          <Skeleton className="h-10 w-10 rounded-full bg-[hsl(var(--color-surface)/0.6)]" />
                           <div className="flex-1 space-y-2">
-                            <Skeleton className="h-4 w-1/3 bg-theme-card/60" />
-                            <Skeleton className="h-3 w-1/4 bg-theme-card/60" />
+                            <Skeleton className="h-4 w-1/3 bg-[hsl(var(--color-surface)/0.6)]" />
+                            <Skeleton className="h-3 w-1/4 bg-[hsl(var(--color-surface)/0.6)]" />
                           </div>
-                          <Skeleton className="h-5 w-20 rounded-full bg-theme-card/60" />
+                          <Skeleton className="h-5 w-20 rounded-full bg-[hsl(var(--color-surface)/0.6)]" />
                         </div>
-                        <Skeleton className="h-4 w-3/4 bg-theme-card/60" />
-                        <Skeleton className="h-3 w-full bg-theme-card/60" />
+                        <Skeleton className="h-4 w-3/4 bg-[hsl(var(--color-surface)/0.6)]" />
+                        <Skeleton className="h-3 w-full bg-[hsl(var(--color-surface)/0.6)]" />
                       </CardContent>
                     </Card>
                   ))}
@@ -414,7 +414,7 @@ const Following = () => {
               ) : null}
 
               {showEmptyFollowState ? (
-                <Card className="border-theme-card/60 bg-theme-card/20 text-theme-primary">
+                <Card className="border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface)/0.2)] text-theme-primary shadow-theme-card">
                   <CardContent className="space-y-3 p-6 text-center">
                     <p className="text-base font-semibold">Följ minst en skapare för att se flödet.</p>
                     <p className="text-sm text-theme-secondary/80">
@@ -436,7 +436,7 @@ const Following = () => {
               {!showFeedSkeleton && !showEmptyFollowState && followingSet.size > 0 ? (
                 <div className="space-y-4">
                   {feedError ? (
-                    <Card className="border-theme-card/60 bg-theme-card/20 text-theme-primary">
+                    <Card className="border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface)/0.2)] text-theme-primary shadow-theme-card">
                       <CardContent className="space-y-2 p-5 text-center">
                         <p className="text-base font-semibold">Kunde inte ladda flödet</p>
                         <p className="text-sm text-theme-secondary/80">Försök igen eller uppdatera sidan.</p>
@@ -452,7 +452,7 @@ const Following = () => {
                   ) : null}
 
                   {!feedLoading && !feedError && feedPosts.length === 0 ? (
-                    <Card className="border-theme-card/60 bg-theme-card/20 text-theme-primary">
+                    <Card className="border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface)/0.2)] text-theme-primary shadow-theme-card">
                       <CardContent className="space-y-2 p-6 text-center">
                         <p className="text-base font-semibold">Inga inlägg än</p>
                         <p className="text-sm text-theme-secondary/80">
@@ -473,7 +473,7 @@ const Following = () => {
                     return (
                       <Card
                         key={post.id}
-                        className="cursor-pointer border-theme-card/70 bg-theme-card/20 transition hover:border-theme-primary/60 hover:bg-theme-card/30"
+                        className="cursor-pointer border-[hsl(var(--color-border)/0.7)] bg-[hsl(var(--color-surface)/0.2)] transition hover:border-[hsl(var(--color-accent)/0.6)] hover:bg-[hsl(var(--color-surface)/0.3)]"
                         role="button"
                         tabIndex={0}
                         aria-label={`Öppna inlägget ${post.title}`}
@@ -482,11 +482,11 @@ const Following = () => {
                       >
                         <CardContent className="space-y-4 p-5">
                           <div className="flex flex-wrap items-center gap-3">
-                            <Avatar className="h-10 w-10 border border-theme-card/60 bg-theme-card/40">
+                            <Avatar className="h-10 w-10 border border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface)/0.4)]">
                               {post.creator?.avatar_url ? (
                                 <AvatarImage src={post.creator.avatar_url} alt={creatorName} />
                               ) : (
-                                <AvatarFallback className="bg-theme-card/50 text-sm text-theme-primary/80">
+                                <AvatarFallback className="bg-[hsl(var(--color-surface)/0.5)] text-sm text-theme-primary/80">
                                   {getInitials(creatorName)}
                                 </AvatarFallback>
                               )}
@@ -495,7 +495,7 @@ const Following = () => {
                               <p className="text-sm font-semibold text-theme-primary">{creatorName}</p>
                               <p className="text-xs text-theme-secondary/70">{publishedAgo}</p>
                             </div>
-                            <Badge className="rounded-full border-theme-card/70 text-xs uppercase tracking-[0.2em] text-theme-secondary/80" variant="outline">
+                            <Badge className="rounded-full border-[hsl(var(--color-border)/0.7)] text-xs uppercase tracking-[0.2em] text-theme-secondary/80" variant="outline">
                               {formatPostTypeLabel(post.type)}
                             </Badge>
                           </div>
@@ -521,7 +521,7 @@ const Following = () => {
             </div>
 
             {creatorsError ? (
-              <Card className="border-theme-card/60 bg-theme-elevated/80 text-theme-primary">
+              <Card className="border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface-alt)/0.8)] text-theme-primary shadow-theme-card">
                 <CardContent className="space-y-2 p-6 text-center">
                   <p className="text-base font-semibold">Kunde inte ladda listan</p>
                   <p className="text-sm text-theme-secondary/80">
@@ -541,19 +541,19 @@ const Following = () => {
             {showSkeletons ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 {[0, 1, 2].map((key) => (
-                  <Card key={key} className="border-theme-card/70 bg-theme-elevated/60">
+                  <Card key={key} className="border-[hsl(var(--color-border)/0.7)] bg-[hsl(var(--color-surface-alt)/0.6)]">
                     <CardContent className="space-y-4 p-5">
                       <div className="flex items-center gap-4">
-                        <Skeleton className="h-12 w-12 rounded-full bg-theme-card/60" />
+                        <Skeleton className="h-12 w-12 rounded-full bg-[hsl(var(--color-surface)/0.6)]" />
                         <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-1/2 bg-theme-card/60" />
-                          <Skeleton className="h-3 w-1/3 bg-theme-card/60" />
+                          <Skeleton className="h-4 w-1/2 bg-[hsl(var(--color-surface)/0.6)]" />
+                          <Skeleton className="h-3 w-1/3 bg-[hsl(var(--color-surface)/0.6)]" />
                         </div>
                       </div>
-                      <Skeleton className="h-16 w-full bg-theme-card/60" />
+                      <Skeleton className="h-16 w-full bg-[hsl(var(--color-surface)/0.6)]" />
                       <div className="flex items-center justify-between">
-                        <Skeleton className="h-3 w-24 bg-theme-card/60" />
-                        <Skeleton className="h-9 w-28 rounded-full bg-theme-card/60" />
+                        <Skeleton className="h-3 w-24 bg-[hsl(var(--color-surface)/0.6)]" />
+                        <Skeleton className="h-9 w-28 rounded-full bg-[hsl(var(--color-surface)/0.6)]" />
                       </div>
                     </CardContent>
                   </Card>
@@ -577,7 +577,7 @@ const Following = () => {
                     ))}
                   </div>
                 ) : (
-                  <Card className="border-theme-card/70 bg-theme-elevated/80 text-theme-primary">
+                  <Card className="border-[hsl(var(--color-border)/0.7)] bg-[hsl(var(--color-surface-alt)/0.8)] text-theme-primary shadow-theme-card">
                     <CardContent className="flex flex-col items-center gap-3 p-8 text-center">
                       <p className="text-base font-semibold">Listan är tom</p>
                       <p className="text-sm text-theme-secondary/80">
@@ -595,7 +595,7 @@ const Following = () => {
         </div>
       </div>
       <AlertDialog open={Boolean(pendingUnfollowId)} onOpenChange={(open) => !open && setPendingUnfollowId(null)}>
-        <AlertDialogContent className="border-theme-card/70 bg-theme-elevated/90 text-theme-primary">
+        <AlertDialogContent className="border-[hsl(var(--color-border)/0.7)] bg-[hsl(var(--color-surface-alt)/0.9)] text-theme-primary">
           <AlertDialogHeader>
             <AlertDialogTitle>
               Sluta följa {creatorToUnfollow?.display_name ?? "den här skaparen"}?
@@ -619,7 +619,7 @@ const Following = () => {
         </AlertDialogContent>
       </AlertDialog>
       <Dialog open={Boolean(selectedPost)} onOpenChange={(open) => !open && setSelectedPost(null)}>
-        <DialogContent className="border-theme-card/80 bg-theme-elevated/95 text-theme-primary">
+        <DialogContent className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.95)] text-theme-primary">
           <DialogHeader>
             <DialogTitle>{selectedPost?.title}</DialogTitle>
             {selectedPost ? (
@@ -632,7 +632,7 @@ const Following = () => {
           {selectedPost ? (
             <div className="space-y-4">
               <p className="text-sm text-theme-secondary/80">{getPreviewFromBody(selectedPost.body_json)}</p>
-              <Card className="border-theme-card/60 bg-theme-card/20 text-theme-secondary/80">
+              <Card className="border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface)/0.2)] text-theme-secondary/80">
                 <CardContent className="space-y-2 p-4 text-sm">
                   <p className="font-semibold text-theme-primary">Detaljerad läsning kommer snart</p>
                   <p>

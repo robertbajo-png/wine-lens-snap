@@ -439,7 +439,7 @@ const Me = () => {
     <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-12 sm:px-8">
       <header className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16 border border-theme-card bg-theme-elevated">
+          <Avatar className="h-16 w-16 border border-[hsl(var(--color-border))] bg-theme-elevated">
             {avatarUrl ? <AvatarImage src={avatarUrl} alt="Profilbild" className="object-cover" /> : null}
             <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
               {initials || "WS"}
@@ -452,7 +452,7 @@ const Me = () => {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button
-            className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+            className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
             onClick={() => navigate("/scan")}
             aria-label="Starta ny skanning"
           >
@@ -461,7 +461,7 @@ const Me = () => {
           </Button>
           <Button
             variant="outline"
-            className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+            className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
             onClick={() => navigate("/me/wines")}
             aria-label="Visa sparade viner"
           >
@@ -471,7 +471,7 @@ const Me = () => {
       </header>
 
       <div className="space-y-6">
-        <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
+        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
               <CardTitle className="text-theme-primary">Din profil</CardTitle>
@@ -483,14 +483,14 @@ const Me = () => {
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="gap-2 border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                  className="gap-2 border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
                   disabled={profileLoading}
                 >
                   <PenLine className="h-4 w-4" />
                   Redigera profil
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-lg border-theme-card/80 bg-theme-elevated text-left text-theme-primary">
+              <DialogContent className="max-w-lg border-[hsl(var(--color-border)/0.8)] bg-theme-elevated text-left text-theme-primary">
                 <DialogHeader>
                   <DialogTitle>Redigera profil</DialogTitle>
                   <DialogDescription>
@@ -512,7 +512,7 @@ const Me = () => {
                         }
                       }}
                       placeholder="Ditt namn"
-                      className="border-theme-card bg-theme-elevated text-theme-primary"
+                      className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary"
                       maxLength={80}
                     />
                     {formNameError ? <p className="text-sm text-destructive">{formNameError}</p> : null}
@@ -521,7 +521,7 @@ const Me = () => {
                   <div className="space-y-3">
                     <Label className="text-theme-primary">Profilbild</Label>
                     <div className="flex items-center gap-4">
-                      <Avatar className="h-16 w-16 border border-theme-card bg-theme-elevated">
+                      <Avatar className="h-16 w-16 border border-[hsl(var(--color-border))] bg-theme-elevated">
                         {avatarPreview ? <AvatarImage src={avatarPreview} alt="Förhandsvisning" className="object-cover" /> : null}
                         <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
                           {previewInitials || "WS"}
@@ -531,7 +531,7 @@ const Me = () => {
                         <Button
                           type="button"
                           variant="outline"
-                          className="gap-2 border-dashed border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                          className="gap-2 border-dashed border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={savingProfile}
                         >
@@ -550,22 +550,22 @@ const Me = () => {
                     />
                   </div>
 
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
-                        disabled={savingProfile}
-                      >
-                        Avbryt
-                      </Button>
-                    </DialogClose>
+                <DialogFooter>
+                  <DialogClose asChild>
                     <Button
-                      type="submit"
-                      className="gap-2 bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+                      type="button"
+                      variant="outline"
+                      className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
                       disabled={savingProfile}
                     >
+                      Avbryt
+                    </Button>
+                  </DialogClose>
+                  <Button
+                    type="submit"
+                    className="gap-2 bg-theme-accent text-theme-on-accent shadow-theme-card"
+                    disabled={savingProfile}
+                  >
                       {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                       Spara ändringar
                     </Button>
@@ -588,7 +588,7 @@ const Me = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
+        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
           <CardHeader>
             <CardTitle className="text-theme-primary">Utseende</CardTitle>
             <CardDescription className="text-theme-secondary">
@@ -605,7 +605,7 @@ const Me = () => {
                 <label
                   key={value}
                   htmlFor={`theme-${value}`}
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border border-theme-card/80 bg-theme-elevated/80 p-3 transition hover:border-theme-card ${themeSaving ? "opacity-70" : ""}`}
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] p-3 transition hover:border-[hsl(var(--color-border))] ${themeSaving ? "opacity-70" : ""}`}
                 >
                   <RadioGroupItem
                     id={`theme-${value}`}
@@ -629,7 +629,7 @@ const Me = () => {
 
         <WineListsSection />
 
-        <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
+        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
           <CardHeader>
             <CardTitle className="text-theme-primary">Hantera konto</CardTitle>
             <CardDescription className="text-theme-secondary">
