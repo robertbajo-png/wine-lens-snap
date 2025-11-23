@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type KeyboardEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, type KeyboardEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AmbientBackground } from "@/components/AmbientBackground";
@@ -23,6 +23,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { trackEvent } from "@/lib/telemetry";
 import { logEvent } from "@/lib/logger";
 import { withTimeoutFallback } from "@/lib/fallback";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 const SEARCH_PLACEHOLDER = "Sök bland etiketter, producenter eller anteckningar";
 const TREND_LIMIT = 3;
@@ -651,10 +652,54 @@ const fetchExploreCards = async (): Promise<ExploreCardRow[]> =>
   );
 
 const WINE_INDEX_FETCH_LIMIT = 120;
+const WINE_INDEX_CACHE_KEY = "explore_wine_index_cache_v1";
+const WINE_INDEX_CACHE_TTL_MS = 1000 * 60 * 60 * 24;
+
+const readCachedWineIndex = (filters: SearchFilters): WineIndexRow[] | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const cacheKey = `${WINE_INDEX_CACHE_KEY}:${serializeFilters(filters)}`;
+    const raw = window.localStorage.getItem(cacheKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { timestamp: number; rows: WineIndexRow[] };
+    if (!parsed?.timestamp || !Array.isArray(parsed.rows)) {
+      return null;
+    }
+    if (Date.now() - parsed.timestamp > WINE_INDEX_CACHE_TTL_MS) {
+      return null;
+    }
+    return parsed.rows;
+  } catch (error) {
+    console.warn("[explore] Failed to read cached wine index", error);
+    return null;
+  }
+};
+
+const writeCachedWineIndex = (filters: SearchFilters, rows: WineIndexRow[]) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const cacheKey = `${WINE_INDEX_CACHE_KEY}:${serializeFilters(filters)}`;
+    const payload = JSON.stringify({ timestamp: Date.now(), rows });
+    window.localStorage.setItem(cacheKey, payload);
+  } catch (error) {
+    console.warn("[explore] Failed to persist wine index cache", error);
+  }
+};
 
 const fetchWineIndexRows = async (filters: SearchFilters): Promise<WineIndexRow[]> =>
   withTimeoutFallback(
     async () => {
+      const cachedRows = readCachedWineIndex(filters);
+      if (cachedRows) {
+        return cachedRows;
+      }
+
       let query = supabase
         .from("wine_index")
         .select("id,created_at,title,producer,region,grapes_raw,style,color,notes,image_url,rank,payload_json")
@@ -687,7 +732,9 @@ const fetchWineIndexRows = async (filters: SearchFilters): Promise<WineIndexRow[
         throw error;
       }
 
-      return data ?? [];
+      const rows = data ?? [];
+      writeCachedWineIndex(filters, rows);
+      return rows;
     },
     () =>
       FALLBACK_WINE_INDEX_ROWS.filter((row) =>
@@ -696,6 +743,141 @@ const fetchWineIndexRows = async (filters: SearchFilters): Promise<WineIndexRow[
     { context: "fetch_wine_index" },
   );
 
+type ExploreScanListProps = {
+  scans: ExploreScan[];
+  showSkeleton: boolean;
+  showEmptyState: boolean;
+  showFirstScanHint: boolean;
+  showLoginPrompt: boolean;
+  showScanErrorBanner: boolean;
+  isRetryingScans: boolean;
+  onScanOpen: (scan: ExploreScan) => void;
+  onScanKeyDown: (event: KeyboardEvent<HTMLElement>, scan: ExploreScan) => void;
+  onClearFilters: () => void;
+  onStartNewScan: () => void;
+  onNavigateToLogin: () => void;
+  onRetryScans: () => void;
+};
+
+const ExploreScanList = memo(
+  ({
+    scans,
+    showSkeleton,
+    showEmptyState,
+    showFirstScanHint,
+    showLoginPrompt,
+    showScanErrorBanner,
+    isRetryingScans,
+    onScanOpen,
+    onScanKeyDown,
+    onClearFilters,
+    onStartNewScan,
+    onNavigateToLogin,
+    onRetryScans,
+  }: ExploreScanListProps) => (
+    <div className="mt-6 space-y-4">
+      {showSkeleton && (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-24 animate-pulse rounded-2xl bg-[hsl(var(--color-surface)/0.3)]" />
+          ))}
+        </div>
+      )}
+
+      {!showSkeleton &&
+        scans.map((scan) => (
+          <article
+            key={`${scan.source}-${scan.id}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`Öppna ${scan.title}`}
+            onClick={() => onScanOpen(scan)}
+            onKeyDown={(event) => onScanKeyDown(event, scan)}
+            className="flex cursor-pointer flex-col gap-4 rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] p-4 outline-none transition hover:border-[hsl(var(--color-accent)/0.5)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent)/0.6)] sm:flex-row sm:items-center"
+          >
+            <div className="flex w-full flex-1 flex-col gap-1">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-theme-secondary/60">
+                <span>{scan.source === "mine" ? "Min skanning" : "Kuraterat"}</span>
+                <span>•</span>
+                <span>{formatRelativeTime(scan.createdAt)}</span>
+              </div>
+              <h3 className="text-lg font-semibold text-theme-primary">{scan.title}</h3>
+              <p className="text-sm text-theme-secondary/80">
+                {[scan.producer, scan.region].filter(Boolean).join(" • ") || "Okänt ursprung"}
+              </p>
+              {scan.notes && <p className="text-sm text-theme-secondary/70">{scan.notes}</p>}
+            </div>
+            <div className="flex flex-col items-start gap-2 text-sm text-theme-secondary/70 sm:items-end">
+              {scan.grapesRaw && <span>{scan.grapesRaw}</span>}
+              {scan.style && (
+                <span className="rounded-full border border-[hsl(var(--color-border)/0.4)] px-3 py-1 text-xs uppercase tracking-[0.3em]">
+                  {scan.style}
+                </span>
+              )}
+            </div>
+          </article>
+        ))}
+
+      {showEmptyState && (
+        <Banner
+          type="info"
+          title="Inga flaskor matchar filtret"
+          text="Justera sökningen eller nollställ filtren för att få fler träffar."
+          ctaLabel="Rensa filter"
+          onCta={onClearFilters}
+          className="border-dashed"
+        />
+      )}
+
+      {showFirstScanHint && (
+        <Banner
+          type="info"
+          title="Gör en första skanning"
+          text="Vi visar redaktionens favoriter tills du fotar din första etikett. Då blir Explore personligt anpassad."
+          ctaLabel="Starta skanning"
+          onCta={onStartNewScan}
+        />
+      )}
+
+      {showLoginPrompt && (
+        <Banner
+          type="info"
+          title="Logga in för att låsa upp historiken"
+          text="Kuraterade tips visas alltid, men dina egna skanningar kräver ett konto."
+          ctaLabel="Till inloggning"
+          onCta={onNavigateToLogin}
+        />
+      )}
+
+      {showScanErrorBanner && (
+        <Banner
+          type="error"
+          title="Kan inte läsa dina skanningar"
+          text="Din uppkoppling verkar svaja. Vi visar tills vidare kuraterade flaskor."
+          ctaLabel={isRetryingScans ? "Försöker igen..." : "Försök igen"}
+          onCta={onRetryScans}
+        />
+      )}
+    </div>
+  ),
+  (prev, next) =>
+    prev.scans === next.scans &&
+    prev.showSkeleton === next.showSkeleton &&
+    prev.showEmptyState === next.showEmptyState &&
+    prev.showFirstScanHint === next.showFirstScanHint &&
+    prev.showLoginPrompt === next.showLoginPrompt &&
+    prev.showScanErrorBanner === next.showScanErrorBanner &&
+    prev.isRetryingScans === next.isRetryingScans &&
+    prev.onScanOpen === next.onScanOpen &&
+    prev.onScanKeyDown === next.onScanKeyDown &&
+    prev.onClearFilters === next.onClearFilters &&
+    prev.onStartNewScan === next.onStartNewScan &&
+    prev.onNavigateToLogin === next.onNavigateToLogin &&
+    prev.onRetryScans === next.onRetryScans,
+);
+
+ExploreScanList.displayName = "ExploreScanList";
+
 const Explore = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -703,9 +885,9 @@ const Explore = () => {
   const sessionIdRef = useRef<string>();
   const exploreOpenedRef = useRef(false);
 
-  const logExploreCardOpened = (cardType: "trend" | "style" | "quick_filter") => {
+  const logExploreCardOpened = useCallback((cardType: "trend" | "style" | "quick_filter") => {
     void logEvent("explore_card_opened", { card_type: cardType });
-  };
+  }, []);
 
   const handleExploreCardKeyDown = (
     event: KeyboardEvent<HTMLDivElement>,
@@ -820,11 +1002,15 @@ const Explore = () => {
 
   const highlightedFilterId = selectedFilterId ?? (!manualFiltersActive ? fallbackQuickFilter?.id ?? null : null);
 
-  const serializedFilters = serializeFilters(effectiveFilters);
+  const debouncedFilters = useDebouncedValue(effectiveFilters, 250);
+  const debouncedSerializedFilters = useMemo(
+    () => serializeFilters(debouncedFilters),
+    [debouncedFilters],
+  );
 
   const { data: wineIndexRows = [], isFetching: wineIndexFetching } = useQuery({
-    queryKey: ["explore", "wine-index", serializedFilters],
-    queryFn: () => fetchWineIndexRows(effectiveFilters),
+    queryKey: ["explore", "wine-index", debouncedSerializedFilters],
+    queryFn: () => fetchWineIndexRows(debouncedFilters),
     keepPreviousData: true,
     staleTime: 1000 * 60,
   });
@@ -848,60 +1034,66 @@ const Explore = () => {
       ? "explore_cards"
       : "fallback";
 
-  const handleSelectFilter = (filterId: string) => {
-    const next = availableFilters.find((filter) => filter.id === filterId);
-    if (!next) return;
-    logExploreCardOpened("quick_filter");
-    const params = new URLSearchParams(searchParams);
-    params.set("filter", filterId);
-    params.set(next.field, next.value);
-    setSearchParams(params, { replace: true });
+  const handleSelectFilter = useCallback(
+    (filterId: string) => {
+      const next = availableFilters.find((filter) => filter.id === filterId);
+      if (!next) return;
+      logExploreCardOpened("quick_filter");
+      const params = new URLSearchParams(searchParams);
+      params.set("filter", filterId);
+      params.set(next.field, next.value);
+      setSearchParams(params, { replace: true });
 
-    const filtersSnapshot = parseSearchFilters(params);
-    trackEvent(
-      "explore_filter_changed",
-      {
-        source: "quick",
-        field: next.field,
-        value: next.value,
-        quickFilterId: filterId,
-        filters: filtersSnapshot,
-        filterCount: countActiveFilters(filtersSnapshot),
-        manualFiltersActive: hasExplicitFilters(filtersSnapshot),
-      },
-      { sessionId: sessionIdRef.current },
-    );
-  };
+      const filtersSnapshot = parseSearchFilters(params);
+      trackEvent(
+        "explore_filter_changed",
+        {
+          source: "quick",
+          field: next.field,
+          value: next.value,
+          quickFilterId: filterId,
+          filters: filtersSnapshot,
+          filterCount: countActiveFilters(filtersSnapshot),
+          manualFiltersActive: hasExplicitFilters(filtersSnapshot),
+        },
+        { sessionId: sessionIdRef.current },
+      );
+    },
+    [availableFilters, logExploreCardOpened, searchParams, setSearchParams],
+  );
 
-  const handleSearchFilterChange = (field: SearchFilterField, value: string) => {
-    const params = new URLSearchParams(searchParams);
-    const normalizedValue = field === "label" ? value : value === FILTER_EMPTY_VALUE ? "" : value;
-    if (normalizedValue) {
-      params.set(field, normalizedValue);
-    } else {
-      params.delete(field);
-    }
-    syncQuickFilterParam(params, availableFilters);
-    setSearchParams(params, { replace: true });
+  const handleSearchFilterChange = useCallback(
+    (field: SearchFilterField, value: string) => {
+      const params = new URLSearchParams(searchParams);
+      const normalizedValue = field === "label" ? value : value === FILTER_EMPTY_VALUE ? "" : value;
+      if (normalizedValue) {
+        params.set(field, normalizedValue);
+      } else {
+        params.delete(field);
+      }
+      syncQuickFilterParam(params, availableFilters);
+      setSearchParams(params, { replace: true });
 
-    const filtersSnapshot = parseSearchFilters(params);
-    trackEvent(
-      "explore_filter_changed",
-      {
-        source: "manual",
-        field,
-        value: normalizedValue,
-        cleared: !normalizedValue,
-        quickFilterId: params.get("filter"),
-        filters: filtersSnapshot,
-        filterCount: countActiveFilters(filtersSnapshot),
-        manualFiltersActive: hasExplicitFilters(filtersSnapshot),
-      },
-      { sessionId: sessionIdRef.current },
-    );
-  };
+      const filtersSnapshot = parseSearchFilters(params);
+      trackEvent(
+        "explore_filter_changed",
+        {
+          source: "manual",
+          field,
+          value: normalizedValue,
+          cleared: !normalizedValue,
+          quickFilterId: params.get("filter"),
+          filters: filtersSnapshot,
+          filterCount: countActiveFilters(filtersSnapshot),
+          manualFiltersActive: hasExplicitFilters(filtersSnapshot),
+        },
+        { sessionId: sessionIdRef.current },
+      );
+    },
+    [availableFilters, searchParams, setSearchParams],
+  );
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     const params = new URLSearchParams(searchParams);
     for (const field of SUPPORTED_FILTER_FIELDS) {
       params.delete(field);
@@ -919,10 +1111,10 @@ const Explore = () => {
         filters: {},
         filterCount: 0,
         manualFiltersActive: false,
-      },
-      { sessionId: sessionIdRef.current },
+    },
+    { sessionId: sessionIdRef.current },
     );
-  };
+  }, [searchParams, setSearchParams]);
 
   const wineIndex = useMemo(
     () => buildWineIndex(personalScans, curatedWineLibrary),
@@ -971,7 +1163,7 @@ const Explore = () => {
     exploreOpenedRef.current = true;
   }, [availableFilters.length, curatedWineLibrary.length, personalScans.length, seedLibrarySource, user?.id]);
 
-  const handleStartNewScan = () => {
+  const handleStartNewScan = useCallback(() => {
     trackEvent(
       "explore_new_scan_cta_clicked",
       {
@@ -983,9 +1175,10 @@ const Explore = () => {
       { sessionId: sessionIdRef.current },
     );
     navigate("/scan");
-  };
+  }, [effectiveFilters, highlightedFilterId, manualFiltersActive, navigate, personalScans.length]);
 
-  const handleScanOpen = (scan: ExploreScan) => {
+  const handleScanOpen = useCallback(
+    (scan: ExploreScan) => {
     trackEvent(
       "explore_scan_opened",
       {
@@ -996,16 +1189,19 @@ const Explore = () => {
       },
       { sessionId: sessionIdRef.current },
     );
-  };
+  }, [highlightedFilterId, manualFiltersActive]);
 
-  const handleScanCardKeyDown = (event: KeyboardEvent<HTMLElement>, scan: ExploreScan) => {
+  const handleScanCardKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLElement>, scan: ExploreScan) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       handleScanOpen(scan);
     }
-  };
+  },
+    [handleScanOpen],
+  );
 
-  const handleRetryScans = () => {
+  const handleRetryScans = useCallback(() => {
     if (!hasUser || scansFetching) return;
     trackEvent(
       "explore_scans_retry_requested",
@@ -1017,9 +1213,9 @@ const Explore = () => {
       { sessionId: sessionIdRef.current },
     );
     void refetchScans();
-  };
+  }, [hasUser, highlightedFilterId, manualFiltersActive, personalScans.length, refetchScans, scansFetching]);
 
-  const handleNavigateToLogin = () => {
+  const handleNavigateToLogin = useCallback(() => {
     trackEvent(
       "explore_login_prompt_clicked",
       {
@@ -1029,7 +1225,7 @@ const Explore = () => {
       { sessionId: sessionIdRef.current },
     );
     navigate("/login");
-  };
+  }, [highlightedFilterId, manualFiltersActive, navigate]);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
@@ -1240,90 +1436,21 @@ const Explore = () => {
             </div>
           </div>
 
-          <div className="mt-6 space-y-4">
-            {showScansSkeleton && (
-              <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <div key={index} className="h-24 animate-pulse rounded-2xl bg-[hsl(var(--color-surface)/0.3)]" />
-                ))}
-              </div>
-            )}
-
-            {!showScansSkeleton &&
-              combinedResults.map((scan) => (
-                <article
-                  key={`${scan.source}-${scan.id}`}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Öppna ${scan.title}`}
-                  onClick={() => handleScanOpen(scan)}
-                  onKeyDown={(event) => handleScanCardKeyDown(event, scan)}
-                  className="flex cursor-pointer flex-col gap-4 rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] p-4 outline-none transition hover:border-[hsl(var(--color-accent)/0.5)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent)/0.6)] sm:flex-row sm:items-center"
-                >
-                  <div className="flex w-full flex-1 flex-col gap-1">
-                    <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-theme-secondary/60">
-                      <span>{scan.source === "mine" ? "Min skanning" : "Kuraterat"}</span>
-                      <span>•</span>
-                      <span>{formatRelativeTime(scan.createdAt)}</span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-theme-primary">{scan.title}</h3>
-                    <p className="text-sm text-theme-secondary/80">
-                      {[scan.producer, scan.region].filter(Boolean).join(" • ") || "Okänt ursprung"}
-                    </p>
-                    {scan.notes && <p className="text-sm text-theme-secondary/70">{scan.notes}</p>}
-                  </div>
-                  <div className="flex flex-col items-start gap-2 text-sm text-theme-secondary/70 sm:items-end">
-                    {scan.grapesRaw && <span>{scan.grapesRaw}</span>}
-                    {scan.style && (
-                      <span className="rounded-full border border-[hsl(var(--color-border)/0.4)] px-3 py-1 text-xs uppercase tracking-[0.3em]">
-                        {scan.style}
-                      </span>
-                    )}
-                  </div>
-                </article>
-              ))}
-
-            {showEmptyState && (
-              <Banner
-                type="info"
-                title="Inga flaskor matchar filtret"
-                text="Justera sökningen eller nollställ filtren för att få fler träffar."
-                ctaLabel="Rensa filter"
-                onCta={handleClearFilters}
-                className="border-dashed"
-              />
-            )}
-
-            {showFirstScanHint && (
-              <Banner
-                type="info"
-                title="Gör en första skanning"
-                text="Vi visar redaktionens favoriter tills du fotar din första etikett. Då blir Explore personligt anpassad."
-                ctaLabel="Starta skanning"
-                onCta={handleStartNewScan}
-              />
-            )}
-
-            {showLoginPrompt && (
-              <Banner
-                type="info"
-                title="Logga in för att låsa upp historiken"
-                text="Kuraterade tips visas alltid, men dina egna skanningar kräver ett konto."
-                ctaLabel="Till inloggning"
-                onCta={handleNavigateToLogin}
-              />
-            )}
-
-            {showScanErrorBanner && (
-              <Banner
-                type="error"
-                title="Kan inte läsa dina skanningar"
-                text="Din uppkoppling verkar svaja. Vi visar tills vidare kuraterade flaskor."
-                ctaLabel={scansFetching ? "Försöker igen..." : "Försök igen"}
-                onCta={handleRetryScans}
-              />
-            )}
-          </div>
+          <ExploreScanList
+            scans={combinedResults}
+            showSkeleton={showScansSkeleton}
+            showEmptyState={showEmptyState}
+            showFirstScanHint={showFirstScanHint}
+            showLoginPrompt={showLoginPrompt}
+            showScanErrorBanner={showScanErrorBanner}
+            isRetryingScans={scansFetching}
+            onScanOpen={handleScanOpen}
+            onScanKeyDown={handleScanCardKeyDown}
+            onClearFilters={handleClearFilters}
+            onStartNewScan={handleStartNewScan}
+            onNavigateToLogin={handleNavigateToLogin}
+            onRetryScans={handleRetryScans}
+          />
         </section>
       </div>
     </div>
