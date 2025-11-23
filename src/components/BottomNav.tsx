@@ -50,25 +50,19 @@ const BottomNav = () => {
 
       const isProfileTab = tab.key === "profile";
 
-      if (isProfileTab) {
-        if (loading) {
-          return;
-        }
+      if (isProfileTab && !user && !loading) {
+        triggerHaptic();
+        trackEvent("tab_select", {
+          tab: tab.key,
+          from: activeKey ?? undefined,
+          targetPath,
+          requiresAuth: true,
+        });
 
-        if (!user) {
-          triggerHaptic();
-          trackEvent("tab_select", {
-            tab: tab.key,
-            from: activeKey ?? undefined,
-            targetPath,
-            requiresAuth: true,
-          });
-
-          const params = new URLSearchParams();
-          params.set("redirectTo", targetPath);
-          navigate(`/login?${params.toString()}`);
-          return;
-        }
+        const params = new URLSearchParams();
+        params.set("redirectTo", targetPath);
+        navigate(`/login?${params.toString()}`);
+        return;
       }
 
       if (location.pathname === targetPath) {
