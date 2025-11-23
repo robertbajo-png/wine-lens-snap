@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookmarkPlus, Camera, Download, Loader2, Sparkles, Trash2, Wine } from "lucide-react";
+import {
+  BookmarkPlus,
+  Camera,
+  Download,
+  ImageUp,
+  Loader2,
+  RefreshCcw,
+  Sparkles,
+  Trash2,
+  Wine,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
@@ -39,6 +49,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
 import {
   supportsOffscreenCanvas,
@@ -59,7 +70,9 @@ const AUTO_RETAKE_DELAY = 1500;
 const WEB_EVIDENCE_THRESHOLD = 2;
 const HTTP_LINK_REGEX = /^https?:\/\//i;
 const CONFIDENCE_THRESHOLD = 0.7;
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
+type ScanStatus = "idle" | "processing" | "success" | "error";
 
 type BannerState = {
   type: "info" | "success" | "warning" | "error";
@@ -145,6 +158,7 @@ const WineSnap = () => {
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [scanStatus, setScanStatus] = useState<ScanStatus>("idle");
   const [progressStep, setProgressStep] = useState<ProgressKey>(null);
   const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<BannerState | null>(null);
@@ -175,6 +189,12 @@ const WineSnap = () => {
   const currentImageRef = useRef<PipelineSource | null>(null);
   const scanStartTimeRef = useRef<number | null>(null);
   const ensureScanPromiseRef = useRef<Promise<string> | null>(null);
+
+  const openFilePicker = (useCamera: boolean) => {
+    cameraOpenedRef.current = true;
+    cameraModeRef.current = useCamera;
+    document.getElementById("wineImageUpload")?.click();
+  };
 
   const getResponseTimeMs = () => {
     if (scanStartTimeRef.current === null) {
@@ -213,9 +233,7 @@ const WineSnap = () => {
     if (autoOpenedRef.current) return;
     autoOpenedRef.current = true;
     const t = setTimeout(() => {
-      cameraOpenedRef.current = true;
-      cameraModeRef.current = true;
-      document.getElementById("wineImageUpload")?.click();
+      openFilePicker(true);
     }, 0);
     return () => clearTimeout(t);
   }, [results, previewImage]);
@@ -307,6 +325,8 @@ const WineSnap = () => {
       retried: Boolean(source),
     });
 
+    let encounteredError = false;
+    setScanStatus("processing");
     setIsProcessing(true);
     setBanner(null);
     setProgressStep("prep");
@@ -549,6 +569,10 @@ const WineSnap = () => {
         const normalizedResult = normalizeAnalysisJson(result) ?? result;
 
         setResults(normalizedResult as WineAnalysisResult);
+        setScanStatus("success");
+        setProgressStep("done");
+        setProgressLabel("Analysen klar");
+        setProgressPercent(100);
         const resolvedRemoteId =
           typeof data?._meta?.existing_scan_id === "string"
             ? data._meta.existing_scan_id
@@ -626,6 +650,10 @@ const WineSnap = () => {
         }
       }
     } catch (error) {
+      encounteredError = true;
+      setScanStatus("error");
+      setProgressStep("error");
+      setProgressLabel("Skanning misslyckades");
       let errorMessage = "Kunde inte analysera bilden – försök igen i bättre ljus.";
 
       if (error instanceof Error) {
@@ -703,10 +731,14 @@ const WineSnap = () => {
       );
     } finally {
       setIsProcessing(false);
-      setProgressStep(null);
-      setProgressNote(null);
-      setProgressPercent(null);
-      setProgressLabel(null);
+      if (encounteredError) {
+        setProgressNote((prev) => prev ?? "Försök igen efter att ha kontrollerat bilden.");
+      } else {
+        setProgressStep(null);
+        setProgressNote(null);
+        setProgressPercent(null);
+        setProgressLabel(null);
+      }
       scanStartTimeRef.current = null;
 
       if (shouldAutoRetakeRef.current && cameraModeRef.current) {
@@ -721,6 +753,28 @@ const WineSnap = () => {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        const message = "Bilden är för stor. Välj en fil under 10 MB.";
+        setBanner({
+          type: "error",
+          title: "För stor fil",
+          text: message,
+          ctaLabel: "Välj annan bild",
+          onCta: () => openFilePicker(cameraModeRef.current),
+        });
+        setScanStatus("error");
+        setProgressStep("error");
+        setProgressLabel("För stor fil");
+        setProgressPercent(0);
+        setProgressNote(message);
+        toast({
+          title: "För stor fil",
+          description: message,
+          variant: "destructive",
+        });
+        e.target.value = "";
+        return;
+      }
       if (autoRetakeTimerRef.current) {
         window.clearTimeout(autoRetakeTimerRef.current);
         autoRetakeTimerRef.current = null;
@@ -752,17 +806,15 @@ const WineSnap = () => {
           variant: "destructive",
         });
       }
-    } else if (cameraOpenedRef.current) {
+    } else if (cameraOpenedRef.current && cameraModeRef.current) {
       // User cancelled camera - go back to the introduction page
       navigate(INTRO_ROUTE);
     }
   };
 
   const handleTakePhoto = () => {
-    triggerHaptic();
-    cameraOpenedRef.current = true;
-    cameraModeRef.current = true;
-    document.getElementById("wineImageUpload")?.click();
+    shouldAutoRetakeRef.current = false;
+    handleReset({ reopenPicker: true, useCamera: true });
   };
 
   const ensureRemoteScan = useCallback(async (): Promise<string> => {
@@ -816,10 +868,11 @@ const WineSnap = () => {
     return promise;
   }, [previewImage, remoteScanId, results, user?.id]);
 
-  const handleReset = () => {
+  const handleReset = (options?: { reopenPicker?: boolean; useCamera?: boolean }) => {
     triggerHaptic();
     setPreviewImage(null);
     setResults(null);
+    setScanStatus("idle");
     setIsProcessing(false);
     setProgressStep(null);
     setBanner(null);
@@ -844,17 +897,21 @@ const WineSnap = () => {
 
     currentImageRef.current = null;
 
-    // Re-open the camera/input on the next tick så användaren slipper tom skärm
-    setTimeout(() => {
-      cameraOpenedRef.current = true;
-      cameraModeRef.current = true;
-      document.getElementById("wineImageUpload")?.click();
-    }, 0);
+    if (options?.reopenPicker) {
+      setTimeout(() => {
+        openFilePicker(options.useCamera ?? true);
+      }, 0);
+    }
   };
 
   const handleRetryScan = () => {
     if (isProcessing) return;
-    handleReset();
+    handleReset({ reopenPicker: true, useCamera: true });
+  };
+
+  const handleChangeImage = () => {
+    if (isProcessing) return;
+    handleReset({ reopenPicker: true, useCamera: false });
   };
 
   const handleSaveWine = useCallback(() => {
@@ -974,6 +1031,13 @@ const WineSnap = () => {
   };
 
   const navigationLabel = progressLabel ?? (progressStep ? stageFallbackLabels[progressStep] : null);
+
+  const statusLabels: Record<ScanStatus, { label: string; tone: "default" | "secondary" | "destructive" | "outline" }> = {
+    idle: { label: "Redo för skanning", tone: "outline" },
+    processing: { label: "Skannar…", tone: "default" },
+    success: { label: "Skanning klar", tone: "secondary" },
+    error: { label: "Fel – försök igen", tone: "destructive" },
+  };
 
   useEffect(() => {
     setTabState("scan", (prev) => ({
@@ -1270,6 +1334,32 @@ const WineSnap = () => {
               />
             )}
 
+            <div className="mb-6 flex flex-wrap items-center gap-3">
+              <Badge variant={statusLabels[scanStatus].tone}>{statusLabels[scanStatus].label}</Badge>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetryScan}
+                  disabled={isProcessing}
+                  className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                >
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Starta om
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleChangeImage}
+                  disabled={isProcessing}
+                  className="text-theme-primary hover:bg-theme-elevated"
+                >
+                  <ImageUp className="mr-2 h-4 w-4" />
+                  Byt bild
+                </Button>
+              </div>
+            </div>
+
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
               <div className="space-y-6">
                 <ResultHeader
@@ -1434,7 +1524,7 @@ const WineSnap = () => {
             </div>
           </div>
 
-          <ActionBar onNewScan={handleReset} />
+                <ActionBar onNewScan={() => handleReset({ reopenPicker: true, useCamera: true })} />
         </div>
       </>
     );
@@ -1527,6 +1617,74 @@ const WineSnap = () => {
               Fota etiketten och låt AI:n skapa en komplett vinprofil med smaknoter, serveringstips och matmatchningar – sparat lokalt för nästa gång.
             </p>
           </div>
+
+          <div className="flex w-full flex-wrap items-center gap-3">
+            <Badge variant={statusLabels[scanStatus].tone}>{statusLabels[scanStatus].label}</Badge>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRetryScan}
+                disabled={isProcessing}
+                className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+              >
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Starta om
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleChangeImage}
+                disabled={isProcessing}
+                className="text-theme-primary hover:bg-theme-elevated"
+              >
+                <ImageUp className="mr-2 h-4 w-4" />
+                Byt bild
+              </Button>
+            </div>
+          </div>
+
+          {(isProcessing || progressStep || progressNote || progressPercent !== null) && (
+            <div className="w-full">
+              <ProgressBanner
+                step={progressStep}
+                note={progressNote}
+                progress={progressPercent}
+                label={progressLabel}
+              />
+            </div>
+          )}
+
+          {scanStatus === "error" && !isProcessing && !results && (
+            <Card className="w-full border-theme-card bg-theme-elevated">
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-center gap-2 text-theme-primary">
+                  <Wine className="h-5 w-5" />
+                  <p className="font-semibold">Något gick snett</p>
+                </div>
+                <p className="text-sm text-theme-secondary">
+                  Kontrollera ljuset och prova igen. Du kan starta om eller välja en annan bild utan att ladda om sidan.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={handleRetryScan}
+                    className="bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary"
+                  >
+                    <RefreshCcw className="mr-2 h-4 w-4" />
+                    Starta om skanning
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleChangeImage}
+                    className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                  >
+                    <ImageUp className="mr-2 h-4 w-4" />
+                    Byt bild
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {previewImage && (
             <Card className="relative w-full overflow-hidden rounded-[30px] border border-theme-card bg-gradient-to-br from-[hsl(var(--surface-elevated)/1)] via-[hsl(var(--surface-elevated)/0.85)] to-[hsl(var(--surface-elevated)/0.55)] shadow-2xl shadow-purple-900/40">
