@@ -53,20 +53,31 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
 
   return (
     <div 
-      className={`flex flex-col items-center transition-all duration-500 ease-out ${
+      className={`group flex flex-col items-center transition-all duration-500 ease-out ${
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
       }`}
     >
       {/* Label above - Systembolaget style */}
-      <span className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-white/50">
+      <span className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-white/50 transition-colors duration-200 group-hover:text-white/70">
         {label}
       </span>
       
-      {/* Pie chart circle */}
+      {/* Pie chart circle with hover effect */}
       <svg 
         width={size} 
         height={size} 
         aria-label={`${label} ${targetValue ?? "–"} av 5`}
+        className="cursor-pointer transition-transform duration-200 ease-out group-hover:scale-110"
+        style={{
+          filter: 'drop-shadow(0 0 0 transparent)',
+          transition: 'transform 0.2s ease-out, filter 0.2s ease-out',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(255,255,255,0.3))';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.filter = 'drop-shadow(0 0 0 transparent)';
+        }}
       >
         {/* Background circle with border */}
         <circle 
@@ -76,6 +87,7 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
           fill="rgba(255,255,255,0.04)"
           stroke="rgba(255,255,255,0.25)"
           strokeWidth={1}
+          className="transition-all duration-200 group-hover:fill-white/10 group-hover:stroke-white/40"
         />
         
         {/* Filled pie slice - solid white like Systembolaget */}
