@@ -2,10 +2,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { ProgressBanner } from "@/components/ProgressBanner";
 
+type Step = "prep" | "ocr" | "analysis" | "done" | "error" | null;
+
 interface ScanLoadingViewProps {
   previewImage: string | null;
   isProcessing: boolean;
-  progressStep: string | null;
+  progressStep: Step;
   progressNote: string | null;
   progressPercent: number | null;
   progressLabel: string | null;
