@@ -47,6 +47,11 @@ const readFileAsDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
+/**
+ * WineSnap samlar hela skanningsflödet: den triggar useScanPipeline för OCR och analys,
+ * synkar historik via scanHistoryService och skickar data/åtgärder vidare till de nya
+ * wine-scan-komponenterna samt navigerings- och installationsflödena.
+ */
 const WineSnap = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -164,13 +169,7 @@ const WineSnap = () => {
     });
 
     let encounteredError = false;
-    setScanStatus("processing");
-    setIsProcessing(true);
     setBanner(null);
-    setProgressStep("prep");
-    setProgressNote("Komprimerar bilden (max 2048px, 90% JPG)…");
-    setProgressPercent(5);
-    setProgressLabel("Förbereder…");
     shouldAutoRetakeRef.current = false;
     if (autoRetakeTimerRef.current) {
       window.clearTimeout(autoRetakeTimerRef.current);
@@ -431,7 +430,6 @@ const WineSnap = () => {
         },
       );
     } finally {
-      setIsProcessing(false);
       if (encounteredError) {
         setProgressNote((prev) => prev ?? "Försök igen efter att ha kontrollerat bilden.");
       } else {
