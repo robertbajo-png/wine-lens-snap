@@ -411,18 +411,24 @@ export type Database = {
       user_settings: {
         Row: {
           created_at: string
+          is_premium: boolean
+          premium_since: string | null
           settings_json: Json | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          is_premium?: boolean
+          premium_since?: string | null
           settings_json?: Json | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          is_premium?: boolean
+          premium_since?: string | null
           settings_json?: Json | null
           updated_at?: string
           user_id?: string
