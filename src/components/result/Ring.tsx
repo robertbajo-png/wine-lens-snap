@@ -100,7 +100,7 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
         
         {/* Center content */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-background/90 backdrop-blur-sm shadow-inner">
+          <div className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#1a1625] shadow-inner">
             {targetValue === null ? (
               <span className="text-sm font-medium text-muted-foreground">–</span>
             ) : (

@@ -130,30 +130,6 @@ export type Database = {
         }
         Relationships: []
       }
-      events: {
-        Row: {
-          created_at: string
-          event_type: string
-          id: string
-          payload: Json
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          event_type: string
-          id?: string
-          payload?: Json
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          event_type?: string
-          id?: string
-          payload?: Json
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       explore_cards: {
         Row: {
           color: string | null
