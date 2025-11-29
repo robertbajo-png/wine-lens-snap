@@ -13,11 +13,11 @@ interface Props {
 
 export default function MetersRow({ meters, estimated }: Props) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-4">
-      <div className="mb-3 flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-foreground">Smakprofil</h3>
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+      <div className="mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-white">Smakprofil</h3>
         {estimated && (
-          <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-primary">
             Uppskattning
           </span>
         )}
