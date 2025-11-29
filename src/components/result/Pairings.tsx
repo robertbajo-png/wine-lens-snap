@@ -46,9 +46,9 @@ export default function Pairings({ items }: { items?: string[] }) {
           return (
             <span
               key={`${item}-${index}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-all duration-200 hover:scale-105 hover:border-primary/40 hover:bg-white/20 hover:shadow-[0_0_12px_rgba(var(--primary),0.2)]"
             >
-              <Icon className="h-3 w-3 text-primary" />
+              <Icon className="h-3 w-3 text-primary transition-transform duration-200 group-hover:scale-110" />
               {item}
             </span>
           );
