@@ -90,7 +90,6 @@ const runWorkerPipeline = async (
 
       if (message.type === "progress" && onProgress) {
         onProgress({
-          type: "progress",
           value: message.value,
           stage: message.stage,
           note: message.note,
