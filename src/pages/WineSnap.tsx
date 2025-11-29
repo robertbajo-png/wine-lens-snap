@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { Json } from "@/integrations/supabase/types";
 import {
   BookmarkPlus,
   Camera,
@@ -21,7 +20,6 @@ import {
   setCachedAnalysis,
   computeLabelHash,
   getCacheKey,
-  setAnalysisSavedState,
   type WineAnalysisResult,
 } from "@/lib/wineCache";
 import { normalizeAnalysisJson } from "@/lib/analysisSchema";
@@ -63,8 +61,14 @@ import { readExifOrientation } from "@/lib/exif";
 import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { trackEvent } from "@/lib/telemetry";
-import { supabase } from "@/lib/supabaseClient";
 import { logError, logEvent } from "@/lib/logger";
+import {
+  createRemoteScan,
+  persistRefinedAnalysis,
+  removeWineLocally,
+  saveScanToHistory,
+  saveWineLocally,
+} from "@/services/scanHistoryService";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -108,31 +112,6 @@ type WorkerErrorMessage = {
 };
 
 type WorkerMessage = WorkerProgressMessage | WorkerResultMessage | WorkerErrorMessage;
-
-const parseVintageFromString = (value?: string | null): number | null => {
-  if (!value) {
-    return null;
-  }
-
-  const match = value.match(/\d{4}/);
-  if (!match) {
-    return null;
-  }
-
-  const parsed = Number.parseInt(match[0], 10);
-  return Number.isNaN(parsed) ? null : parsed;
-};
-
-const normalizeRawText = (value?: string | null): string | null => {
-  if (!value) {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === "–") {
-    return null;
-  }
-  return trimmed;
-};
 
 type AnalysisResponse = {
   ok: boolean;
@@ -872,27 +851,9 @@ const WineSnap = () => {
     const promise = (async () => {
       setPersistingScan(true);
       try {
-        const rawTextCandidate =
-          normalizeRawText(results.originaltext) ?? normalizeRawText(results.evidence?.etiketttext) ?? null;
-        const labelHash = computeLabelHash(rawTextCandidate ?? results.vin ?? null);
-        const { data, error } = await supabase
-          .from("scans")
-          .insert([{
-            label_hash: labelHash,
-            raw_ocr: rawTextCandidate,
-            image_thumb: previewImage,
-            analysis_json: results as unknown as Json,
-            vintage: parseVintageFromString(results.årgång),
-          }])
-          .select("id")
-          .single();
-
-        if (error || !data) {
-          throw new Error(error?.message ?? "Kunde inte spara skanningen.");
-        }
-
-        setRemoteScanId(data.id);
-        return data.id;
+        const remoteId = await createRemoteScan({ results, previewImage });
+        setRemoteScanId(remoteId);
+        return remoteId;
       } finally {
         setPersistingScan(false);
         ensureScanPromiseRef.current = null;
@@ -956,19 +917,14 @@ const WineSnap = () => {
 
     setIsSaving(true);
     try {
-      const updated = setAnalysisSavedState(currentCacheKey, true);
-      if (!updated) {
-        const keySource = currentOcrText ?? currentCacheKey;
-        const derivedLabelHash = computeLabelHash(keySource ?? results.originaltext ?? results.vin ?? null);
-        setCachedAnalysis(keySource, results, {
-          imageData: previewImage ?? undefined,
-          rawOcr: currentOcrText,
-          remoteId: remoteScanId,
-          labelHash: derivedLabelHash ?? undefined,
-          saved: true,
-        });
-        setCurrentCacheKey(getCacheKey(keySource));
-      }
+      const cacheKey = saveWineLocally({
+        currentCacheKey,
+        currentOcrText,
+        previewImage,
+        remoteScanId,
+        results,
+      });
+      setCurrentCacheKey(cacheKey);
       setIsSaved(true);
       triggerHaptic();
       toast({
@@ -994,7 +950,7 @@ const WineSnap = () => {
 
     setIsRemoving(true);
     try {
-      const updated = setAnalysisSavedState(currentCacheKey, false);
+      const updated = removeWineLocally({ currentCacheKey });
       if (updated) {
         setIsSaved(false);
         toast({
@@ -1016,17 +972,16 @@ const WineSnap = () => {
 
   const persistRefinedResult = useCallback(
     (updated: WineAnalysisResult) => {
-      const keySource = currentOcrText ?? results?.originaltext ?? results?.vin ?? null;
-      if (!keySource) return;
-
-      setCachedAnalysis(keySource, updated, {
-        imageData: previewImage ?? undefined,
-        rawOcr: currentOcrText,
-        remoteId: remoteScanId,
-        saved: isSaved,
+      persistRefinedAnalysis({
+        currentOcrText,
+        isSaved,
+        previewImage,
+        remoteScanId,
+        results,
+        updated,
       });
     },
-    [currentOcrText, isSaved, previewImage, remoteScanId, results?.originaltext, results?.vin],
+    [currentOcrText, isSaved, previewImage, remoteScanId, results],
   );
 
   const handleApplyRefinements = useCallback(() => {
@@ -1149,18 +1104,7 @@ const WineSnap = () => {
   // --- spara historik (lokalt + supabase) när resultat finns ---
   useEffect(() => {
     if (!results || !isSaved) return;
-    import("../lib/history").then(({ saveHistory }) => {
-      saveHistory({
-        ts: new Date().toISOString(),
-        vin: results.vin,
-        producent: results.producent,
-        land_region: results.land_region,
-        årgång: results.årgång,
-        meters: results.meters,
-        evidence: results.evidence,
-        _meta: results._meta ?? null,
-      });
-    });
+    void saveScanToHistory(results);
   }, [isSaved, results]);
 
   // Show results view if we have results
