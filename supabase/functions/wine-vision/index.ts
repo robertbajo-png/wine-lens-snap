@@ -28,9 +28,9 @@ import {
 } from "./prompts.ts";
 
 const CFG = {
-  PPLX_TIMEOUT_MS: 1200,    // aggressiv timeout för webbkällor
-  GEMINI_TIMEOUT_MS: 45000, // max Gemini-tid
-  FAST_TIMEOUT_MS: 1200,    // snabb “fail-fast” för initial sök
+  PPLX_TIMEOUT_MS: 8000,
+  GEMINI_TIMEOUT_MS: 45000,
+  FAST_TIMEOUT_MS: 8000,
   MAX_WEB_URLS: 3,
   PPLX_MODEL: "sonar",
 };
