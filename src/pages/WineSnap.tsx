@@ -71,7 +71,7 @@ const WEB_EVIDENCE_THRESHOLD = 2;
 const HTTP_LINK_REGEX = /^https?:\/\//i;
 const CONFIDENCE_THRESHOLD = 0.7;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-const ANALYSIS_TIMEOUT_MS = 8000;
+const ANALYSIS_TIMEOUT_MS = 60000; // 60s to match edge function Gemini timeout
 type ProgressKey = "prep" | "ocr" | "analysis" | null;
 type ScanStatus = "idle" | "processing" | "success" | "error";
 

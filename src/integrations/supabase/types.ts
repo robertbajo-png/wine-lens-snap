@@ -9,89 +9,16 @@ export type Json =
 export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-    __InternalSupabase: {
-      PostgrestVersion: "13.0.5"
-    }
-    public: {
-      Tables: {
-        client_logs: {
-          Row: {
-            action: string
-            created_at: string | null
-            details: Json
-            id: string
-            level: string
-            message: string
-            user_id: string | null
-            view: string
-          }
-          Insert: {
-            action: string
-            created_at?: string | null
-            details?: Json
-            id?: string
-            level?: string
-            message: string
-            user_id?: string | null
-            view: string
-          }
-          Update: {
-            action?: string
-            created_at?: string | null
-            details?: Json
-            id?: string
-            level?: string
-            message?: string
-            user_id?: string | null
-            view?: string
-          }
-          Relationships: [
-            {
-              foreignKeyName: "client_logs_user_id_fkey"
-              columns: ["user_id"]
-              isOneToOne: false
-              referencedRelation: "users"
-              referencedColumns: ["id"]
-            }
-          ]
-        }
-        event_logs: {
-          Row: {
-            created_at: string | null
-            event_name: string
-            id: string
-            properties: Json
-            user_id: string | null
-          }
-          Insert: {
-            created_at?: string | null
-            event_name: string
-            id?: string
-            properties?: Json
-            user_id?: string | null
-          }
-          Update: {
-            created_at?: string | null
-            event_name?: string
-            id?: string
-            properties?: Json
-            user_id?: string | null
-          }
-          Relationships: [
-            {
-              foreignKeyName: "event_logs_user_id_fkey"
-              columns: ["user_id"]
-              isOneToOne: false
-              referencedRelation: "users"
-              referencedColumns: ["id"]
-            }
-          ]
-        }
-        label_history: {
-          Row: {
-            argang: string | null
-            created_at: string | null
-            device_id: string
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
+  public: {
+    Tables: {
+      label_history: {
+        Row: {
+          argang: string | null
+          created_at: string | null
+          device_id: string
           evidence: Json | null
           id: string
           land_region: string | null
