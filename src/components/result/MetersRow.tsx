@@ -1,6 +1,5 @@
 import React from "react";
 import { Ring } from "./Ring";
-import { Sparkles } from "lucide-react";
 
 interface Props {
   meters?: {
@@ -12,25 +11,23 @@ interface Props {
   estimated?: boolean;
 }
 
-const meterLabels = [
-  { key: "sötma", label: "Sötma" },
-  { key: "fyllighet", label: "Fyllighet" },
-  { key: "fruktighet", label: "Fruktighet" },
-  { key: "fruktsyra", label: "Fruktsyra" },
-] as const;
-
 export default function MetersRow({ meters, estimated }: Props) {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-6 py-2 sm:justify-between">
-      {meterLabels.map((item, index) => (
-        <Ring
-          key={item.key}
-          label={item.label}
-          value={meters?.[item.key] ?? null}
-          estimated={estimated}
-          delay={index * 100}
-        />
-      ))}
-    </div>
+    <section className="rounded-2xl border border-border bg-card p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground">Smakprofil</h3>
+        {estimated && (
+          <span className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+            Uppskattning
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-6 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+        <Ring label="Sötma" value={meters?.sötma ?? null} estimated={estimated} />
+        <Ring label="Fyllighet" value={meters?.fyllighet ?? null} estimated={estimated} />
+        <Ring label="Fruktighet" value={meters?.fruktighet ?? null} estimated={estimated} />
+        <Ring label="Fruktsyra" value={meters?.fruktsyra ?? null} estimated={estimated} />
+      </div>
+    </section>
   );
 }
