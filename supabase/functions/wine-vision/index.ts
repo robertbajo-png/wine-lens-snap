@@ -365,6 +365,45 @@ type WebMeta = {
   gemini_status: "ok" | "timeout" | "error" | "skipped" | "empty";
 };
 
+// Helper to check if critical fields are missing
+function hasMissingCriticalFields(result: WebJson): boolean {
+  if (!result) return true;
+  const alkoholMissing = isBlank(result.alkoholhalt);
+  const volymMissing = isBlank(result.volym);
+  return alkoholMissing || volymMissing;
+}
+
+// Merge two results, preferring non-blank values from the second result
+function mergeWebResults(primary: WebJson, secondary: WebJson): WebJson {
+  if (!primary) return secondary;
+  if (!secondary) return primary;
+  
+  const merged = { ...primary };
+  
+  // Only override if primary has "-" and secondary has actual value
+  const fieldsToMerge: (keyof WineSearchResult)[] = [
+    'alkoholhalt', 'volym', 'klassificering', 'årgång', 
+    'karaktär', 'smak', 'servering', 'vin', 'producent', 'druvor', 'land_region'
+  ];
+  
+  for (const field of fieldsToMerge) {
+    if (isBlank(merged[field]) && !isBlank(secondary[field])) {
+      (merged as Record<string, unknown>)[field] = secondary[field];
+    }
+  }
+  
+  // Merge passar_till if primary is empty
+  if ((!merged.passar_till || merged.passar_till.length === 0) && secondary.passar_till?.length) {
+    merged.passar_till = secondary.passar_till;
+  }
+  
+  // Merge källor
+  const allSources = [...(merged.källor || []), ...(secondary.källor || [])];
+  merged.källor = Array.from(new Set(allSources)).slice(0, CFG.MAX_WEB_URLS);
+  
+  return merged;
+}
+
 async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: WebJson; meta: WebMeta }> {
   let pplx_ms: number | null = null;
   let gemini_ms: number | null = null;
@@ -373,11 +412,13 @@ async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: W
   let gemini_status: WebMeta["gemini_status"] = LOVABLE_API_KEY && imageUrl ? "empty" : "skipped";
 
   let web: WebJson = null;
+  let pplxResult: WebJson = null;
 
+  // Step 1: Try Perplexity web search
   if (PERPLEXITY_API_KEY) {
     const pplxStart = Date.now();
     try {
-      const pplxResult = await runPerplexity(ocrText);
+      pplxResult = await runPerplexity(ocrText);
       pplx_ms = Date.now() - pplxStart;
       if (pplxResult) {
         web = pplxResult;
@@ -401,8 +442,15 @@ async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: W
     }
   }
 
-  if (!web && LOVABLE_API_KEY && imageUrl) {
-    console.log(`[${new Date().toISOString()}] Starting Gemini Vision analysis directly...`);
+  // Step 2: Run Gemini Vision if:
+  // - Perplexity failed/empty, OR
+  // - Perplexity succeeded but is missing critical fields (alkohol, volym)
+  const needsGeminiEnrichment = !web || hasMissingCriticalFields(web);
+  
+  if (needsGeminiEnrichment && LOVABLE_API_KEY && imageUrl) {
+    const reason = !web ? "no Perplexity result" : "missing alkohol/volym from Perplexity";
+    console.log(`[${new Date().toISOString()}] Starting Gemini Vision (${reason})...`);
+    
     const gemStart = Date.now();
     try {
       const geminiResult = await withTimeout(
@@ -411,10 +459,21 @@ async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: W
         "gemini-vision-direct"
       );
       gemini_ms = Date.now() - gemStart;
+      
       if (geminiResult) {
-        web = geminiResult;
         gemini_status = "ok";
         console.log(`[${new Date().toISOString()}] Gemini Vision success (${gemini_ms}ms)`);
+        
+        if (web) {
+          // Merge Gemini results into Perplexity results
+          const beforeMerge = { alkoholhalt: web.alkoholhalt, volym: web.volym };
+          web = mergeWebResults(web, geminiResult);
+          if (web) {
+            console.log(`[${new Date().toISOString()}] Merged results: alkohol ${beforeMerge.alkoholhalt} -> ${web.alkoholhalt}, volym ${beforeMerge.volym} -> ${web.volym}`);
+          }
+        } else {
+          web = geminiResult;
+        }
       } else {
         gemini_status = "empty";
         console.log(`[${new Date().toISOString()}] Gemini Vision returned empty (${gemini_ms}ms)`);
