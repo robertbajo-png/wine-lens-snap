@@ -492,7 +492,6 @@ const WineSnap = () => {
             noTextFound,
             uiLang,
             ocr_image_hash: ocrKey,
-            geminiOnly: true,
             skipCache: true,
             labelOnly,
           }),
