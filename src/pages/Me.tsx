@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -26,11 +27,14 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
+import { PremiumBadge } from "@/components/PremiumBadge";
 import { supabase } from "@/lib/supabaseClient";
+import { trackEvent } from "@/lib/telemetry";
 import { WineListsSection } from "@/components/profile/WineListsSection";
 import { useTheme } from "@/ui/ThemeProvider";
 import type { ThemePreference } from "@/ui/theme";
-import { Camera, Laptop, Loader2, LogOut, Moon, PenLine, SunMedium, UploadCloud } from "lucide-react";
+import { Camera, Laptop, Loader2, LogOut, Moon, PenLine, Sparkles, SunMedium, UploadCloud } from "lucide-react";
+import { useIsPremium } from "@/hooks/useUserSettings";
 
 const getDisplayName = (metadata: Record<string, unknown> | undefined, email: string | null) => {
   const candidate =
@@ -68,9 +72,11 @@ const Me = () => {
   const { toast } = useToast();
   const { user, signOut } = useAuth();
   const { themePreference, setThemePreference } = useTheme();
+  const { isPremium, premiumSince, isLoading: isPremiumLoading } = useIsPremium();
   const [profile, setProfile] = useState<{ displayName: string | null; avatarUrl: string | null } | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPremiumDialogOpen, setIsPremiumDialogOpen] = useState(false);
   const [formDisplayName, setFormDisplayName] = useState("");
   const [formNameError, setFormNameError] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -109,6 +115,17 @@ const Me = () => {
     () => getInitials((formDisplayName && formDisplayName.trim().length > 0 ? formDisplayName : displayName) ?? ""),
     [displayName, formDisplayName],
   );
+  const premiumDescription = useMemo(() => {
+    if (isPremium) {
+      if (premiumSince) {
+        return `Premium sedan ${premiumSince.toLocaleDateString("sv-SE")}`;
+      }
+
+      return "Premium är aktivt.";
+    }
+
+    return "Gratisläge – lås upp fler analyser och sparade listor med Premium.";
+  }, [isPremium, premiumSince]);
   const themeOptions = useMemo(
     () => [
       {
@@ -306,6 +323,11 @@ const Me = () => {
     [handleThemeChange, themeSaving],
   );
 
+  const handlePremiumCtaClick = useCallback(() => {
+    trackEvent("premium_cta_clicked", { source: "profile" });
+    setIsPremiumDialogOpen(true);
+  }, [setIsPremiumDialogOpen]);
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -437,7 +459,7 @@ const Me = () => {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-12 sm:px-8">
-      <header className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
+      <header className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 border border-[hsl(var(--color-border))] bg-theme-elevated">
             {avatarUrl ? <AvatarImage src={avatarUrl} alt="Profilbild" className="object-cover" /> : null}
@@ -445,32 +467,93 @@ const Me = () => {
               {initials || "WS"}
             </AvatarFallback>
           </Avatar>
-          <div>
+          <div className="space-y-1">
             <h1 className="text-2xl font-semibold text-theme-primary">{displayName}</h1>
             {email ? <p className="text-sm text-theme-secondary">{email}</p> : null}
+            <div className="flex flex-wrap items-center gap-2 text-sm text-theme-secondary">
+              <Badge
+                variant="outline"
+                className={`border-[hsl(var(--color-border))] px-3 py-1 text-xs ${
+                  isPremium
+                    ? "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-400/70 dark:bg-amber-500/20 dark:text-amber-50"
+                    : "bg-theme-elevated text-theme-primary"
+                }`}
+              >
+                {isPremium ? "Premium" : "Gratis"}
+              </Badge>
+              <span className="text-theme-secondary">{premiumDescription}</span>
+            </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
-            onClick={() => navigate("/scan")}
-            aria-label="Starta ny skanning"
-          >
-            <Camera className="h-4 w-4" />
-            Ny skanning
-          </Button>
-          <Button
-            variant="outline"
-            className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
-            onClick={() => navigate("/me/wines")}
-            aria-label="Visa sparade viner"
-          >
-            Mina viner
-          </Button>
+        <div className="flex flex-col items-stretch gap-3 sm:items-end">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            {!isPremium ? (
+              <Button
+                className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
+                onClick={handlePremiumCtaClick}
+                aria-label="Bli premium"
+                disabled={isPremiumLoading}
+              >
+                <Sparkles className="h-4 w-4" />
+                Bli premium
+              </Button>
+            ) : null}
+            <Button
+              className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
+              onClick={() => navigate("/scan")}
+              aria-label="Starta ny skanning"
+            >
+              <Camera className="h-4 w-4" />
+              Ny skanning
+            </Button>
+            <Button
+              variant="outline"
+              className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
+              onClick={() => navigate("/me/wines")}
+              aria-label="Visa sparade viner"
+            >
+              Mina viner
+            </Button>
+          </div>
         </div>
       </header>
 
       <div className="space-y-6">
+        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-theme-primary">WineSnap Premium</CardTitle>
+              <CardDescription className="text-theme-secondary">
+                Premiumläget rullas ut snart. Här är vad som väntar när du uppgraderar.
+              </CardDescription>
+            </div>
+            <PremiumBadge message="Premium släpps snart – passa på att visa intresse redan nu." />
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm text-theme-secondary">
+            <div className="flex items-start gap-3">
+              <PremiumBadge message="Planerat: fler fria analyser per vecka och kortare väntetider." className="mt-0.5" />
+              <div>
+                <p className="font-semibold text-theme-primary">Fler analyser per vecka</p>
+                <p>Premium låter dig köra fler skanningar utan att vänta till nästa vecka.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <PremiumBadge message="Förfina smakprofilen med fler smaknyanser och djupare rekommendationer." className="mt-0.5" />
+              <div>
+                <p className="font-semibold text-theme-primary">Djupare smakprofil</p>
+                <p>Få fler smaknyanser och mer precisa rekommendationer i smakprofilen.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <PremiumBadge message="Spara och organisera obegränsat med listor, redo inför lanseringen." className="mt-0.5" />
+              <div>
+                <p className="font-semibold text-theme-primary">Sparade listor</p>
+                <p>Bygg favoritlistor, köp-igen och gästdetaljer utan begränsning.</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
@@ -648,6 +731,33 @@ const Me = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={isPremiumDialogOpen} onOpenChange={setIsPremiumDialogOpen}>
+        <DialogContent className="max-w-lg border-[hsl(var(--color-border)/0.8)] bg-theme-elevated text-theme-primary">
+          <DialogHeader>
+            <DialogTitle>Premium kommer snart</DialogTitle>
+            <DialogDescription>
+              Vi bygger klart betalflödet. Under tiden kan du markera intresse så prioriterar vi fler analyser och obegränsade
+              listor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm text-theme-secondary">
+            <p>Premium innebär fler analyser per vecka, mer detaljerad smakprofil och obegränsat med sparade listor.</p>
+            <div className="flex flex-wrap gap-2">
+              <PremiumBadge message="Fler analyser per vecka utan väntetid." />
+              <PremiumBadge message="Djupare smakprofil med fler smaknyanser." />
+              <PremiumBadge message="Spara och organisera alla dina viner." />
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <DialogClose asChild>
+              <Button variant="outline" className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary">
+                Stäng
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
