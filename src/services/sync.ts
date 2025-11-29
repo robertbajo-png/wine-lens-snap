@@ -1,4 +1,4 @@
-import type { TablesInsert } from "@/integrations/supabase/types";
+import type { TablesInsert, Json } from "@/integrations/supabase/types";
 import { supabase } from "@/lib/supabaseClient";
 import type { CachedWineAnalysisEntry } from "@/lib/wineCache";
 import { computeLabelHash } from "@/lib/wineCache";
@@ -172,14 +172,14 @@ export async function syncLocalScans(entries: CachedWineAnalysisEntry[]): Promis
     insertedCandidates.push(candidate);
   }
 
-  const insertPayloads: TablesInsert<'scans'>[] = insertedCandidates.map((candidate) => {
+  const insertPayloads = insertedCandidates.map((candidate) => {
     const normalizedResult = normalizeAnalysisJson(candidate.entry.result) ?? candidate.entry.result;
     return {
       id: candidate.remoteId,
       label_hash: candidate.labelHash ?? null,
       raw_ocr: candidate.rawOcr,
       image_thumb: candidate.entry.imageData ?? null,
-      analysis_json: normalizedResult,
+      analysis_json: normalizedResult as unknown as Json,
       vintage: parseVintage(normalizedResult.årgång),
       created_at: candidate.timestampIso,
     };

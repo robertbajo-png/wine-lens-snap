@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import type { Json } from "@/integrations/supabase/types";
 import {
   BookmarkPlus,
   Camera,
@@ -72,7 +73,7 @@ const HTTP_LINK_REGEX = /^https?:\/\//i;
 const CONFIDENCE_THRESHOLD = 0.7;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ANALYSIS_TIMEOUT_MS = 60000; // 60s to match edge function Gemini timeout
-type ProgressKey = "prep" | "ocr" | "analysis" | null;
+type ProgressKey = "prep" | "ocr" | "analysis" | "done" | "error" | null;
 type ScanStatus = "idle" | "processing" | "success" | "error";
 
 type BannerState = {
@@ -877,13 +878,13 @@ const WineSnap = () => {
         const labelHash = computeLabelHash(rawTextCandidate ?? results.vin ?? null);
         const { data, error } = await supabase
           .from("scans")
-          .insert({
+          .insert([{
             label_hash: labelHash,
             raw_ocr: rawTextCandidate,
             image_thumb: previewImage,
-            analysis_json: results,
+            analysis_json: results as unknown as Json,
             vintage: parseVintageFromString(results.årgång),
-          })
+          }])
           .select("id")
           .single();
 
@@ -1063,6 +1064,8 @@ const WineSnap = () => {
     prep: "Förbereder…",
     ocr: "Tolkar etikett…",
     analysis: "Analyserar…",
+    done: "Klar",
+    error: "Fel uppstod",
   };
 
   const navigationLabel = progressLabel ?? (progressStep ? stageFallbackLabels[progressStep] : null);

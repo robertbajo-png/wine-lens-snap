@@ -60,7 +60,7 @@ export const fetchCreators = async (): Promise<Creator[]> => {
     return data ?? [];
   };
 
-  const creators = await withTimeoutFallback(request, () => creatorsFallback as Creator[], {
+  const creators = await withTimeoutFallback(request, () => creatorsFallback as unknown as Creator[], {
     context: "fetch_creators",
   });
 
@@ -123,7 +123,7 @@ export const fetchFollowingFeedMeta = async (
   }
 
   if (!followingIds.length) {
-    return { lastOpened: feedState.last_opened, newPostsCount: 0 };
+    return { lastOpened: feedState.last_seen_at, newPostsCount: 0 };
   }
 
   const request = async () => {
@@ -131,7 +131,7 @@ export const fetchFollowingFeedMeta = async (
       .from("creator_posts")
       .select("id, created_at")
       .in("creator_id", followingIds)
-      .gt("created_at", feedState.last_opened);
+      .gt("created_at", feedState.last_seen_at);
 
     if (error) {
       throw error;
@@ -142,7 +142,7 @@ export const fetchFollowingFeedMeta = async (
 
   const newPostsCount = await withTimeoutFallback(request, () => 0, { context: "fetch_following_feed_meta" });
 
-  return { lastOpened: feedState.last_opened, newPostsCount };
+  return { lastOpened: feedState.last_seen_at, newPostsCount };
 };
 
 export const touchUserFeedState = async (): Promise<UserFeedState> => {
