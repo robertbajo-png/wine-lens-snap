@@ -14,6 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
+      client_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          id: string
+          level: string
+          message: string
+          user_id: string | null
+          view: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          level?: string
+          message: string
+          user_id?: string | null
+          view: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          id?: string
+          level?: string
+          message?: string
+          user_id?: string | null
+          view?: string
+        }
+        Relationships: []
+      }
+      creator_posts: {
+        Row: {
+          body_json: Json | null
+          created_at: string
+          creator_id: string
+          id: string
+          type: string
+        }
+        Insert: {
+          body_json?: Json | null
+          created_at?: string
+          creator_id: string
+          id?: string
+          type?: string
+        }
+        Update: {
+          body_json?: Json | null
+          created_at?: string
+          creator_id?: string
+          id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_posts_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "creators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creators: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string
+          followers_count: number
+          id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name: string
+          followers_count?: number
+          id?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string
+          followers_count?: number
+          id?: string
+        }
+        Relationships: []
+      }
+      event_logs: {
+        Row: {
+          created_at: string
+          event_name: string
+          id: string
+          properties: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_name: string
+          id?: string
+          properties?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_name?: string
+          id?: string
+          properties?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      explore_cards: {
+        Row: {
+          color: string | null
+          created_at: string
+          grapes_raw: string | null
+          id: string
+          image_url: string | null
+          notes: string | null
+          payload_json: Json | null
+          producer: string | null
+          rank: number | null
+          region: string | null
+          style: string | null
+          title: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          grapes_raw?: string | null
+          id?: string
+          image_url?: string | null
+          notes?: string | null
+          payload_json?: Json | null
+          producer?: string | null
+          rank?: number | null
+          region?: string | null
+          style?: string | null
+          title: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          grapes_raw?: string | null
+          id?: string
+          image_url?: string | null
+          notes?: string | null
+          payload_json?: Json | null
+          producer?: string | null
+          rank?: number | null
+          region?: string | null
+          style?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       label_history: {
         Row: {
           argang: string | null
@@ -59,6 +220,257 @@ export type Database = {
         }
         Relationships: []
       }
+      list_items: {
+        Row: {
+          created_at: string
+          id: string
+          list_id: string
+          scan_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          list_id: string
+          scan_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          list_id?: string
+          scan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "list_items_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "scans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lists: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      scans: {
+        Row: {
+          analysis_json: Json | null
+          created_at: string
+          id: string
+          image_thumb: string | null
+          label_hash: string | null
+          raw_ocr: string | null
+          user_id: string | null
+          vintage: number | null
+        }
+        Insert: {
+          analysis_json?: Json | null
+          created_at?: string
+          id?: string
+          image_thumb?: string | null
+          label_hash?: string | null
+          raw_ocr?: string | null
+          user_id?: string | null
+          vintage?: number | null
+        }
+        Update: {
+          analysis_json?: Json | null
+          created_at?: string
+          id?: string
+          image_thumb?: string | null
+          label_hash?: string | null
+          raw_ocr?: string | null
+          user_id?: string | null
+          vintage?: number | null
+        }
+        Relationships: []
+      }
+      telemetry_events: {
+        Row: {
+          event_name: string
+          id: string
+          occurred_at: string
+          payload_json: Json | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          event_name: string
+          id?: string
+          occurred_at?: string
+          payload_json?: Json | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          event_name?: string
+          id?: string
+          occurred_at?: string
+          payload_json?: Json | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      user_feed_state: {
+        Row: {
+          last_seen_at: string
+          user_id: string
+        }
+        Insert: {
+          last_seen_at?: string
+          user_id: string
+        }
+        Update: {
+          last_seen_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_follows: {
+        Row: {
+          created_at: string
+          creator_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_follows_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "creators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_settings: {
+        Row: {
+          created_at: string
+          settings_json: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          settings_json?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          settings_json?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wine_index: {
+        Row: {
+          color: string | null
+          country: string | null
+          created_at: string
+          grapes: string | null
+          id: string
+          name: string
+          payload_json: Json | null
+          producer: string | null
+          region: string | null
+          style: string | null
+          vintage: number | null
+        }
+        Insert: {
+          color?: string | null
+          country?: string | null
+          created_at?: string
+          grapes?: string | null
+          id?: string
+          name: string
+          payload_json?: Json | null
+          producer?: string | null
+          region?: string | null
+          style?: string | null
+          vintage?: number | null
+        }
+        Update: {
+          color?: string | null
+          country?: string | null
+          created_at?: string
+          grapes?: string | null
+          id?: string
+          name?: string
+          payload_json?: Json | null
+          producer?: string | null
+          region?: string | null
+          style?: string | null
+          vintage?: number | null
+        }
+        Relationships: []
+      }
       winesnap_cache: {
         Row: {
           created_at: string | null
@@ -82,7 +494,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      touch_user_feed_state: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
