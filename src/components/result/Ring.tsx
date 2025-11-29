@@ -11,6 +11,7 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
   const targetValue = typeof value === "number" ? Math.max(0, Math.min(5, value)) : null;
   const [animatedValue, setAnimatedValue] = useState(0);
   const [animationComplete, setAnimationComplete] = useState(false);
+  const [visible, setVisible] = useState(false);
   
   // Animate from 0 to target value on mount/change
   useEffect(() => {
@@ -24,6 +25,11 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
     setAnimatedValue(0);
     setAnimationComplete(false);
     
+    // Trigger visibility with delay for staggered effect
+    const visibleTimeout = setTimeout(() => {
+      setVisible(true);
+    }, delay);
+    
     // Small delay then animate to target
     const animateTimeout = setTimeout(() => {
       setAnimatedValue(targetValue);
@@ -35,6 +41,7 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
     }, 1200 + delay);
     
     return () => {
+      clearTimeout(visibleTimeout);
       clearTimeout(animateTimeout);
       clearTimeout(completeTimeout);
     };
@@ -49,11 +56,9 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
 
   return (
     <div 
-      className="flex flex-col items-center gap-2"
-      style={{
-        opacity: 0,
-        animation: `fade-in 0.4s ease-out ${delay}ms forwards`
-      }}
+      className={`flex flex-col items-center gap-2 transition-all duration-500 ease-out ${
+        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+      }`}
     >
       <div 
         className={`relative ${animationComplete ? 'animate-pulse-glow' : ''}`}
