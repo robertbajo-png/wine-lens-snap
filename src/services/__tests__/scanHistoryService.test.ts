@@ -11,7 +11,7 @@ const supabaseMocks = vi.hoisted(() => {
 });
 
 const { computeLabelHashMock } = vi.hoisted(() => ({
-  computeLabelHashMock: vi.fn<string | null, [string | null | undefined]>(),
+  computeLabelHashMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabaseClient", () => ({

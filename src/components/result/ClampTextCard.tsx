@@ -29,11 +29,11 @@ export default function ClampTextCard({ title, text, lines = 4 }: ClampTextCardP
   if (!text || text === "–") return null;
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4">
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+      <h3 className="text-sm font-semibold text-white/60">{title}</h3>
       <p 
         ref={textRef}
-        className={`mt-2 text-sm text-muted-foreground ${open ? "" : clampClassMap[lines] ?? clampClassMap[4]}`}
+        className={`mt-2 text-sm text-white ${open ? "" : clampClassMap[lines] ?? clampClassMap[4]}`}
       >
         {text}
       </p>
