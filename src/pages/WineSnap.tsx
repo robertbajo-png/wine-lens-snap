@@ -1130,20 +1130,17 @@ const WineSnap = () => {
   const verifiedEvidenceCount = evidenceLinks.filter((url) => typeof url === "string" && HTTP_LINK_REGEX.test(url)).length;
   const isWebSource = sourceStatus?.source === "web";
   const metersFromTrustedSource = results?._meta?.meters_source === "web";
-  const showVerifiedMeters = Boolean(
-    metersOk &&
-    metersFromTrustedSource &&
-    isWebSource &&
-    verifiedEvidenceCount >= WEB_EVIDENCE_THRESHOLD
-  );
-  const sourceLabel = sourceStatus ? (isWebSource ? "Webb" : "Heuristik") : "Okänd";
+  // Always show meters if they exist - mark as estimated if not from trusted source
+  const showVerifiedMeters = metersOk;
+  const metersAreEstimated = !metersFromTrustedSource || !isWebSource || verifiedEvidenceCount < WEB_EVIDENCE_THRESHOLD;
+  const sourceLabel = sourceStatus ? (isWebSource ? "Webb" : "Heuristik") : "Etikett";
   const sourceDescription = sourceStatus
     ? isWebSource
       ? verifiedEvidenceCount >= WEB_EVIDENCE_THRESHOLD
         ? `Bekräftad av ${verifiedEvidenceCount} webbkällor`
         : `Behöver fler källor (${verifiedEvidenceCount}/${WEB_EVIDENCE_THRESHOLD})`
       : "Baserad på etikett, druva och region"
-    : "Källstatus saknas";
+    : "Baserad på etikettanalys";
   const missingSourceText = !sourceStatus
     ? "Källstatus saknas för denna analys. Försök att skanna om flaskan."
     : isWebSource
@@ -1186,7 +1183,8 @@ const WineSnap = () => {
     const refinementReason = isLabelOnly
       ? "Det här bygger bara på etiketten – lägg till detaljer eller försök igen."
       : "Analysen är osäker – förbättra resultatet med fler detaljer.";
-    const showDetailedSections = !isLabelOnly;
+    // Always show detailed sections, but with warning if label_only
+    const showDetailedSections = true;
     const grapeSuggestions = Array.from(
       new Set(
         [
@@ -1473,63 +1471,44 @@ const WineSnap = () => {
                   </Card>
                 )}
 
-                {showDetailedSections ? (
-                  <section className="rounded-2xl border border-theme-card bg-gradient-to-br from-[hsl(var(--surface-elevated)/1)] via-[hsl(var(--surface-elevated)/0.8)] to-[hsl(var(--surface-elevated)/0.6)] p-4 backdrop-blur-sm">
-                    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-theme-primary">Smakprofil</h3>
-                      <div className="flex flex-col items-end gap-1 text-right">
-                        <span className="inline-flex items-center rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-theme-secondary">
-                          Källa: {sourceLabel}
-                        </span>
-                        <span className="text-[11px] text-theme-secondary">{sourceDescription}</span>
-                      </div>
+                <section className="rounded-2xl border border-border bg-card p-4">
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Smakprofil</h3>
+                    <div className="flex flex-col items-end gap-1 text-right">
+                      <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Källa: {sourceLabel}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">{sourceDescription}</span>
                     </div>
-                    {showVerifiedMeters ? (
-                      <MetersRow
-                        meters={results.meters}
-                        estimated={results?._meta?.meters_source === "derived"}
-                      />
-                    ) : (
-                      <Banner
-                        type="warning"
-                        title="Smakprofil saknas"
-                        text={missingSourceText}
-                        ctaLabel="Ny skanning"
-                        onCta={handleRetryScan}
-                      />
-                    )}
-                  </section>
-                ) : (
-                  <Card className="border-theme-card/80 bg-theme-elevated/60">
-                    <CardContent className="text-sm text-theme-secondary">
-                      <p className="font-semibold text-theme-primary">Vi visar bara etikettinfo</p>
-                      <p>Smakprofil, serveringstips och matmatchningar döljs tills vi har mer källor.</p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {showDetailedSections && (
-                  <KeyFacts
-                    druvor={results.druvor}
-                    fargtyp={results.färgtyp}
-                    klassificering={results.klassificering}
-                    alkoholhalt={results.alkoholhalt}
-                    volym={results.volym}
-                    sockerhalt={results.sockerhalt}
-                    syra={results.syra}
-                  />
-                )}
-
-                {showDetailedSections && (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <ClampTextCard title="Karaktär" text={results.karaktär} />
-                    <ClampTextCard title="Smak" text={results.smak} />
                   </div>
-                )}
+                  {showVerifiedMeters ? (
+                    <MetersRow
+                      meters={results.meters}
+                      estimated={metersAreEstimated || results?._meta?.meters_source === "derived"}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Smakprofil saknas för detta vin.</p>
+                  )}
+                </section>
 
-                {showDetailedSections && <Pairings items={pairings} />}
+                <KeyFacts
+                  druvor={results.druvor}
+                  fargtyp={results.färgtyp}
+                  klassificering={results.klassificering}
+                  alkoholhalt={results.alkoholhalt}
+                  volym={results.volym}
+                  sockerhalt={results.sockerhalt}
+                  syra={results.syra}
+                />
 
-                {showDetailedSections && <ServingCard servering={results.servering} />}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ClampTextCard title="Karaktär" text={results.karaktär} />
+                  <ClampTextCard title="Smak" text={results.smak} />
+                </div>
+
+                <Pairings items={pairings} />
+
+                <ServingCard servering={results.servering} />
 
                 <EvidenceAccordion
                   ocr={ocrText}
