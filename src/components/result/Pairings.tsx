@@ -35,24 +35,20 @@ export default function Pairings({ items }: { items?: string[] }) {
   if (chips.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-theme-card bg-gradient-to-br from-theme-elevated via-theme-elevated/90 to-theme-elevated/70 p-4 animate-fade-in">
+    <section className="rounded-2xl border border-border bg-card p-4">
       <div className="mb-3 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-primary/10 text-accent-primary">
-          <Utensils className="h-4 w-4" />
-        </div>
-        <h3 className="text-sm font-semibold text-theme-primary">Passar till</h3>
+        <Utensils className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">Passar till</h3>
       </div>
-      
       <div className="flex flex-wrap gap-2">
         {chips.map((item, index) => {
           const Icon = getIconForFood(item);
           return (
             <span
               key={`${item}-${index}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-theme-card bg-theme-elevated px-3 py-1.5 text-xs font-medium text-theme-primary transition-all duration-200 hover:border-accent-primary/30 hover:bg-accent-primary/5 animate-fade-in"
-              style={{ animationDelay: `${index * 50}ms` }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground"
             >
-              <Icon className="h-3 w-3 text-accent-primary" />
+              <Icon className="h-3 w-3 text-primary" />
               {item}
             </span>
           );
@@ -61,4 +57,3 @@ export default function Pairings({ items }: { items?: string[] }) {
     </section>
   );
 }
-

@@ -5,7 +5,6 @@ type ClampTextCardProps = {
   title: string;
   text?: string;
   lines?: 2 | 3 | 4 | 5 | 6;
-  icon?: React.ReactNode;
 };
 
 const clampClassMap: Record<NonNullable<ClampTextCardProps["lines"]>, string> = {
@@ -16,7 +15,7 @@ const clampClassMap: Record<NonNullable<ClampTextCardProps["lines"]>, string> = 
   6: "line-clamp-6",
 };
 
-export default function ClampTextCard({ title, text, lines = 4, icon }: ClampTextCardProps) {
+export default function ClampTextCard({ title, text, lines = 4 }: ClampTextCardProps) {
   const [open, setOpen] = React.useState(false);
   const textRef = React.useRef<HTMLParagraphElement>(null);
   const [isOverflowing, setIsOverflowing] = React.useState(false);
@@ -30,27 +29,18 @@ export default function ClampTextCard({ title, text, lines = 4, icon }: ClampTex
   if (!text || text === "–") return null;
 
   return (
-    <section className="group rounded-2xl border border-theme-card bg-gradient-to-br from-theme-elevated via-theme-elevated/90 to-theme-elevated/70 p-4 transition-all duration-300 hover:border-accent-primary/20 hover:shadow-theme-elevated animate-fade-in">
-      <div className="mb-2 flex items-center gap-2">
-        {icon && (
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-primary/10 text-accent-primary">
-            {icon}
-          </div>
-        )}
-        <h3 className="text-sm font-semibold text-theme-primary">{title}</h3>
-      </div>
-      
+    <section className="rounded-2xl border border-border bg-card p-4">
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       <p 
         ref={textRef}
-        className={`text-sm leading-relaxed text-theme-secondary transition-all duration-300 ${open ? "" : clampClassMap[lines] ?? clampClassMap[4]}`}
+        className={`mt-2 text-sm text-muted-foreground ${open ? "" : clampClassMap[lines] ?? clampClassMap[4]}`}
       >
         {text}
       </p>
-      
       {(isOverflowing || open) && (
         <button
           type="button"
-          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-accent-primary transition-colors hover:text-accent-glow"
+          className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline transition hover:text-primary/80"
           onClick={() => setOpen((v) => !v)}
         >
           {open ? (
@@ -69,4 +59,3 @@ export default function ClampTextCard({ title, text, lines = 4, icon }: ClampTex
     </section>
   );
 }
-

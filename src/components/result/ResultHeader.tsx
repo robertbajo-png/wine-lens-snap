@@ -17,46 +17,39 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ }: P
   const hasTyp = typ && typ !== "–";
 
   return (
-    <header className="space-y-4 animate-fade-in">
-      {/* Wine name with gradient */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl">
-          <span className="bg-gradient-to-r from-theme-primary via-accent-primary to-theme-primary bg-clip-text text-transparent">
-            {hasVin ? vin : "Okänt vin"}
+    <header className="space-y-3">
+      <h1 className="text-2xl font-bold leading-tight text-foreground sm:text-3xl">
+        {hasVin ? vin : "Okänt vin"}
+        {hasYear && (
+          <span className="ml-2 text-xl font-normal text-muted-foreground">
+            {ar}
           </span>
-          {hasYear && (
-            <span className="ml-2 text-xl font-normal text-theme-secondary sm:text-2xl">
-              {ar}
-            </span>
-          )}
-        </h1>
-      </div>
+        )}
+      </h1>
 
-      {/* Metadata row */}
       {(hasProducent || hasRegion) && (
-        <div className="flex flex-wrap items-center gap-3 text-sm text-theme-secondary">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           {hasProducent && (
             <div className="flex items-center gap-1.5">
-              <Building2 className="h-4 w-4 text-accent-primary" />
+              <Building2 className="h-4 w-4 text-primary" />
               <span>{producent}</span>
             </div>
           )}
           {hasProducent && hasRegion && (
-            <span className="h-1 w-1 rounded-full bg-theme-secondary/40" />
+            <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
           )}
           {hasRegion && (
             <div className="flex items-center gap-1.5">
-              <MapPin className="h-4 w-4 text-accent-primary" />
+              <MapPin className="h-4 w-4 text-primary" />
               <span>{land_region}</span>
             </div>
           )}
         </div>
       )}
 
-      {/* Wine type badge */}
       {hasTyp && (
         <div className="flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent-primary/30 bg-accent-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-accent-primary">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
             <Wine className="h-3.5 w-3.5" />
             {typ}
           </span>
