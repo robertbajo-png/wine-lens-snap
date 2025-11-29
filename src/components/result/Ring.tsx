@@ -4,29 +4,41 @@ interface RingProps {
   label: string;
   value?: number | null;
   estimated?: boolean;
+  delay?: number;
 }
 
-export function Ring({ label, value, estimated }: RingProps) {
+export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
   const targetValue = typeof value === "number" ? Math.max(0, Math.min(5, value)) : null;
   const [animatedValue, setAnimatedValue] = useState(0);
+  const [animationComplete, setAnimationComplete] = useState(false);
   
   // Animate from 0 to target value on mount/change
   useEffect(() => {
     if (targetValue === null) {
       setAnimatedValue(0);
+      setAnimationComplete(false);
       return;
     }
     
     // Start from 0
     setAnimatedValue(0);
+    setAnimationComplete(false);
     
     // Small delay then animate to target
-    const timeout = setTimeout(() => {
+    const animateTimeout = setTimeout(() => {
       setAnimatedValue(targetValue);
-    }, 100);
+    }, 100 + delay);
     
-    return () => clearTimeout(timeout);
-  }, [targetValue]);
+    // Mark animation as complete after the transition duration
+    const completeTimeout = setTimeout(() => {
+      setAnimationComplete(true);
+    }, 1200 + delay);
+    
+    return () => {
+      clearTimeout(animateTimeout);
+      clearTimeout(completeTimeout);
+    };
+  }, [targetValue, delay]);
 
   const size = 64;
   const stroke = 6;
@@ -36,9 +48,15 @@ export function Ring({ label, value, estimated }: RingProps) {
   const gap = c - dash;
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div 
+      className="flex flex-col items-center gap-2"
+      style={{
+        opacity: 0,
+        animation: `fade-in 0.4s ease-out ${delay}ms forwards`
+      }}
+    >
       <div 
-        className="relative"
+        className={`relative ${animationComplete ? 'animate-pulse-glow' : ''}`}
         style={{
           filter: targetValue !== null ? 'drop-shadow(0 0 12px hsl(var(--primary) / 0.4))' : undefined
         }}
