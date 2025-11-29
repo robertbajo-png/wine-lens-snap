@@ -34,12 +34,12 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
     };
   }, [targetValue, delay]);
 
-  const size = 48;
+  const size = 40;
   const cx = size / 2;
   const cy = size / 2;
-  const r = 20;
+  const r = 16;
 
-  // Calculate pie slice path
+  // Calculate pie slice path - starts from top (12 o'clock)
   const angle = (animatedValue / 5) * 360;
   const rad = ((angle - 90) * Math.PI) / 180;
   const x = cx + r * Math.cos(rad);
@@ -57,53 +57,54 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
         visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
       }`}
     >
-      {/* Label above */}
-      <span className="mb-2 text-[10px] font-medium uppercase tracking-widest text-white/60">
+      {/* Label above - Systembolaget style */}
+      <span className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-white/50">
         {label}
       </span>
       
       {/* Pie chart circle */}
-      <div className="relative">
-        <svg 
-          width={size} 
-          height={size} 
-          aria-label={`${label} ${targetValue ?? "–"} av 5`}
-        >
-          {/* Background circle */}
-          <circle 
-            cx={cx} 
-            cy={cy} 
-            r={r} 
-            fill="rgba(255,255,255,0.08)"
-            stroke="rgba(255,255,255,0.15)"
-            strokeWidth={1}
-          />
-          
-          {/* Filled pie slice */}
-          {targetValue !== null && (
-            <path 
-              d={piePath}
-              fill={estimated ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.85)"}
-              className="transition-all duration-700 ease-out"
-            />
-          )}
-          
-          {/* Center dot for empty state */}
-          {targetValue === null && (
-            <circle 
-              cx={cx} 
-              cy={cy} 
-              r={2} 
-              fill="rgba(255,255,255,0.3)"
-            />
-          )}
-        </svg>
+      <svg 
+        width={size} 
+        height={size} 
+        aria-label={`${label} ${targetValue ?? "–"} av 5`}
+      >
+        {/* Background circle - subtle */}
+        <circle 
+          cx={cx} 
+          cy={cy} 
+          r={r} 
+          fill="rgba(255,255,255,0.06)"
+        />
         
-        {/* Estimated indicator */}
-        {estimated && (
-          <span className="absolute -right-1 -top-1 text-[8px] text-white/50">≈</span>
+        {/* Filled pie slice - solid white like Systembolaget */}
+        {targetValue !== null && (
+          <path 
+            d={piePath}
+            fill={estimated ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.9)"}
+            className="transition-all duration-700 ease-out"
+          />
         )}
-      </div>
+        
+        {/* Empty state indicator */}
+        {targetValue === null && (
+          <text 
+            x={cx} 
+            y={cy} 
+            textAnchor="middle" 
+            dominantBaseline="central"
+            fill="rgba(255,255,255,0.3)"
+            fontSize="12"
+            fontWeight="500"
+          >
+            –
+          </text>
+        )}
+      </svg>
+      
+      {/* Estimated indicator below */}
+      {estimated && (
+        <span className="mt-0.5 text-[8px] text-white/40">uppsk.</span>
+      )}
     </div>
   );
 }
