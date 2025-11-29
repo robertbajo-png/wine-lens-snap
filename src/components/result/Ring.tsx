@@ -1,4 +1,10 @@
 import React, { useEffect, useState } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface RingProps {
   label: string;
@@ -51,6 +57,10 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
     ? `M ${cx},${cy} L ${cx},${cy - r} A ${r},${r} 0 ${largeArc} 1 ${x},${y} Z`
     : "";
 
+  const tooltipText = targetValue !== null 
+    ? `${label}: ${targetValue}/5${estimated ? ' (uppskattning)' : ''}`
+    : `${label}: Ej tillgänglig`;
+
   return (
     <div 
       className={`group flex flex-col items-center transition-all duration-500 ease-out ${
@@ -62,58 +72,70 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
         {label}
       </span>
       
-      {/* Pie chart circle with hover effect */}
-      <svg 
-        width={size} 
-        height={size} 
-        aria-label={`${label} ${targetValue ?? "–"} av 5`}
-        className="cursor-pointer transition-transform duration-200 ease-out group-hover:scale-110"
-        style={{
-          filter: 'drop-shadow(0 0 0 transparent)',
-          transition: 'transform 0.2s ease-out, filter 0.2s ease-out',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(255,255,255,0.3))';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.filter = 'drop-shadow(0 0 0 transparent)';
-        }}
-      >
-        {/* Background circle with border */}
-        <circle 
-          cx={cx} 
-          cy={cy} 
-          r={r} 
-          fill="rgba(255,255,255,0.04)"
-          stroke="rgba(255,255,255,0.25)"
-          strokeWidth={1}
-          className="transition-all duration-200 group-hover:fill-white/10 group-hover:stroke-white/40"
-        />
-        
-        {/* Filled pie slice - solid white like Systembolaget */}
-        {targetValue !== null && (
-          <path 
-            d={piePath}
-            fill={estimated ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.9)"}
-            className="transition-all duration-700 ease-out"
-          />
-        )}
-        
-        {/* Empty state indicator */}
-        {targetValue === null && (
-          <text 
-            x={cx} 
-            y={cy} 
-            textAnchor="middle" 
-            dominantBaseline="central"
-            fill="rgba(255,255,255,0.3)"
-            fontSize="12"
-            fontWeight="500"
+      {/* Pie chart circle with tooltip */}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <svg 
+              width={size} 
+              height={size} 
+              aria-label={`${label} ${targetValue ?? "–"} av 5`}
+              className="cursor-pointer transition-transform duration-200 ease-out group-hover:scale-110"
+              style={{
+                filter: 'drop-shadow(0 0 0 transparent)',
+                transition: 'transform 0.2s ease-out, filter 0.2s ease-out',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(255,255,255,0.3))';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.filter = 'drop-shadow(0 0 0 transparent)';
+              }}
+            >
+              {/* Background circle with border */}
+              <circle 
+                cx={cx} 
+                cy={cy} 
+                r={r} 
+                fill="rgba(255,255,255,0.04)"
+                stroke="rgba(255,255,255,0.25)"
+                strokeWidth={1}
+                className="transition-all duration-200 group-hover:fill-white/10 group-hover:stroke-white/40"
+              />
+              
+              {/* Filled pie slice - solid white like Systembolaget */}
+              {targetValue !== null && (
+                <path 
+                  d={piePath}
+                  fill={estimated ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.9)"}
+                  className="transition-all duration-700 ease-out"
+                />
+              )}
+              
+              {/* Empty state indicator */}
+              {targetValue === null && (
+                <text 
+                  x={cx} 
+                  y={cy} 
+                  textAnchor="middle" 
+                  dominantBaseline="central"
+                  fill="rgba(255,255,255,0.3)"
+                  fontSize="12"
+                  fontWeight="500"
+                >
+                  –
+                </text>
+              )}
+            </svg>
+          </TooltipTrigger>
+          <TooltipContent 
+            side="bottom" 
+            className="border-white/10 bg-black/90 text-white backdrop-blur-sm"
           >
-            –
-          </text>
-        )}
-      </svg>
+            <span className="text-xs font-medium">{tooltipText}</span>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       
       {/* Estimated indicator below */}
       {estimated && (
