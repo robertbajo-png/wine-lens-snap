@@ -8,6 +8,8 @@ import type { BadgeProps } from "@/components/ui/badge";
 import { Camera, Download, ImageUp, RefreshCcw, Sparkles, Wine } from "lucide-react";
 import { ReactNode } from "react";
 
+type Step = "prep" | "ocr" | "analysis" | "done" | "error" | null;
+
 interface ScanEmptyStateProps {
   banner: ReactNode;
   isInstallCTAVisible: boolean;
@@ -21,7 +23,7 @@ interface ScanEmptyStateProps {
   onChangeImage: () => void;
   onTakePhoto: () => void;
   isProcessing: boolean;
-  progressStep: string | null;
+  progressStep: Step;
   progressNote: string | null;
   progressPercent: number | null;
   progressLabel: string | null;
