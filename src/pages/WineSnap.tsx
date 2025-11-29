@@ -15,15 +15,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
-import {
-  getCachedAnalysisEntry,
-  setCachedAnalysis,
-  computeLabelHash,
-  getCacheKey,
-  type WineAnalysisResult,
-} from "@/lib/wineCache";
-import { normalizeAnalysisJson } from "@/lib/analysisSchema";
-import { sha1Base64, getOcrCache, setOcrCache } from "@/lib/ocrCache";
+import { computeLabelHash, type WineAnalysisResult } from "@/lib/wineCache";
+import { prewarmOcr } from "@/lib/ocrWorker";
 import { ProgressBanner } from "@/components/ProgressBanner";
 import { Banner } from "@/components/Banner";
 import { AmbientBackground } from "@/components/AmbientBackground";
@@ -49,14 +42,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { prewarmOcr, ocrRecognize } from "@/lib/ocrWorker";
-import {
-  supportsOffscreenCanvas,
-  runPipelineOnMain,
-  type PipelineOptions,
-  type PipelineProgress,
-  type PipelineResult,
-} from "@/lib/imagePipelineCore";
 import { readExifOrientation } from "@/lib/exif";
 import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
@@ -69,6 +54,8 @@ import {
   saveScanToHistory,
   saveWineLocally,
 } from "@/services/scanHistoryService";
+import { useScanPipeline } from "@/hooks/useScanPipeline";
+import type { PipelineSource, ProgressKey, ScanStatus } from "@/services/scanPipelineService";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -76,9 +63,6 @@ const WEB_EVIDENCE_THRESHOLD = 2;
 const HTTP_LINK_REGEX = /^https?:\/\//i;
 const CONFIDENCE_THRESHOLD = 0.7;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-const ANALYSIS_TIMEOUT_MS = 60000; // 60s to match edge function Gemini timeout
-type ProgressKey = "prep" | "ocr" | "analysis" | "done" | "error" | null;
-type ScanStatus = "idle" | "processing" | "success" | "error";
 
 type BannerState = {
   type: "info" | "success" | "warning" | "error";
@@ -86,42 +70,6 @@ type BannerState = {
   title?: string;
   ctaLabel?: string;
   onCta?: () => void;
-};
-
-type PipelineSource = { dataUrl: string; buffer: ArrayBuffer; type: string; orientation: number };
-
-type WorkerProgressMessage = {
-  type: "progress";
-  value: number;
-  stage?: string;
-  note?: string;
-};
-
-type WorkerResultMessage = {
-  type: "result";
-  ok?: boolean;
-  base64: string;
-  width: number;
-  height: number;
-};
-
-type WorkerErrorMessage = {
-  type: "error";
-  ok?: boolean;
-  message?: string;
-};
-
-type WorkerMessage = WorkerProgressMessage | WorkerResultMessage | WorkerErrorMessage;
-
-type AnalysisResponse = {
-  ok: boolean;
-  note?: string;
-  timings?: Record<string, unknown> | null;
-  data?: (Partial<WineAnalysisResult> & {
-    meters?: WineAnalysisResult["meters"];
-    evidence?: WineAnalysisResult["evidence"];
-    _meta?: WineAnalysisResult["_meta"];
-  }) | null;
 };
 
 const readFileAsDataUrl = (file: File) =>
@@ -138,25 +86,43 @@ const WineSnap = () => {
   const { user } = useAuth();
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [scanStatus, setScanStatus] = useState<ScanStatus>("idle");
-  const [progressStep, setProgressStep] = useState<ProgressKey>(null);
-  const [results, setResults] = useState<WineAnalysisResult | null>(null);
   const [banner, setBanner] = useState<BannerState | null>(null);
-  const [progressNote, setProgressNote] = useState<string | null>(null);
-  const [progressPercent, setProgressPercent] = useState<number | null>(null);
-  const [progressLabel, setProgressLabel] = useState<string | null>(null);
-  const [currentCacheKey, setCurrentCacheKey] = useState<string | null>(null);
-  const [currentOcrText, setCurrentOcrText] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
-  const [remoteScanId, setRemoteScanId] = useState<string | null>(null);
   const [persistingScan, setPersistingScan] = useState(false);
   const [isRefineDialogOpen, setIsRefineDialogOpen] = useState(false);
   const [refineVintage, setRefineVintage] = useState("");
   const [refineGrape, setRefineGrape] = useState("");
   const [refineStyle, setRefineStyle] = useState("");
+  const {
+    state: {
+      results,
+      scanStatus,
+      isProcessing,
+      progressStep,
+      progressNote,
+      progressPercent,
+      progressLabel,
+      currentCacheKey,
+      currentOcrText,
+      remoteScanId,
+    },
+    startScan,
+    reset: resetScanState,
+    setResults,
+    setCurrentCacheKey,
+    setCurrentOcrText,
+    setRemoteScanId,
+    setProgressNote,
+    setProgressLabel,
+    setProgressPercent,
+    setProgressStep,
+    setScanStatus,
+    setIsProcessing,
+    terminateWorker,
+    getResponseTimeMs,
+  } = useScanPipeline();
   const { setTabState } = useTabStateContext();
   const triggerHaptic = useHapticFeedback();
 
@@ -166,9 +132,7 @@ const WineSnap = () => {
   const cameraModeRef = useRef(false);
   const autoRetakeTimerRef = useRef<number | null>(null);
   const shouldAutoRetakeRef = useRef(false);
-  const workerRef = useRef<Worker | null>(null);
   const currentImageRef = useRef<PipelineSource | null>(null);
-  const scanStartTimeRef = useRef<number | null>(null);
   const ensureScanPromiseRef = useRef<Promise<string> | null>(null);
 
   const openFilePicker = (useCamera: boolean) => {
@@ -177,15 +141,6 @@ const WineSnap = () => {
     document.getElementById("wineImageUpload")?.click();
   };
 
-  const getResponseTimeMs = () => {
-    if (scanStartTimeRef.current === null) {
-      return undefined;
-    }
-
-    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const elapsed = Math.round(now - scanStartTimeRef.current);
-    return elapsed >= 0 ? elapsed : undefined;
-  };
   useEffect(() => {
     const lang = navigator.language || "sv-SE";
     prewarmOcr(lang).catch(() => {
@@ -204,10 +159,9 @@ const WineSnap = () => {
 
   useEffect(() => {
     return () => {
-      workerRef.current?.terminate();
-      workerRef.current = null;
+      terminateWorker();
     };
-  }, []);
+  }, [terminateWorker]);
 
   useEffect(() => {
     if (results || previewImage) return;
@@ -219,68 +173,6 @@ const WineSnap = () => {
     return () => clearTimeout(t);
   }, [results, previewImage]);
 
-  const ensureWorker = () => {
-    if (!workerRef.current) {
-      workerRef.current = new Worker(new URL("../workers/imageWorker.ts", import.meta.url), { type: "module" });
-    }
-    return workerRef.current;
-  };
-
-  const runWorkerPipeline = async (
-    bitmap: ImageBitmap,
-    options: PipelineOptions,
-    orientation: number | undefined,
-    onProgress?: (progress: PipelineProgress) => void,
-  ): Promise<PipelineResult> => {
-    const worker = ensureWorker();
-
-    return new Promise<PipelineResult>((resolve, reject) => {
-      const cleanup = () => {
-        worker.removeEventListener("message", handleMessage);
-        worker.removeEventListener("error", handleError);
-      };
-
-      const handleMessage = (event: MessageEvent<WorkerMessage>) => {
-        const message = event.data;
-        if (!message || typeof message !== "object") return;
-
-        if (message.type === "progress") {
-          onProgress?.({ value: Number(message.value) || 0, stage: message.stage, note: message.note });
-          return;
-        }
-
-        if (message.type === "result") {
-          cleanup();
-          resolve({ base64: message.base64, width: message.width, height: message.height });
-          return;
-        }
-
-        if (message.type === "error") {
-          cleanup();
-          reject(new Error(message.message || "Bildprocessen misslyckades"));
-        }
-      };
-
-      const handleError = (event: ErrorEvent) => {
-        cleanup();
-        reject(new Error(event.message || "Bakgrundsprocessen misslyckades"));
-      };
-
-      worker.addEventListener("message", handleMessage);
-      worker.addEventListener("error", handleError);
-
-      try {
-        worker.postMessage(
-          { type: "pipeline", bitmap, options, orientation },
-          [bitmap],
-        );
-      } catch (error) {
-        cleanup();
-        reject(error instanceof Error ? error : new Error(String(error)));
-      }
-    });
-  };
-
   const processWineImage = async (source?: PipelineSource | null) => {
     const uiLang = navigator.language || "sv-SE";
     const activeSource = source ?? currentImageRef.current;
@@ -288,8 +180,6 @@ const WineSnap = () => {
     if (!activeSource) {
       return;
     }
-
-    scanStartTimeRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
 
     const modeHint = cameraModeRef.current ? "camera" : "manual";
     const labelHashPresent = Boolean(
@@ -320,66 +210,44 @@ const WineSnap = () => {
       autoRetakeTimerRef.current = null;
     }
 
-    const options: PipelineOptions = {
-      autoCrop: { fallbackCropPct: 0.1 },
-      preprocess: {
-        maxSide: 2048,
-        quality: 0.9,
-        grayscale: true,
-        contrast: 1.12,
-      },
-    };
-
-    const progressHandler = (update: PipelineProgress) => {
-      setProgressStep("prep");
-      const value =
-        typeof update.value === "number" && Number.isFinite(update.value) ? update.value : null;
-      setProgressPercent(value);
-      setProgressLabel("Skannar…");
-      setProgressNote(update.note ?? "Skannar…");
-    };
-
     try {
-      let pipelineResult: PipelineResult;
-      if (supportsOffscreenCanvas()) {
-        try {
-          const blob = new Blob([activeSource.buffer], { type: activeSource.type || "image/jpeg" });
-          const bitmap = await createImageBitmap(blob);
-          pipelineResult = await runWorkerPipeline(
-            bitmap,
-            options,
-            activeSource.orientation,
-            progressHandler,
-          );
-        } catch (workerError) {
-          console.warn("Worker pipeline misslyckades, faller tillbaka på huvudtråden", workerError);
-          pipelineResult = await runPipelineOnMain(activeSource.dataUrl, options, progressHandler);
-        }
-      } else {
-        pipelineResult = await runPipelineOnMain(activeSource.dataUrl, options, progressHandler);
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey =
+        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        throw new Error(
+          "Appen saknar Supabase-konfiguration – sätt VITE_SUPABASE_URL och VITE_SUPABASE_PUBLISHABLE_KEY (eller VITE_SUPABASE_ANON_KEY).",
+        );
       }
 
-      if (pipelineResult.bitmap) {
-        pipelineResult.bitmap.close();
+      const pipelineOutcome = await startScan({
+        source: activeSource,
+        uiLang,
+        supabaseUrl,
+        supabaseAnonKey,
+      });
+
+      const {
+        result: analysisResult,
+        fromCache,
+        noTextFound,
+        resolvedNote,
+        analysisMode,
+        cacheLookupKey,
+        rawOcrValue,
+        responseTimeMs,
+        savedFromCache,
+        timings,
+      } = pipelineOutcome;
+
+      if (import.meta.env.DEV && timings) {
+        console.debug("WineSnap analysis timings", timings);
       }
 
-      const processedImage = pipelineResult.base64;
+      const effectiveOcrText = rawOcrValue ?? cacheLookupKey;
+      setIsSaved(savedFromCache);
 
-
-      setProgressPercent(null);
-      setProgressLabel(null);
-      setProgressStep("ocr");
-      setProgressNote("Läser text (OCR) …");
-      const ocrKey = await sha1Base64(processedImage);
-      let ocrText = getOcrCache(ocrKey);
-      if (!ocrText) {
-        ocrText = await ocrRecognize(processedImage, uiLang);
-        if (ocrText && ocrText.length >= 3) {
-          setOcrCache(ocrKey, ocrText);
-        }
-      }
-
-      const noTextFound = !ocrText || ocrText.length < 10;
       if (noTextFound) {
         const guidance = "Ingen text hittades – flytta närmare etiketten och undvik reflexer.";
         setBanner({
@@ -399,15 +267,7 @@ const WineSnap = () => {
         shouldAutoRetakeRef.current = false;
       }
 
-      const cacheLookupKey = !noTextFound && ocrText ? ocrText : processedImage;
-      const cacheKey = getCacheKey(cacheLookupKey);
-      const cachedEntry = getCachedAnalysisEntry(cacheLookupKey);
-      if (cachedEntry) {
-        const cachedResult = normalizeAnalysisJson(cachedEntry.result) ?? cachedEntry.result;
-        setResults(cachedResult as WineAnalysisResult);
-        setCurrentCacheKey(cacheKey);
-        setIsSaved(cachedEntry.saved);
-        setCurrentOcrText(!noTextFound ? ocrText ?? null : cacheLookupKey);
+      if (fromCache) {
         if (!noTextFound) {
           setBanner({
             type: "info",
@@ -420,249 +280,95 @@ const WineSnap = () => {
           description: "Analys hämtad från cache.",
         });
         void logEvent("scan_succeeded", {
-          mode: (cachedResult as WineAnalysisResult).mode ?? "label_only",
+          mode: (analysisResult as WineAnalysisResult).mode ?? "label_only",
           confidence:
-            typeof (cachedResult as WineAnalysisResult).confidence === "number"
-              ? (cachedResult as WineAnalysisResult).confidence
+            typeof (analysisResult as WineAnalysisResult).confidence === "number"
+              ? (analysisResult as WineAnalysisResult).confidence
               : null,
-          latencyMs: getResponseTimeMs(),
+          latencyMs: responseTimeMs,
         });
         trackEvent("scan_succeeded", {
           source: "cache",
           noTextFound,
-          mode: (cachedResult as WineAnalysisResult).mode,
-          confidence: (cachedResult as WineAnalysisResult).confidence,
-          responseTimeMs: getResponseTimeMs(),
+          mode: (analysisResult as WineAnalysisResult).mode,
+          confidence: (analysisResult as WineAnalysisResult).confidence,
+          responseTimeMs,
         });
         setProgressStep(null);
         setProgressNote(null);
-        setIsProcessing(false);
+        setProgressPercent(null);
+        setProgressLabel(null);
         return;
       }
 
-      setProgressStep("analysis");
-      setProgressNote("Analyserar vinet …");
+      setIsSaved(false);
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey =
-        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
+      void logEvent("scan_succeeded", {
+        mode: analysisResult.mode ?? "label_only",
+        confidence: typeof analysisResult.confidence === "number" ? analysisResult.confidence : null,
+        latencyMs: responseTimeMs,
+      });
+      trackEvent("scan_succeeded", {
+        source: resolvedNote ?? "analysis",
+        noTextFound,
+        mode: analysisResult.mode,
+        confidence: analysisResult.confidence,
+        responseTimeMs,
+      });
 
-      if (!supabaseUrl || !supabaseAnonKey) {
-        throw new Error(
-          "Appen saknar Supabase-konfiguration – sätt VITE_SUPABASE_URL och VITE_SUPABASE_PUBLISHABLE_KEY (eller VITE_SUPABASE_ANON_KEY)."
-        );
-      }
-
-      const callAnalysis = async (labelOnly: boolean) => {
-        const abortController = new AbortController();
-        const timeoutId = setTimeout(() => abortController.abort(), ANALYSIS_TIMEOUT_MS);
-
-        const functionUrl = `${supabaseUrl}/functions/v1/wine-vision`;
-        const response = await fetch(functionUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${supabaseAnonKey}`,
-            apikey: supabaseAnonKey,
-          },
-          body: JSON.stringify({
-            ocrText,
-            imageBase64: processedImage,
-            noTextFound,
-            uiLang,
-            ocr_image_hash: ocrKey,
-            skipCache: true,
-            labelOnly,
-          }),
-          signal: abortController.signal,
-        });
-
-        clearTimeout(timeoutId);
-        return response;
-      };
-
-      let response: Response | null = null;
-      let analysisMode: "full" | "label_only" = "full";
-
-      try {
-        response = await callAnalysis(false);
-      } catch (error) {
-        if (error instanceof Error && error.name === "AbortError") {
-          setProgressLabel("Etikettläge");
-          setProgressNote("Webbsökning tog för lång tid – visar etikettinfo.");
-          setProgressPercent(65);
-          analysisMode = "label_only";
-          response = await callAnalysis(true);
+      if (!noTextFound) {
+        if (resolvedNote === "hit_memory" || resolvedNote === "hit_supabase") {
+          setBanner({
+            type: "info",
+            title: "Sparad analys",
+            text: "Hämtade sparad profil för snabbare upplevelse.",
+          });
+        } else if (resolvedNote === "hit_analysis_cache" || resolvedNote === "hit_analysis_cache_get") {
+          setBanner({
+            type: "info",
+            title: "Snabbladdad profil",
+            text: "⚡ Hämtade färdig vinprofil från global cache.",
+          });
+        } else if (resolvedNote === "perplexity_timeout") {
+          setBanner({
+            type: "warning",
+            title: "Endast etikettinfo",
+            text: "Webbsökning tog för lång tid – smakprofil visas inte.",
+            ctaLabel: "Försök igen",
+            onCta: handleRetryScan,
+          });
+        } else if (resolvedNote === "perplexity_failed") {
+          setBanner({
+            type: "warning",
+            title: "Endast etikettinfo",
+            text: "Kunde inte söka på webben – smakprofil visas inte.",
+            ctaLabel: "Försök igen",
+            onCta: handleRetryScan,
+          });
+        } else if (resolvedNote === "fastpath" || resolvedNote === "fastpath_heuristic") {
+          setBanner({
+            type: "info",
+            title: "Snabbanalys",
+            text: "⚡ Snabbanalys – fyller profil utan webbsvar.",
+          });
+        } else if (resolvedNote === "label_only_fallback" || analysisMode === "label_only") {
+          setBanner({
+            type: "warning",
+            title: "Endast etikettinfo",
+            text: "Webbsökningen avbröts – visar analys baserad på etiketten.",
+            ctaLabel: "Försök igen",
+            onCta: handleRetryScan,
+          });
         } else {
-          throw error;
-        }
-      }
-
-      if (!response) {
-        throw new Error("Analysen kunde inte startas");
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        if (response.status === 429) {
-          toast({
-            title: "För många förfrågningar",
-            description: "Vänta en stund och försök igen.",
-            variant: "destructive",
+          setBanner({
+            type: "success",
+            title: "Analysen klar",
+            text: "Klart! Din vinprofil är uppdaterad.",
           });
-          throw new Error("Rate limit överskriden – vänta en stund");
-        }
-        if (response.status === 402) {
-          toast({
-            title: "Betalning krävs",
-            description: "AI-krediter slut. Kontakta support.",
-            variant: "destructive",
-          });
-          throw new Error("AI-krediter slut");
-        }
-        throw new Error(errorData?.error || `HTTP ${response.status}`);
-      }
-
-      const { ok, data, note, timings }: AnalysisResponse = await response.json();
-      const resolvedNote = analysisMode === "label_only" ? note ?? "label_only_fallback" : note;
-      if (import.meta.env.DEV && timings) {
-        console.debug("WineSnap analysis timings", timings);
-      }
-
-      if (!ok) {
-        throw new Error("Analys misslyckades");
-      }
-
-      if (data) {
-        const result: WineAnalysisResult = {
-          vin: data.vin || "–",
-          land_region: data.land_region || "–",
-          producent: data.producent || "–",
-          druvor: data.druvor || "–",
-          årgång: data.årgång || "–",
-          typ: data.typ || "–",
-          färgtyp: data.färgtyp || "–",
-          klassificering: data.klassificering || "–",
-          alkoholhalt: data.alkoholhalt || "–",
-          volym: data.volym || "–",
-          karaktär: data.karaktär || "–",
-          smak: data.smak || "–",
-          passar_till: data.passar_till || [],
-          servering: data.servering || "–",
-          sockerhalt: data.sockerhalt || "–",
-          syra: data.syra || "–",
-          källa: data.källa || "–",
-          mode: data.mode,
-          confidence: typeof data.confidence === "number" ? data.confidence : undefined,
-          sources: data.sources,
-          summary: data.summary,
-          grapes: data.grapes,
-          style: data.style,
-          food_pairings: data.food_pairings,
-          warnings: data.warnings,
-          // Behåll inkomna meters oförändrade; ingen client-side påhitt
-          meters:
-            data.meters && typeof data.meters === "object"
-              ? data.meters
-              : { sötma: null, fyllighet: null, fruktighet: null, fruktsyra: null },
-          evidence: data.evidence || { etiketttext: "", webbträffar: [] },
-          källstatus: data.källstatus || { source: "heuristic", evidence_links: [] },
-          detekterat_språk: data.detekterat_språk,
-          originaltext: data.originaltext,
-          _meta: data._meta,
-        };
-
-        const normalizedResult = normalizeAnalysisJson(result) ?? result;
-
-        setResults(normalizedResult as WineAnalysisResult);
-        setScanStatus("success");
-        setProgressStep("done");
-        setProgressLabel("Analysen klar");
-        setProgressPercent(100);
-        const resolvedRemoteId =
-          typeof data?._meta?.existing_scan_id === "string"
-            ? data._meta.existing_scan_id
-            : typeof data?._meta?.scan_id === "string"
-              ? data._meta?.scan_id
-              : undefined;
-        setRemoteScanId(resolvedRemoteId ?? null);
-        const labelHashMeta = typeof data?._meta?.label_hash === "string" ? data._meta.label_hash : undefined;
-        const rawOcrValue = !noTextFound && ocrText ? ocrText : null;
-        setCurrentCacheKey(cacheKey);
-        setCurrentOcrText(rawOcrValue ?? cacheLookupKey);
-        setIsSaved(false);
-        setCachedAnalysis(cacheLookupKey, normalizedResult as WineAnalysisResult, {
-          imageData: processedImage,
-          rawOcr: rawOcrValue,
-          remoteId: resolvedRemoteId ?? null,
-          labelHash: labelHashMeta,
-          saved: false,
-        });
-        void logEvent("scan_succeeded", {
-          mode: normalizedResult.mode ?? "label_only",
-          confidence: typeof normalizedResult.confidence === "number" ? normalizedResult.confidence : null,
-          latencyMs: getResponseTimeMs(),
-        });
-        trackEvent("scan_succeeded", {
-          source: resolvedNote ?? "analysis",
-          noTextFound,
-          mode: normalizedResult.mode,
-          confidence: normalizedResult.confidence,
-          responseTimeMs: getResponseTimeMs(),
-        });
-
-        if (!noTextFound) {
-          if (resolvedNote === "hit_memory" || resolvedNote === "hit_supabase") {
-            setBanner({
-              type: "info",
-              title: "Sparad analys",
-              text: "Hämtade sparad profil för snabbare upplevelse.",
-            });
-          } else if (resolvedNote === "hit_analysis_cache" || resolvedNote === "hit_analysis_cache_get") {
-            setBanner({
-              type: "info",
-              title: "Snabbladdad profil",
-              text: "⚡ Hämtade färdig vinprofil från global cache.",
-            });
-          } else if (resolvedNote === "perplexity_timeout") {
-            setBanner({
-              type: "warning",
-              title: "Endast etikettinfo",
-              text: "Webbsökning tog för lång tid – smakprofil visas inte.",
-              ctaLabel: "Försök igen",
-              onCta: handleRetryScan,
-            });
-          } else if (resolvedNote === "perplexity_failed") {
-            setBanner({
-              type: "warning",
-              title: "Endast etikettinfo",
-              text: "Kunde inte söka på webben – smakprofil visas inte.",
-              ctaLabel: "Försök igen",
-              onCta: handleRetryScan,
-            });
-          } else if (resolvedNote === "fastpath" || resolvedNote === "fastpath_heuristic") {
-            setBanner({
-              type: "info",
-              title: "Snabbanalys",
-              text: "⚡ Snabbanalys – fyller profil utan webbsvar.",
-            });
-          } else if (resolvedNote === "label_only_fallback") {
-            setBanner({
-              type: "warning",
-              title: "Endast etikettinfo",
-              text: "Webbsökningen avbröts – visar analys baserad på etiketten.",
-              ctaLabel: "Försök igen",
-              onCta: handleRetryScan,
-            });
-          } else {
-            setBanner({
-              type: "success",
-              title: "Analysen klar",
-              text: "Klart! Din vinprofil är uppdaterad.",
-            });
-          }
         }
       }
+
+      setCurrentOcrText(effectiveOcrText);
     } catch (error) {
       encounteredError = true;
       setScanStatus("error");
@@ -676,6 +382,20 @@ const WineSnap = () => {
           toast({
             title: "Timeout",
             description: "Analysen tog för lång tid. Försök igen.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes("Rate limit")) {
+          errorMessage = error.message;
+          toast({
+            title: "För många förfrågningar",
+            description: "Vänta en stund och försök igen.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes("AI-krediter")) {
+          errorMessage = error.message;
+          toast({
+            title: "Betalning krävs",
+            description: "AI-krediter slut. Kontakta support.",
             variant: "destructive",
           });
         } else {
@@ -753,7 +473,6 @@ const WineSnap = () => {
         setProgressPercent(null);
         setProgressLabel(null);
       }
-      scanStartTimeRef.current = null;
 
       if (shouldAutoRetakeRef.current && cameraModeRef.current) {
         autoRetakeTimerRef.current = window.setTimeout(() => {
@@ -862,25 +581,16 @@ const WineSnap = () => {
 
     ensureScanPromiseRef.current = promise;
     return promise;
-  }, [previewImage, remoteScanId, results, user?.id]);
+  }, [previewImage, remoteScanId, results, setPersistingScan, setRemoteScanId, user?.id]);
 
   const handleReset = (options?: { reopenPicker?: boolean; useCamera?: boolean }) => {
     triggerHaptic();
     setPreviewImage(null);
-    setResults(null);
-    setScanStatus("idle");
-    setIsProcessing(false);
-    setProgressStep(null);
+    resetScanState();
     setBanner(null);
-    setProgressNote(null);
-    setProgressPercent(null);
-    setProgressLabel(null);
-    setCurrentCacheKey(null);
-    setCurrentOcrText(null);
     setIsSaved(false);
     setIsSaving(false);
     setIsRemoving(false);
-    setRemoteScanId(null);
     setPersistingScan(false);
     autoOpenedRef.current = false;
     cameraOpenedRef.current = false;
@@ -941,7 +651,7 @@ const WineSnap = () => {
     } finally {
       setIsSaving(false);
     }
-  }, [currentCacheKey, currentOcrText, previewImage, remoteScanId, results, toast, triggerHaptic]);
+  }, [currentCacheKey, currentOcrText, previewImage, remoteScanId, results, setCurrentCacheKey, toast, triggerHaptic]);
 
   const handleRemoveWine = useCallback(() => {
     if (!currentCacheKey) {
@@ -1012,7 +722,7 @@ const WineSnap = () => {
       description: "Vi använder dina insikter för en säkrare profil.",
     });
     setIsRefineDialogOpen(false);
-  }, [persistRefinedResult, refineGrape, refineStyle, refineVintage, results, toast]);
+  }, [persistRefinedResult, refineGrape, refineStyle, refineVintage, results, setResults, toast]);
 
   const stageFallbackLabels: Record<Exclude<ProgressKey, null>, string> = {
     prep: "Förbereder…",
