@@ -32,7 +32,7 @@ export function saveHistoryLocal(entry: HistoryEntry) {
   }
 }
 
-export async function syncHistoryRemote(entry: HistoryEntry) {
+export async function syncHistoryRemote(entry: HistoryEntry, accessToken?: string | null) {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseKey =
     import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -44,17 +44,23 @@ export async function syncHistoryRemote(entry: HistoryEntry) {
 
   const url = `${supabaseUrl}/functions/v1/history-sync`;
   const deviceId = getDeviceId();
+  
+  // SÄKERHET: Skicka INTE user_id i payload - edge function extraherar från JWT
   const payload = {
     ...entry,
     device_id: deviceId,
     meta: entry._meta ?? null,
   };
+  
+  // Använd access token om tillgänglig, annars anon key
+  const authToken = accessToken || supabaseKey;
+  
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${supabaseKey}`,
+        Authorization: `Bearer ${authToken}`,
         "x-device-id": deviceId,
       },
       body: JSON.stringify(payload),
@@ -67,7 +73,7 @@ export async function syncHistoryRemote(entry: HistoryEntry) {
   }
 }
 
-export async function saveHistory(entry: HistoryEntry) {
+export async function saveHistory(entry: HistoryEntry, accessToken?: string | null) {
   saveHistoryLocal(entry);
-  syncHistoryRemote(entry);
+  syncHistoryRemote(entry, accessToken);
 }
