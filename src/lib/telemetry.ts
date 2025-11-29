@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import type { Json } from "@/integrations/supabase/types";
 
 export type TelemetryEventName =
   | "tab_select"
@@ -10,7 +11,9 @@ export type TelemetryEventName =
   | "explore_opened"
   | "explore_filter_changed"
   | "explore_scan_opened"
-  | "explore_new_scan_cta_clicked";
+  | "explore_new_scan_cta_clicked"
+  | "explore_scans_retry_requested"
+  | "explore_login_prompt_clicked";
 
 export type TelemetryPayload = Record<string, unknown> | undefined;
 
@@ -40,12 +43,12 @@ const logToConsole = (event: TelemetryEvent) => {
 
 const persistEvent = async (event: TelemetryEvent) => {
   try {
-    await supabase.from("telemetry_events").insert({
+    await supabase.from("telemetry_events").insert([{
       event_name: event.name,
-      payload_json: event.payload ?? {},
+      payload_json: (event.payload ?? {}) as Json,
       occurred_at: event.timestamp,
       session_id: event.context?.sessionId ?? null,
-    });
+    }]);
   } catch (error) {
     if (isDev) {
       console.warn("Telemetry persistence failed", error);

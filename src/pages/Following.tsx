@@ -109,6 +109,15 @@ const getPreviewFromBody = (bodyJson: Json): string => {
 const truncateText = (text: string, maxLength = 200) =>
   text.length > maxLength ? `${text.slice(0, maxLength - 1).trim()}…` : text;
 
+const getTitleFromBody = (bodyJson: Json | null): string => {
+  const fallback = "Inlägg";
+  if (!isRecord(bodyJson)) return fallback;
+  if (isNonEmptyString(bodyJson.title)) return bodyJson.title.trim();
+  if (isNonEmptyString(bodyJson.heading)) return bodyJson.heading.trim();
+  if (isNonEmptyString(bodyJson.subject)) return bodyJson.subject.trim();
+  return fallback;
+};
+
 const formatPostTypeLabel = (type: string) => POST_TYPE_LABELS[type] ?? type.replace(/_/g, " ");
 
 const getInitials = (displayName: string) =>
@@ -484,7 +493,7 @@ const Following = () => {
                         className="cursor-pointer border-[hsl(var(--color-border)/0.7)] bg-[hsl(var(--color-surface)/0.2)] transition hover:border-[hsl(var(--color-accent)/0.6)] hover:bg-[hsl(var(--color-surface)/0.3)]"
                         role="button"
                         tabIndex={0}
-                        aria-label={`Öppna inlägget ${post.title}`}
+                        aria-label={`Öppna inlägget ${getTitleFromBody(post.body_json)}`}
                         onClick={() => activatePost(post)}
                         onKeyDown={(event) => handlePostKeyDown(event, post)}
                       >
@@ -508,7 +517,7 @@ const Following = () => {
                             </Badge>
                           </div>
                           <div className="space-y-2">
-                            <h3 className="text-lg font-semibold text-theme-primary">{post.title}</h3>
+                            <h3 className="text-lg font-semibold text-theme-primary">{getTitleFromBody(post.body_json)}</h3>
                             <p className="text-sm text-theme-secondary/80">{preview}</p>
                           </div>
                         </CardContent>
@@ -629,7 +638,7 @@ const Following = () => {
       <Dialog open={Boolean(selectedPost)} onOpenChange={(open) => !open && setSelectedPost(null)}>
         <DialogContent className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.95)] text-theme-primary">
           <DialogHeader>
-            <DialogTitle>{selectedPost?.title}</DialogTitle>
+            <DialogTitle>{selectedPost ? getTitleFromBody(selectedPost.body_json) : ""}</DialogTitle>
             {selectedPost ? (
               <DialogDescription className="text-theme-secondary/80">
                 {selectedPost.creator?.display_name ?? "Okänd skapare"} · {formatPostTypeLabel(selectedPost.type)} · {" "}

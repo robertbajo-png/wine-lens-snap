@@ -205,7 +205,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
       const { data, error } = await supabase
         .from("user_settings")
-        .select("theme, lang, push_opt_in")
+        .select("settings_json")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -220,11 +220,12 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      if (data) {
+      if (data && data.settings_json) {
+        const stored = data.settings_json as Record<string, unknown>;
         const next = sanitizeSettings({
-          theme: data.theme,
-          lang: data.lang,
-          pushOptIn: data.push_opt_in,
+          theme: stored.theme as string | undefined,
+          lang: stored.lang as string | undefined,
+          pushOptIn: stored.pushOptIn as boolean | undefined,
         });
         settingsRef.current = next;
         setSettings(next);
@@ -235,9 +236,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       const fallback = settingsRef.current;
       const payload = {
         user_id: user.id,
-        theme: fallback.theme,
-        lang: fallback.lang,
-        push_opt_in: fallback.pushOptIn,
+        settings_json: {
+          theme: fallback.theme,
+          lang: fallback.lang,
+          pushOptIn: fallback.pushOptIn,
+        },
       } as const;
 
       const { error: upsertError } = await supabase
@@ -281,9 +284,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         .upsert(
           {
             user_id: user.id,
-            theme: next.theme,
-            lang: next.lang,
-            push_opt_in: next.pushOptIn,
+            settings_json: {
+              theme: next.theme,
+              lang: next.lang,
+              pushOptIn: next.pushOptIn,
+            },
           },
           { onConflict: "user_id" },
         );

@@ -135,7 +135,8 @@ type ExploreScan = {
 
 type ScanRow = Pick<Tables<"scans">, "id" | "created_at" | "analysis_json" | "image_thumb">;
 type ExploreCardRow = Tables<"explore_cards">;
-type WineIndexRow = Tables<"wine_index">;
+// Use explore_cards schema for wine library display
+type WineIndexRow = ExploreCardRow;
 
 const cleanFilterValue = (value?: string | null) => value?.trim() ?? "";
 const escapeIlikePattern = (value: string) => value.replace(/[%_]/g, "\\$&");
@@ -442,7 +443,7 @@ const parseQuickFilterPayload = (payload: unknown): QuickFilter | null => {
 };
 
 const normalizeScanRow = (row: ScanRow): ExploreScan => {
-  const analysis = normalizeAnalysisJson(row.analysis_json as WineAnalysisResult | null);
+  const analysis = normalizeAnalysisJson(row.analysis_json as unknown as WineAnalysisResult | null);
   const createdAt = row.created_at ?? new Date().toISOString();
   const createdAtMs = Date.parse(createdAt);
 
@@ -701,7 +702,7 @@ const fetchWineIndexRows = async (filters: SearchFilters): Promise<WineIndexRow[
       }
 
       let query = supabase
-        .from("wine_index")
+        .from("explore_cards")
         .select("id,created_at,title,producer,region,grapes_raw,style,color,notes,image_url,rank,payload_json")
         .order("rank", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: false })
@@ -1011,12 +1012,12 @@ const Explore = () => {
   const { data: wineIndexRows = [], isFetching: wineIndexFetching } = useQuery({
     queryKey: ["explore", "wine-index", debouncedSerializedFilters],
     queryFn: () => fetchWineIndexRows(debouncedFilters),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
     staleTime: 1000 * 60,
   });
 
   const serverWineLibrary = useMemo(
-    () => (wineIndexRows ?? []).map((row) => normalizeWineIndexRow(row)),
+    () => (wineIndexRows ?? []).map((row: WineIndexRow) => normalizeWineIndexRow(row)),
     [wineIndexRows],
   );
 
