@@ -13,8 +13,8 @@ const MAX_PAYLOAD_LENGTH = 1200;
 type EventRecord = {
   id: string;
   created_at: string;
-  event_type: string;
-  payload: unknown;
+  event_name: string;
+  properties: unknown;
 };
 
 const formatTimestamp = (timestamp: string) => {
@@ -45,8 +45,8 @@ const DevEventsPage = () => {
 
     setLoading(true);
     const { data, error } = await supabase
-      .from("events")
-      .select("id, created_at, event_type, payload")
+      .from("event_logs")
+      .select("id, created_at, event_name, properties")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(100)
@@ -157,10 +157,10 @@ const DevEventsPage = () => {
                       <TableCell className="whitespace-nowrap text-sm text-theme-secondary">
                         {formatTimestamp(event.created_at)}
                       </TableCell>
-                      <TableCell className="font-medium text-theme-primary">{event.event_type}</TableCell>
+                      <TableCell className="font-medium text-theme-primary">{event.event_name}</TableCell>
                       <TableCell>
                         <pre className="max-h-60 overflow-auto rounded-md bg-theme-canvas/60 p-3 font-mono text-xs text-theme-secondary">
-                          {formatPayload(event.payload)}
+                          {formatPayload(event.properties)}
                         </pre>
                       </TableCell>
                     </TableRow>
