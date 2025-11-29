@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchWineListsWithItems, removeScanFromList, type WineListDetail } from "@/services/wineLists";
 import { Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { PremiumBadge } from "@/components/PremiumBadge";
 
 const formatRelativeTime = (iso: string) => {
   const date = new Date(iso);
@@ -114,8 +115,11 @@ export const WineListsSection = () => {
   return (
     <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <CardTitle className="text-theme-primary">Mina listor</CardTitle>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-theme-primary">Mina listor</CardTitle>
+            <PremiumBadge message="Sparade listor blir en del av Premium – lås upp obegränsade listor och synkade favoriter." />
+          </div>
           <CardDescription className="text-theme-secondary">
             Vi visar endast listor med sparade viner.
           </CardDescription>

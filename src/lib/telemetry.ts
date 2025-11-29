@@ -8,6 +8,7 @@ export type TelemetryEventName =
   | "scan_failed"
   | "history_open"
   | "profile_open"
+  | "premium_cta_clicked"
   | "explore_opened"
   | "explore_filter_changed"
   | "explore_scan_opened"

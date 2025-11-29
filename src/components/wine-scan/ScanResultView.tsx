@@ -12,6 +12,7 @@ import { ScanStatusBanner } from "@/components/wine-scan/ScanStatusBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { PremiumBadge } from "@/components/PremiumBadge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -365,7 +366,10 @@ export const ScanResultView = ({
 
               <section className="rounded-2xl border border-border bg-card p-4">
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Smakprofil</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Smakprofil</h3>
+                    <PremiumBadge message="Premium ger en djupare smakprofil med fler nyanser och rekommendationer." />
+                  </div>
                   <div className="flex flex-col items-end gap-1 text-right">
                     <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Källa: {sourceLabel}
