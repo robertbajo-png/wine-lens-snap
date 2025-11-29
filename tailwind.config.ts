@@ -16,6 +16,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
+        display: ['Inter', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -55,6 +56,8 @@ export default {
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
+          primary: "hsl(var(--accent-primary))",
+          glow: "hsl(var(--accent-glow))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -64,8 +67,18 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        surface: "hsl(var(--surface) / <alpha-value>)",
-        surface2: "hsl(var(--surface-2) / <alpha-value>)",
+        surface: {
+          DEFAULT: "hsl(var(--surface-elevated))",
+          elevated: "hsl(var(--surface-elevated))",
+          card: "hsl(var(--surface-card))",
+        },
+        theme: {
+          canvas: "hsl(var(--theme-canvas))",
+          card: "hsl(var(--theme-card))",
+          elevated: "hsl(var(--theme-elevated))",
+          primary: "hsl(var(--theme-primary))",
+          secondary: "hsl(var(--theme-secondary))",
+        },
         outline: "hsl(var(--outline) / <alpha-value>)",
         text: {
           DEFAULT: "hsl(var(--text) / <alpha-value>)",

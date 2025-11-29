@@ -46,6 +46,18 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Wine result theme tokens */
+    --surface-elevated: 270 30% 97%;
+    --surface-card: 270 20% 94%;
+    --bg-surface: 270 100% 99%;
+    --accent-primary: 282 68% 45%;
+    --accent-glow: 282 80% 60%;
+    --theme-canvas: 270 100% 99%;
+    --theme-card: 270 20% 90%;
+    --theme-elevated: 270 30% 97%;
+    --theme-primary: 280 60% 20%;
+    --theme-secondary: 220 9% 46%;
   }
 
   .dark {
@@ -84,6 +96,18 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+
+    /* Wine result theme tokens - dark mode */
+    --surface-elevated: 345 20% 14%;
+    --surface-card: 345 18% 16%;
+    --bg-surface: 345 25% 8%;
+    --accent-primary: 345 70% 50%;
+    --accent-glow: 345 80% 60%;
+    --theme-canvas: 345 25% 8%;
+    --theme-card: 345 15% 22%;
+    --theme-elevated: 345 20% 14%;
+    --theme-primary: 35 20% 95%;
+    --theme-secondary: 35 15% 60%;
   }
 }
 
@@ -94,5 +118,33 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Custom utility classes for wine result components */
+@layer utilities {
+  .text-theme-primary {
+    color: hsl(var(--theme-primary));
+  }
+  .text-theme-secondary {
+    color: hsl(var(--theme-secondary));
+  }
+  .bg-theme-canvas {
+    background-color: hsl(var(--theme-canvas));
+  }
+  .bg-theme-card {
+    background-color: hsl(var(--theme-card));
+  }
+  .bg-theme-elevated {
+    background-color: hsl(var(--theme-elevated));
+  }
+  .border-theme-card {
+    border-color: hsl(var(--theme-card));
+  }
+  .shadow-theme-elevated {
+    box-shadow: 0 4px 20px -4px hsl(var(--accent-primary) / 0.15);
+  }
+  .glow-accent {
+    box-shadow: 0 0 20px hsl(var(--accent-glow) / 0.4);
   }
 }
