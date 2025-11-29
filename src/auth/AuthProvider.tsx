@@ -11,6 +11,7 @@ import type { AuthOtpResponse, Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { useSyncScans } from "@/hooks/useSyncScans";
 import { logEvent } from "@/lib/logger";
+import { setAuthContextUserId } from "@/auth/authContextBridge";
 
 type AuthContextValue = {
   user: User | null;
@@ -39,6 +40,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!ignore) {
         setSession(session);
         setLoading(false);
+        setAuthContextUserId(session?.user?.id ?? null);
       }
     };
 
@@ -49,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setLoading(false);
+      setAuthContextUserId(session?.user?.id ?? null);
 
       if (_event === "SIGNED_IN" && session?.user) {
         const rawProvider = session.user.app_metadata?.provider;
@@ -78,6 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (result.error) {
       console.error("Supabase email sign-in failed", result.error);
+      void logEvent("login_failed", { provider: "email", reason: result.error.message });
     }
 
     return result;
@@ -109,6 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     if (error) {
       console.error("Supabase Google sign-in failed", error);
+      void logEvent("login_failed", { provider: "google", reason: error.message });
       throw error;
     }
   }, []);

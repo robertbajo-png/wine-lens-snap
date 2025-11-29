@@ -161,6 +161,8 @@ const WineSnap = () => {
     void logEvent("scan_started", {
       modeHint,
       labelHashPresent,
+      trigger,
+      hasSource: Boolean(activeSource),
     });
     trackEvent("scan_start", {
       trigger,
@@ -252,6 +254,10 @@ const WineSnap = () => {
               ? (analysisResult as WineAnalysisResult).confidence
               : null,
           latencyMs: responseTimeMs,
+          source: "cache",
+          trigger,
+          labelHashPresent,
+          noTextFound,
         });
         trackEvent("scan_succeeded", {
           source: "cache",
@@ -273,6 +279,11 @@ const WineSnap = () => {
         mode: analysisResult.mode ?? "label_only",
         confidence: typeof analysisResult.confidence === "number" ? analysisResult.confidence : null,
         latencyMs: responseTimeMs,
+        source: resolvedNote ?? "analysis",
+        trigger,
+        labelHashPresent,
+        noTextFound,
+        analysisMode,
       });
       trackEvent("scan_succeeded", {
         source: resolvedNote ?? "analysis",
@@ -388,6 +399,9 @@ const WineSnap = () => {
       void logEvent("scan_failed", {
         reason: normalizedReason,
         latencyMs,
+        trigger,
+        modeHint,
+        errorMessage,
       });
       trackEvent("scan_failed", {
         reason: errorMessage,

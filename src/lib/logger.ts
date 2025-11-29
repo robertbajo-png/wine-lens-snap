@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { getAuthContextUserId } from "@/auth/authContextBridge";
 import type { Json } from "@/integrations/supabase/types";
 
 const isBrowser = typeof window !== "undefined";
@@ -16,6 +17,11 @@ const serializeJson = (payload?: Record<string, unknown>): Json => {
 const resolveUserId = async (providedUserId?: string | null): Promise<string | null> => {
   if (providedUserId !== undefined) {
     return providedUserId;
+  }
+
+  const authContextUserId = getAuthContextUserId();
+  if (authContextUserId !== null) {
+    return authContextUserId;
   }
 
   if (!isBrowser) {
@@ -36,15 +42,15 @@ const resolveUserId = async (providedUserId?: string | null): Promise<string | n
 export type LogLevel = "error" | "warning" | "info";
 
 export const logEvent = async (
-  eventName: string,
-  properties?: Record<string, unknown>,
+  eventType: string,
+  payload?: Record<string, unknown>,
   options?: { userId?: string | null },
 ) => {
   try {
     const userId = await resolveUserId(options?.userId);
-    await supabase.from("event_logs").insert({
-      event_name: eventName,
-      properties: serializeJson(properties),
+    await supabase.from("events").insert({
+      event_type: eventType,
+      payload: serializeJson(payload),
       user_id: userId,
     });
   } catch (error) {
