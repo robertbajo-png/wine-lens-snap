@@ -68,12 +68,14 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
         height={size} 
         aria-label={`${label} ${targetValue ?? "–"} av 5`}
       >
-        {/* Background circle - subtle */}
+        {/* Background circle with border */}
         <circle 
           cx={cx} 
           cy={cy} 
           r={r} 
-          fill="rgba(255,255,255,0.06)"
+          fill="rgba(255,255,255,0.04)"
+          stroke="rgba(255,255,255,0.25)"
+          strokeWidth={1}
         />
         
         {/* Filled pie slice - solid white like Systembolaget */}
