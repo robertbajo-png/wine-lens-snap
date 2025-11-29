@@ -1,47 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  BookmarkPlus,
-  Camera,
-  Download,
-  ImageUp,
-  Loader2,
-  RefreshCcw,
-  Sparkles,
-  Trash2,
-  Wine,
-} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
 import { computeLabelHash, type WineAnalysisResult } from "@/lib/wineCache";
 import { prewarmOcr } from "@/lib/ocrWorker";
-import { ProgressBanner } from "@/components/ProgressBanner";
 import { Banner } from "@/components/Banner";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
-import ResultHeader from "@/components/result/ResultHeader";
-import MetersRow from "@/components/result/MetersRow";
-import KeyFacts from "@/components/result/KeyFacts";
-import ClampTextCard from "@/components/result/ClampTextCard";
-import Pairings from "@/components/result/Pairings";
-import ServingCard from "@/components/result/ServingCard";
-import EvidenceAccordion from "@/components/result/EvidenceAccordion";
-import ActionBar from "@/components/result/ActionBar";
-import ResultSkeleton from "@/components/result/ResultSkeleton";
-import { WineListsPanel } from "@/components/result/WineListsPanel";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { readExifOrientation } from "@/lib/exif";
 import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
@@ -56,6 +21,8 @@ import {
 } from "@/services/scanHistoryService";
 import { useScanPipeline } from "@/hooks/useScanPipeline";
 import type { PipelineSource, ProgressKey, ScanStatus } from "@/services/scanPipelineService";
+import { ScanResultView } from "@/components/wine-scan/ScanResultView";
+import { ScanEmptyState } from "@/components/wine-scan/ScanEmptyState";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -805,11 +772,6 @@ const WineSnap = () => {
         : `Behöver fler källor (${verifiedEvidenceCount}/${WEB_EVIDENCE_THRESHOLD})`
       : "Baserad på etikett, druva och region"
     : "Baserad på etikettanalys";
-  const missingSourceText = !sourceStatus
-    ? "Källstatus saknas för denna analys. Försök att skanna om flaskan."
-    : isWebSource
-      ? `Vi behöver minst ${WEB_EVIDENCE_THRESHOLD} verifierade webbkällor för att visa smakprofilen (har ${verifiedEvidenceCount}).`
-      : "Vi saknar verifierade webbkällor och visar inte etikettbaserad heuristik.";
 
   // --- spara historik (lokalt + supabase) när resultat finns ---
   useEffect(() => {
@@ -828,15 +790,13 @@ const WineSnap = () => {
     const ocrText = results.originaltext && results.originaltext !== "–"
       ? results.originaltext
       : results.evidence?.etiketttext;
-    const isLabelOnly = results.mode === "label_only";
     const confidenceValue = typeof results.confidence === "number" ? results.confidence : null;
     const needsRefinement = Boolean(
-      isLabelOnly || (confidenceValue !== null && confidenceValue < CONFIDENCE_THRESHOLD),
+      results.mode === "label_only" || (confidenceValue !== null && confidenceValue < CONFIDENCE_THRESHOLD),
     );
-    const refinementReason = isLabelOnly
+    const refinementReason = results.mode === "label_only"
       ? "Det här bygger bara på etiketten – lägg till detaljer eller försök igen."
       : "Analysen är osäker – förbättra resultatet med fler detaljer.";
-    // Always show detailed sections, but with warning if label_only
     const showDetailedSections = true;
     const grapeSuggestions = Array.from(
       new Set(
@@ -856,346 +816,68 @@ const WineSnap = () => {
 
     return (
       <>
-        <Dialog open={isRefineDialogOpen} onOpenChange={setIsRefineDialogOpen}>
-          <DialogContent className="border-theme-card bg-theme-elevated text-theme-primary">
-            <DialogHeader>
-              <DialogTitle>Förfina resultatet</DialogTitle>
-              <DialogDescription className="text-theme-secondary">
-                Hjälp oss säkra analysen genom att lägga till detaljer eller skanna etiketten igen.
-              </DialogDescription>
-            </DialogHeader>
+        <input
+          id="wineImageUpload"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileChange}
+          className="hidden"
+        />
 
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-theme-card bg-theme-elevated/50 p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="font-semibold text-theme-primary">Ta en ny bild</p>
-                    <p className="text-sm text-theme-secondary">Fota etiketten igen för att få fler källor.</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsRefineDialogOpen(false);
-                      handleRetryScan();
-                    }}
-                    className="border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    Starta ny skanning
-                  </Button>
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="refineVintage">Årgång (valfritt)</Label>
-                  <Input
-                    id="refineVintage"
-                    inputMode="numeric"
-                    value={refineVintage}
-                    onChange={(event) => setRefineVintage(event.target.value)}
-                    placeholder="t.ex. 2019"
-                    className="border-theme-card bg-theme-canvas text-theme-primary"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="refineStyle">Stil</Label>
-                  <Input
-                    id="refineStyle"
-                    value={refineStyle}
-                    onChange={(event) => setRefineStyle(event.target.value)}
-                    placeholder="t.ex. Chianti Classico"
-                    className="border-theme-card bg-theme-canvas text-theme-primary"
-                  />
-                  {styleSuggestions.length > 0 && (
-                    <div className="flex flex-wrap gap-2 text-xs text-theme-secondary">
-                      {styleSuggestions.map((item) => (
-                        <button
-                          key={item}
-                          type="button"
-                          className="rounded-full border border-theme-card px-3 py-1 text-theme-primary hover:border-theme-primary"
-                          onClick={() => setRefineStyle(item)}
-                        >
-                          {item}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="refineGrape">Druva</Label>
-                <Input
-                  id="refineGrape"
-                  value={refineGrape}
-                  onChange={(event) => setRefineGrape(event.target.value)}
-                  placeholder="t.ex. Sangiovese"
-                  className="border-theme-card bg-theme-canvas text-theme-primary"
-                />
-                {grapeSuggestions.length > 0 && (
-                  <div className="flex flex-wrap gap-2 text-xs text-theme-secondary">
-                    {grapeSuggestions.map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        className="rounded-full border border-theme-card px-3 py-1 text-theme-primary hover:border-theme-primary"
-                        onClick={() => setRefineGrape(item)}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <DialogFooter className="mt-4 flex items-center gap-2 sm:justify-between">
-              <p className="text-xs text-theme-secondary">Vi sparar dina manuella justeringar tillsammans med etiketten.</p>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => setIsRefineDialogOpen(false)} className="text-theme-primary">
-                  Avbryt
-                </Button>
-                <Button onClick={handleApplyRefinements} className="bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary">
-                  Spara detaljer
-                </Button>
-              </div>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
-          <AmbientBackground />
-
-          <input
-            id="wineImageUpload"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-
-          <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-32 pt-10 sm:pt-16">
-            <header className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">WineSnap</p>
-                <p className="text-sm text-theme-secondary">Din digitala sommelier</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-theme-secondary hover:text-theme-primary"
-                  onClick={() => navigate("/me")}
-                >
-                  Profil
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-                  onClick={() => navigate("/me/wines")}
-                >
-                  Historik
-                </Button>
-                {showInstallCTA && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-                    onClick={handleInstall}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Installera app
-                  </Button>
-                )}
-              </div>
-            </header>
-
-            {banner && <Banner {...banner} className="mb-4" />}
-            {isLabelOnly && (
-              <Banner
-                type="warning"
-                title="Endast etikettdata"
-                text="Det här bygger bara på etiketten – viss information kan saknas."
-                className="mb-4"
-              />
-            )}
-
-            <div className="mb-6 flex flex-wrap items-center gap-3">
-              <Badge variant={statusLabels[scanStatus].tone}>{statusLabels[scanStatus].label}</Badge>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRetryScan}
-                  disabled={isProcessing}
-                  className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
-                >
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  Starta om
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleChangeImage}
-                  disabled={isProcessing}
-                  className="text-theme-primary hover:bg-theme-elevated"
-                >
-                  <ImageUp className="mr-2 h-4 w-4" />
-                  Byt bild
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
-              <div className="space-y-6">
-                <ResultHeader
-                  vin={results.vin}
-                  ar={results.årgång}
-                  producent={results.producent}
-                  land_region={results.land_region}
-                  typ={results.typ}
-                />
-
-                {needsRefinement && (
-                  <div className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-theme-elevated/70 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-theme-primary">Förfina resultat</p>
-                      <p className="text-sm text-theme-secondary">{refinementReason}</p>
-                      {confidenceValue !== null && (
-                        <p className="text-xs text-theme-secondary/80">Säkerhet: {(confidenceValue * 100).toFixed(0)}%</p>
-                      )}
-                    </div>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsRefineDialogOpen(true)}
-                      className="border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
-                    >
-                      Förfina resultat
-                    </Button>
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Button
-                    onClick={handleSaveWine}
-                    disabled={isSaved || isSaving || !currentCacheKey}
-                    className="h-12 w-full justify-center rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)] disabled:from-[#7B3FE4]/40 disabled:via-[#8451ED]/40 disabled:to-[#9C5CFF]/40 sm:w-auto sm:min-w-[220px]"
-                  >
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookmarkPlus className="mr-2 h-4 w-4" />}
-                    {isSaved ? "Sparat" : "Spara till mina viner"}
-                  </Button>
-                  {isSaved ? (
-                    <Button
-                      variant="outline"
-                      onClick={handleRemoveWine}
-                      disabled={isRemoving}
-                      className="h-12 w-full justify-center rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80 sm:w-auto"
-                    >
-                      {isRemoving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                      Ta bort ur mina viner
-                    </Button>
-                  ) : null}
-                </div>
-
-                {user ? (
-                  <WineListsPanel
-                    scanId={remoteScanId}
-                    ensureScanId={ensureRemoteScan}
-                    isPersistingScan={persistingScan}
-                  />
-                ) : (
-                  <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
-                    <CardContent className="flex flex-col gap-3 text-sm text-theme-secondary sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="font-semibold text-theme-primary">Logga in för att spara vinet</p>
-                        <p>Skapa listor som Favoriter, Köp igen och Gästlista med ditt konto.</p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
-                        onClick={() => navigate("/login?redirectTo=/scan")}
-                      >
-                        Logga in
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-
-                <section className="rounded-2xl border border-border bg-card p-4">
-                  <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Smakprofil</h3>
-                    <div className="flex flex-col items-end gap-1 text-right">
-                      <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Källa: {sourceLabel}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">{sourceDescription}</span>
-                    </div>
-                  </div>
-                  {showVerifiedMeters ? (
-                    <MetersRow
-                      meters={results.meters}
-                      estimated={metersAreEstimated || results?._meta?.meters_source === "derived"}
-                    />
-                  ) : (
-                    <p className="text-sm text-muted-foreground">Smakprofil saknas för detta vin.</p>
-                  )}
-                </section>
-
-                <KeyFacts
-                  druvor={results.druvor}
-                  fargtyp={results.färgtyp}
-                  klassificering={results.klassificering}
-                  alkoholhalt={results.alkoholhalt}
-                  volym={results.volym}
-                  sockerhalt={results.sockerhalt}
-                  syra={results.syra}
-                />
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <ClampTextCard title="Karaktär" text={results.karaktär} />
-                  <ClampTextCard title="Smak" text={results.smak} />
-                </div>
-
-                <Pairings items={pairings} />
-
-                <ServingCard servering={results.servering} />
-
-                <EvidenceAccordion
-                  ocr={ocrText}
-                  hits={
-                    sourceStatus?.evidence_links?.length
-                      ? sourceStatus.evidence_links
-                      : results.evidence?.webbträffar
-                  }
-                  primary={results.källa}
-                />
-
-                {results.detekterat_språk && (
-                  <p className="text-xs text-theme-secondary opacity-80">
-                    Upptäckt språk: {results.detekterat_språk.toUpperCase()}
-                  </p>
-                )}
-
-                <p className="text-xs text-theme-secondary opacity-80">
-                  Spara profilen för att lägga till den i dina viner. Osparade skanningar rensas när du lämnar sidan.
-                </p>
-              </div>
-
-              {previewImage && (
-                <aside className="lg:sticky lg:top-24">
-                  <div className="overflow-hidden rounded-3xl border border-theme-card bg-black/40 shadow-xl backdrop-blur">
-                    <img src={previewImage} alt="Skannad vinetikett" className="h-full w-full object-cover" />
-                  </div>
-                </aside>
-              )}
-            </div>
-          </div>
-
-                <ActionBar onNewScan={() => handleReset({ reopenPicker: true, useCamera: true })} />
-        </div>
+        <ScanResultView
+          results={results}
+          previewImage={previewImage}
+          banner={banner ? <Banner {...banner} className="mb-4" /> : null}
+          statusLabel={statusLabels[scanStatus].label}
+          statusTone={statusLabels[scanStatus].tone}
+          onRetryScan={handleRetryScan}
+          onChangeImage={handleChangeImage}
+          onSaveWine={handleSaveWine}
+          onRemoveWine={handleRemoveWine}
+          onStartNewScan={() => handleReset({ reopenPicker: true, useCamera: true })}
+          onInstall={handleInstall}
+          onNavigateHistory={() => navigate("/me/wines")}
+          onNavigateProfile={() => navigate("/me")}
+          showInstallCTA={showInstallCTA}
+          isSaved={isSaved}
+          isSaving={isSaving}
+          isRemoving={isRemoving}
+          currentCacheKey={currentCacheKey}
+          isLoggedIn={Boolean(user)}
+          onLogin={() => navigate("/login?redirectTo=/scan")}
+          ensureRemoteScan={ensureRemoteScan}
+          remoteScanId={remoteScanId}
+          isPersistingScan={persistingScan}
+          needsRefinement={needsRefinement}
+          refinementReason={refinementReason}
+          confidenceValue={confidenceValue}
+          isProcessing={isProcessing}
+          isRefineDialogOpen={isRefineDialogOpen}
+          setIsRefineDialogOpen={setIsRefineDialogOpen}
+          refineVintage={refineVintage}
+          refineGrape={refineGrape}
+          refineStyle={refineStyle}
+          setRefineVintage={setRefineVintage}
+          setRefineGrape={setRefineGrape}
+          setRefineStyle={setRefineStyle}
+          styleSuggestions={styleSuggestions}
+          grapeSuggestions={grapeSuggestions}
+          handleApplyRefinements={handleApplyRefinements}
+          pairings={pairings}
+          sourceLabel={sourceLabel}
+          sourceDescription={sourceDescription}
+          showVerifiedMeters={showVerifiedMeters}
+          metersAreEstimated={metersAreEstimated}
+          showDetailedSections={showDetailedSections}
+          ocrText={ocrText}
+          evidenceLinks={
+            sourceStatus?.evidence_links?.length
+              ? sourceStatus.evidence_links
+              : results.evidence?.webbträffar
+          }
+          detectedLanguage={results.detekterat_språk}
+        />
       </>
     );
   }
@@ -1214,212 +896,26 @@ const WineSnap = () => {
         className="hidden"
       />
 
-      {isInstallable && !isInstalled && (
-        <div className="absolute right-4 top-4 z-10">
-          <Button
-            onClick={handleInstall}
-            variant="outline"
-            size="sm"
-            className="border-theme-card bg-theme-elevated text-theme-primary shadow-lg backdrop-blur hover:bg-theme-elevated"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            Installera app
-          </Button>
-        </div>
-      )}
-
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center px-4 pb-20 pt-12 text-center sm:px-8">
-        <header className="mb-10 flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-elevated shadow-lg shadow-purple-900/40">
-              <Wine className="h-6 w-6 text-purple-100" />
-            </div>
-            <div className="text-left">
-              <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">WineSnap</p>
-              <p className="text-sm text-theme-secondary">Skanna vinetiketter med AI</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-theme-secondary hover:text-theme-primary"
-              onClick={() => navigate("/")}
-            >
-              Hem
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-theme-secondary hover:text-theme-primary"
-              onClick={() => navigate("/me")}
-            >
-              Profil
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-              onClick={() => navigate("/me/wines")}
-            >
-              Historik
-            </Button>
-          </div>
-        </header>
-
-        {banner && <Banner {...banner} className="mb-4 w-full" />}
-
-        {isProcessing && !results && !previewImage && (
-          <div className="mb-8 w-full rounded-3xl border border-theme-card bg-theme-elevated p-6 text-left">
-            <ResultSkeleton />
-          </div>
-        )}
-
-
-        <div className="flex w-full max-w-md flex-col items-center gap-8">
-          <div className="space-y-3">
-            <p className="inline-flex items-center gap-2 rounded-full border border-theme-card bg-theme-elevated px-4 py-1 text-sm text-purple-100">
-              <Sparkles className="h-4 w-4" />
-              Klar för nästa skanning
-            </p>
-            <h1 className="text-3xl font-semibold text-theme-primary">Din digitala sommelier</h1>
-            <p className="text-base text-theme-secondary">
-              Fota etiketten och låt AI:n skapa en komplett vinprofil med smaknoter, serveringstips och matmatchningar – sparat lokalt för nästa gång.
-            </p>
-          </div>
-
-          <div className="flex w-full flex-wrap items-center gap-3">
-            <Badge variant={statusLabels[scanStatus].tone}>{statusLabels[scanStatus].label}</Badge>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRetryScan}
-                disabled={isProcessing}
-                className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Starta om
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleChangeImage}
-                disabled={isProcessing}
-                className="text-theme-primary hover:bg-theme-elevated"
-              >
-                <ImageUp className="mr-2 h-4 w-4" />
-                Byt bild
-              </Button>
-            </div>
-          </div>
-
-          {(isProcessing || progressStep || progressNote || progressPercent !== null) && (
-            <div className="w-full">
-              <ProgressBanner
-                step={progressStep}
-                note={progressNote}
-                progress={progressPercent}
-                label={progressLabel}
-              />
-            </div>
-          )}
-
-          {scanStatus === "error" && !isProcessing && !results && (
-            <Card className="w-full border-theme-card bg-theme-elevated">
-              <CardContent className="space-y-3 p-4">
-                <div className="flex items-center gap-2 text-theme-primary">
-                  <Wine className="h-5 w-5" />
-                  <p className="font-semibold">Något gick snett</p>
-                </div>
-                <p className="text-sm text-theme-secondary">
-                  Kontrollera ljuset och prova igen. Du kan starta om eller välja en annan bild utan att ladda om sidan.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={handleRetryScan}
-                    className="bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary"
-                  >
-                    <RefreshCcw className="mr-2 h-4 w-4" />
-                    Starta om skanning
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleChangeImage}
-                    className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
-                  >
-                    <ImageUp className="mr-2 h-4 w-4" />
-                    Byt bild
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {previewImage && (
-            <Card className="relative w-full overflow-hidden rounded-[30px] border border-theme-card bg-gradient-to-br from-[hsl(var(--surface-elevated)/1)] via-[hsl(var(--surface-elevated)/0.85)] to-[hsl(var(--surface-elevated)/0.55)] shadow-2xl shadow-purple-900/40">
-              <CardContent className="p-4">
-                <div className="relative">
-                  <img
-                    src={previewImage}
-                    alt="Wine bottle"
-                    className="w-full rounded-2xl bg-black/20 object-contain"
-                  />
-
-                  {isProcessing && (
-                    <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/70 backdrop-blur">
-                      <div className="w-full max-w-xs space-y-4 text-center">
-                        <Loader2 className="mx-auto h-10 w-10 animate-spin text-purple-200" />
-                        <ProgressBanner
-                          step={progressStep}
-                          note={progressNote}
-                          progress={progressPercent}
-                          label={progressLabel}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {!previewImage && (
-            <div className="w-full space-y-4">
-              <Button
-                onClick={handleTakePhoto}
-                className="h-14 w-full rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold shadow-[0_20px_45px_-22px_rgba(123,63,228,0.95)]"
-                size="lg"
-                disabled={isProcessing}
-              >
-                <Camera className="mr-2 h-5 w-5" />
-                Fota vinflaska
-              </Button>
-              <p className="text-sm text-theme-secondary">
-                Bäst resultat när etiketten fyller rutan och du fotar i mjukt ljus.
-              </p>
-            </div>
-          )}
-
-          <div className="w-full rounded-3xl border border-theme-card bg-theme-elevated p-5 text-left text-sm text-theme-secondary">
-            <p className="font-semibold text-theme-primary">Så funkar skanningen</p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              {[
-                "Justera flaskan tills guidelinjen blir grön.",
-                "Vi kör OCR och AI-analys i bakgrunden.",
-                "Spara själv när du vill lägga till vinet i historiken.",
-              ].map((tip, idx) => (
-                <div key={tip} className="rounded-2xl border border-theme-card bg-black/25 p-3">
-                  <span className="mb-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-theme-elevated text-xs font-semibold text-theme-primary">
-                    {idx + 1}
-                  </span>
-                  <p>{tip}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      <ScanEmptyState
+        banner={banner ? <Banner {...banner} className="mb-4 w-full" /> : null}
+        isInstallCTAVisible={isInstallable && !isInstalled}
+        onInstall={handleInstall}
+        onNavigateHome={() => navigate("/")}
+        onNavigateProfile={() => navigate("/me")}
+        onNavigateHistory={() => navigate("/me/wines")}
+        statusLabel={statusLabels[scanStatus].label}
+        statusTone={statusLabels[scanStatus].tone}
+        onRetryScan={handleRetryScan}
+        onChangeImage={handleChangeImage}
+        onTakePhoto={handleTakePhoto}
+        isProcessing={isProcessing}
+        progressStep={progressStep}
+        progressNote={progressNote}
+        progressPercent={progressPercent}
+        progressLabel={progressLabel}
+        previewImage={previewImage}
+        showError={scanStatus === "error" && !isProcessing && !results}
+      />
     </div>
   );
 };
