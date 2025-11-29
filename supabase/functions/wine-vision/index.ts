@@ -28,9 +28,9 @@ import {
 } from "./prompts.ts";
 
 const CFG = {
-  PPLX_TIMEOUT_MS: 8000,
+  PPLX_TIMEOUT_MS: 15000,
   GEMINI_TIMEOUT_MS: 45000,
-  FAST_TIMEOUT_MS: 8000,
+  FAST_TIMEOUT_MS: 15000,
   MAX_WEB_URLS: 3,
   PPLX_MODEL: "sonar",
 };
@@ -219,7 +219,11 @@ function withTimeout<T>(promise: Promise<T>, ms: number, reason: string): Promis
 type WebJson = WineSearchResult | null;
 
 async function runPerplexity(ocrText: string): Promise<WebJson> {
-  if (!PERPLEXITY_API_KEY) return null;
+  if (!PERPLEXITY_API_KEY) {
+    console.log(`[${new Date().toISOString()}] Perplexity SKIPPED: no API key`);
+    return null;
+  }
+  console.log(`[${new Date().toISOString()}] Perplexity STARTING with key: ${PERPLEXITY_API_KEY?.slice(0, 8)}...`);
 
   const queries = buildSearchVariants(ocrText);
   const schemaJSON = `

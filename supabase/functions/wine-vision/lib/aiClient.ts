@@ -289,7 +289,7 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
     siteWhitelist = [],
     temperature = 0.0,
     maxTokens = 600,
-    timeoutMs = 12000,
+    timeoutMs = 20000,
     systemPrompt,
     schemaHint,
   } = options;
