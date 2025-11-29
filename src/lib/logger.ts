@@ -48,9 +48,9 @@ export const logEvent = async (
 ) => {
   try {
     const userId = await resolveUserId(options?.userId);
-    await supabase.from("events").insert({
-      event_type: eventType,
-      payload: serializeJson(payload),
+    await supabase.from("event_logs").insert({
+      event_name: eventType,
+      properties: serializeJson(payload),
       user_id: userId,
     });
   } catch (error) {

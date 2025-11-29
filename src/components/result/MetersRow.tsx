@@ -14,7 +14,7 @@ interface Props {
 export default function MetersRow({ meters, estimated }: Props) {
   return (
     <section className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-5 flex items-center gap-2">
         <h3 className="text-sm font-semibold text-white">Smakprofil</h3>
         {estimated && (
           <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-primary">
@@ -22,11 +22,11 @@ export default function MetersRow({ meters, estimated }: Props) {
           </span>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-6 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
-        <Ring label="Sötma" value={meters?.sötma ?? null} estimated={estimated} />
-        <Ring label="Fyllighet" value={meters?.fyllighet ?? null} estimated={estimated} />
-        <Ring label="Fruktighet" value={meters?.fruktighet ?? null} estimated={estimated} />
-        <Ring label="Fruktsyra" value={meters?.fruktsyra ?? null} estimated={estimated} />
+      <div className="flex items-start justify-between px-2">
+        <Ring label="Sötma" value={meters?.sötma ?? null} estimated={estimated} delay={0} />
+        <Ring label="Fyllighet" value={meters?.fyllighet ?? null} estimated={estimated} delay={100} />
+        <Ring label="Fruktighet" value={meters?.fruktighet ?? null} estimated={estimated} delay={200} />
+        <Ring label="Fruktsyra" value={meters?.fruktsyra ?? null} estimated={estimated} delay={300} />
       </div>
     </section>
   );

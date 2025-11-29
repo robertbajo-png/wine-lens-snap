@@ -29,15 +29,16 @@ export const useUserSettings = () => {
   });
 
   const settings = userId ? query.data ?? null : null;
-  const isPremium = settings?.is_premium ?? false;
+  const settingsJson = settings?.settings_json as { is_premium?: boolean; premium_since?: string } | null;
+  const isPremium = settingsJson?.is_premium ?? false;
   const premiumSince = useMemo(() => {
-    if (!settings?.premium_since) {
+    if (!settingsJson?.premium_since) {
       return null;
     }
 
-    const parsed = new Date(settings.premium_since);
+    const parsed = new Date(settingsJson.premium_since);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }, [settings?.premium_since]);
+  }, [settingsJson?.premium_since]);
 
   return {
     settings,
