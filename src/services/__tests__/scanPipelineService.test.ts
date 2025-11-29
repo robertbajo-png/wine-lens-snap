@@ -25,7 +25,7 @@ const cacheMocks = vi.hoisted(() => ({
   getCachedAnalysisEntryMock: vi.fn(),
   getCacheKeyMock: vi.fn(),
   setCachedAnalysisMock: vi.fn(),
-  computeLabelHashMock: vi.fn<string | null, [string | null | undefined]>(),
+  computeLabelHashMock: vi.fn(),
 }));
 
 vi.mock("@/lib/wineCache", () => ({
@@ -46,7 +46,7 @@ vi.mock("@/lib/analysisSchema", () => ({
 const ocrCacheMocks = vi.hoisted(() => ({
   getOcrCacheMock: vi.fn(),
   setOcrCacheMock: vi.fn(),
-  sha1Base64Mock: vi.fn<Promise<string>, [string]>(),
+  sha1Base64Mock: vi.fn(),
 }));
 
 vi.mock("@/lib/ocrCache", () => ({
@@ -55,8 +55,7 @@ vi.mock("@/lib/ocrCache", () => ({
   sha1Base64: ocrCacheMocks.sha1Base64Mock,
 }));
 
-type FetchArgs = Parameters<typeof fetch>;
-const fetchMock = vi.fn<ReturnType<typeof fetch>, FetchArgs>();
+const fetchMock = vi.fn();
 
 const baseSource = {
   dataUrl: "data:image/jpeg;base64,abc",

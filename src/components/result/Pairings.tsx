@@ -35,10 +35,10 @@ export default function Pairings({ items }: { items?: string[] }) {
   if (chips.length === 0) return null;
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4">
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
       <div className="mb-3 flex items-center gap-2">
         <Utensils className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-foreground">Passar till</h3>
+        <h3 className="text-sm font-semibold text-white">Passar till</h3>
       </div>
       <div className="flex flex-wrap gap-2">
         {chips.map((item, index) => {
@@ -46,7 +46,7 @@ export default function Pairings({ items }: { items?: string[] }) {
           return (
             <span
               key={`${item}-${index}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-xs font-medium text-foreground"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white"
             >
               <Icon className="h-3 w-3 text-primary" />
               {item}
