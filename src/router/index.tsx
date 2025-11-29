@@ -14,6 +14,7 @@ import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import LoginCallback from "@/pages/LoginCallback";
 import Me from "@/pages/Me";
+import DevEventsPage from "@/pages/dev/Events";
 
 const LoadingScreen = () => (
   <div className="flex min-h-[50vh] items-center justify-center text-theme-secondary">
@@ -133,6 +134,14 @@ export const router = createBrowserRouter([
   },
   { path: "/login", element: <Login /> },
   { path: "/login/callback", element: <LoginCallback /> },
+  ...(import.meta.env.DEV
+    ? [
+        {
+          element: <ProtectedRoute />,
+          children: [{ path: "/dev/events", element: <DevEventsPage /> }],
+        },
+      ]
+    : []),
   { path: "/om", element: <About /> },
   { path: "/skanna", element: <Navigate to="/scan" replace /> },
   { path: "/historik", element: <Navigate to="/me/wines" replace /> },
