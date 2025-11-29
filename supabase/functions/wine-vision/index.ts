@@ -273,69 +273,80 @@ async function runGeminiFast(ocrText: string, imageUrl?: string): Promise<WebJso
   console.log(`[${new Date().toISOString()}] Gemini Vision fallback: analyzing label image directly...`);
 
   const prompt = `
-Du är en expert på att läsa vinetiketter. Analysera denna bild EXTREMT NOGGRANT och extrahera ALL synlig information.
+Du är en EXPERT på att läsa vinetiketter och flaskbottnar. Din VIKTIGASTE uppgift är att hitta ALKOHOLHALT och VOLYM.
 
-KRITISKA SÖKOMRÅDEN (titta på HELA bilden):
-1. **ALKOHOLHALT** - Zooma in på ALLA textsegment! Leta efter:
-   - Siffror följda av "%" eller "vol" eller "alc" eller "alcohol"
-   - Ofta i NEDRE delen av etiketten eller på baksidan
-   - Kan vara liten text: "13%", "12.5% vol", "14% alc/vol"
-   - Exempel: "13.5%", "14% vol", "12.5 alc"
+## STEG 1: SÖKSTRATEGI FÖR ALKOHOL & VOLYM
 
-2. **VOLYM** - Leta i HELA bilden:
-   - Ofta längst NER på flaskan eller på baksidan
-   - Format: "750ml", "75cl", "0.75L", "750 ml"
-   - Kan vara mycket liten text!
+### ALKOHOLHALT - KRITISKT FÄLT!
+Skanna bilden systematiskt i denna ordning:
+1. **FLASKANS NEDRE DEL** - Ofta liten text nära botten
+2. **BAKSIDESTEXT** - Om synlig, ofta detaljerad info här
+3. **UNDER HUVUDETIKETTEN** - Liten text i sidfoten
+4. **RUNT KORKEN/HALSEN** - Ibland på halsband
 
-3. **ÅRGÅNG** - 4 siffror som representerar år:
-   - Ofta framträdande: 2019, 2020, 2021, 2022, 2023
-   - Kan stå separat eller integrerat i designen
+Leta efter EXAKT dessa mönster:
+- "XX%" eller "XX,X%" eller "XX.X%"
+- "XX% vol" eller "XX,X% vol"  
+- "alc XX%" eller "alc. XX%"
+- "alcohol XX%" eller "alcool XX%"
+- Vanliga värden: 11%, 12%, 12.5%, 13%, 13.5%, 14%, 14.5%, 15%
 
-4. **KLASSIFICERING** - Kvalitetsbeteckningar:
-   - DOC, DOCG, IGT, AOC, Reserva, Gran Reserva, Crianza
-   - Ofta under vinnamnet eller i nedre delen
+### VOLYM - KRITISKT FÄLT!
+Skanna i denna ordning:
+1. **LÄNGST NER PÅ FLASKAN** - Ofta präglat i glaset eller på etikett
+2. **BREDVID ALKOHOLHALTEN** - Dessa står ofta tillsammans
+3. **BAKSIDAN** - Om synlig
 
-5. **PRODUCENT & VINNAMN** - Oftast störst text på etiketten
+Leta efter EXAKT dessa mönster:
+- "750ml" eller "750 ml" eller "75cl" eller "75 cl"
+- "0.75L" eller "0,75L" eller "0.75l"
+- "375ml" (halvflaska), "1L" eller "1.5L" (magnum)
+- e750ml (e = europeisk märkning)
 
-6. **DRUVOR** - Kan stå som:
-   - Pinot Noir, Chardonnay, Cabernet Sauvignon, etc.
-   - Ibland flera druvor listade
+## STEG 2: RAPPORTERA VAD DU SER
 
-7. **REGION/LAND** - Geografisk information:
-   - Bordeaux, Toscana, Rioja, Napa Valley, etc.
-   - Land kan stå explicit eller underförstått
+Innan du svarar, beskriv MENTALT för dig själv:
+- "I nedre delen ser jag texten..."
+- "Alkoholhalten verkar vara..."
+- "Volymen hittar jag som..."
 
-OCR-text från etiketten (använd detta):
-${ocrText}
+## STEG 3: ÖVRIG INFORMATION
 
-INSTRUKTIONER:
-- Skanna HELA bilden metodiskt, inklusive ALL liten text
-- Om du hittar en siffra med % - det är förmodligen alkoholhalt!
-- Om du hittar "ml" eller "cl" - det är volym!
-- Returnera ENDAST giltigt JSON (ingen markdown, inga backticks)
-- ALL beskrivande text på SVENSKA (vinnamn och producent original språk)
+${ocrText ? `OCR-text (kan vara felaktig, verifiera mot bilden): ${ocrText.slice(0, 200)}` : "Ingen OCR tillgänglig - läs direkt från bilden"}
 
-Schema:
+Leta också efter:
+- **VINNAMN**: Största/mest framträdande texten
+- **PRODUCENT**: Ofta under eller över vinnamnet
+- **ÅRGÅNG**: 4-siffrig årtal (2018-2024)
+- **REGION**: Geografiskt ursprung
+- **DRUVOR**: Cabernet, Merlot, Chardonnay, etc.
+- **KLASSIFICERING**: DOC, DOCG, AOC, Reserva, etc.
+
+## RETURFORMAT
+
+Returnera ENDAST giltigt JSON (ingen markdown, inga backticks):
+
 {
-  "vin": "vinets namn (behåll originalspråk)",
-  "producent": "producentens namn (behåll originalspråk)", 
-  "druvor": "druvsort på svenska (t.ex. 'Pinot Noir', 'Chardonnay')",
-  "land_region": "land och region på svenska (t.ex. 'Frankrike, Bordeaux')",
-  "årgång": "YYYY eller '-' om inte hittas",
-  "alkoholhalt": "Exakt som på etiketten (t.ex. '13.5% vol') eller '-'",
-  "volym": "Exakt som på etiketten (t.ex. '750ml') eller '-'",
-  "klassificering": "Kvalitetsbeteckning (DOC, Reserva, etc.) eller '-'",
-  "karaktär": "Kort beskrivning baserad på druva och region",
-  "smak": "Typiska smaker för denna vintyp",
-  "servering": "Rekommenderad temperatur (t.ex. '16-18°C')",
-  "passar_till": ["maträtt1", "maträtt2", "maträtt3"],
+  "vin": "vinets namn",
+  "producent": "producentnamn",
+  "druvor": "druvsort(er)",
+  "land_region": "Land, Region",
+  "årgång": "YYYY eller -",
+  "alkoholhalt": "EXAKT som på flaskan (t.ex. '13.5% vol') - ALDRIG '-' om du ser ett %",
+  "volym": "EXAKT som på flaskan (t.ex. '750ml') - ALDRIG '-' om du ser ml/cl/L",
+  "klassificering": "kvalitetsmärkning eller -",
+  "karaktär": "kort beskrivning baserad på druva/region",
+  "smak": "typiska smaknyanser",
+  "servering": "temperatur (t.ex. '16-18°C')",
+  "passar_till": ["mat1", "mat2", "mat3"],
   "källor": []
 }
 
-VIKTIGT SISTA STEG:
-- Dubbelkolla att du faktiskt TITTADE på hela bilden för alkoholhalt och volym
-- Om du inte hittar dem efter noggrann granskning: använd "-"
-- Generera alltid smakprofil och matmatchningar baserat på druva och region
+## KRITISKT VIKTIGT:
+- Om du ser NÅGON procentsats på bilden → det är troligen alkoholhalt
+- Om du ser "ml", "cl", eller "L" med siffror → det är volym
+- Sätt ALDRIG "-" för alkohol/volym om du kan se eller gissa från bilden
+- Om etiketten är delvis skymd men du ser t.ex. "13" och "%" på olika ställen → kombinera till "13%"
   `.trim();
 
   try {
