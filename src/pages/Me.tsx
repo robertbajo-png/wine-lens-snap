@@ -35,6 +35,7 @@ import { useTheme } from "@/ui/ThemeProvider";
 import type { ThemePreference } from "@/ui/theme";
 import { Camera, Laptop, Loader2, LogOut, Moon, PenLine, Sparkles, SunMedium, UploadCloud } from "lucide-react";
 import { useIsPremium } from "@/hooks/useUserSettings";
+import { createPremiumCheckoutSession } from "@/services/premiumCheckout";
 
 const getDisplayName = (metadata: Record<string, unknown> | undefined, email: string | null) => {
   const candidate =
@@ -76,7 +77,7 @@ const Me = () => {
   const [profile, setProfile] = useState<{ displayName: string | null; avatarUrl: string | null } | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isPremiumDialogOpen, setIsPremiumDialogOpen] = useState(false);
+  const [isStartingPremium, setIsStartingPremium] = useState(false);
   const [formDisplayName, setFormDisplayName] = useState("");
   const [formNameError, setFormNameError] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -323,10 +324,39 @@ const Me = () => {
     [handleThemeChange, themeSaving],
   );
 
-  const handlePremiumCtaClick = useCallback(() => {
+  const handlePremiumCtaClick = useCallback(async () => {
     trackEvent("premium_cta_clicked", { source: "profile" });
-    setIsPremiumDialogOpen(true);
-  }, [setIsPremiumDialogOpen]);
+
+    if (!user) {
+      navigate("/login?redirectTo=/me");
+      return;
+    }
+
+    setIsStartingPremium(true);
+    try {
+      const origin = window.location.origin;
+      const checkoutUrl = `${origin}/premium/checkout/session`;
+      const cancelUrl = `${origin}/me?premium_cancelled=1`;
+      const successUrl = `${origin}/me?premium=1`;
+
+      const session = await createPremiumCheckoutSession(checkoutUrl, {
+        cancelUrl,
+        successUrl,
+      });
+
+      window.location.href = session.redirectUrl;
+    } catch (error) {
+      console.error("Failed to start premium checkout", error);
+      trackEvent("premium_checkout_failed", { source: "profile", message: (error as Error)?.message });
+      toast({
+        title: "Kunde inte starta betalningen",
+        description: "Försök igen om en stund.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsStartingPremium(false);
+    }
+  }, [navigate, toast, user]);
 
   const handleSignOut = async () => {
     try {
@@ -492,10 +522,10 @@ const Me = () => {
                 className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
                 onClick={handlePremiumCtaClick}
                 aria-label="Bli premium"
-                disabled={isPremiumLoading}
+                disabled={isPremiumLoading || isStartingPremium}
               >
-                <Sparkles className="h-4 w-4" />
-                Bli premium
+                {isStartingPremium ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {isStartingPremium ? "Startar..." : "Bli premium"}
               </Button>
             ) : null}
             <Button
@@ -732,32 +762,6 @@ const Me = () => {
         </Card>
       </div>
 
-      <Dialog open={isPremiumDialogOpen} onOpenChange={setIsPremiumDialogOpen}>
-        <DialogContent className="max-w-lg border-[hsl(var(--color-border)/0.8)] bg-theme-elevated text-theme-primary">
-          <DialogHeader>
-            <DialogTitle>Premium kommer snart</DialogTitle>
-            <DialogDescription>
-              Vi bygger klart betalflödet. Under tiden kan du markera intresse så prioriterar vi fler analyser och obegränsade
-              listor.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 text-sm text-theme-secondary">
-            <p>Premium innebär fler analyser per vecka, mer detaljerad smakprofil och obegränsat med sparade listor.</p>
-            <div className="flex flex-wrap gap-2">
-              <PremiumBadge message="Fler analyser per vecka utan väntetid." />
-              <PremiumBadge message="Djupare smakprofil med fler smaknyanser." />
-              <PremiumBadge message="Spara och organisera alla dina viner." />
-            </div>
-          </div>
-          <DialogFooter className="pt-2">
-            <DialogClose asChild>
-              <Button variant="outline" className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary">
-                Stäng
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

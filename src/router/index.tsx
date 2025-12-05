@@ -14,6 +14,7 @@ import NotFound from "@/pages/NotFound";
 import Login from "@/pages/Login";
 import LoginCallback from "@/pages/LoginCallback";
 import Me from "@/pages/Me";
+import PremiumCheckoutSession from "@/pages/PremiumCheckoutSession";
 import DevEventsPage from "@/pages/dev/Events";
 
 const LoadingScreen = () => (
@@ -128,6 +129,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "me", element: <Me /> },
           { path: "me/wines", element: <History /> },
+          { path: "premium/checkout/session", element: <PremiumCheckoutSession /> },
         ],
       },
     ],

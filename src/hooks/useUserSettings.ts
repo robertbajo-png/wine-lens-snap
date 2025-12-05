@@ -30,19 +30,20 @@ export const useUserSettings = () => {
 
   const settings = userId ? query.data ?? null : null;
   const settingsJson = settings?.settings_json as { is_premium?: boolean; premium_since?: string } | null;
-  const isPremium = settingsJson?.is_premium ?? false;
+  const premiumFlag = settings?.is_premium ?? settingsJson?.is_premium ?? false;
+  const premiumTimestamp = settings?.premium_since ?? settingsJson?.premium_since ?? null;
   const premiumSince = useMemo(() => {
-    if (!settingsJson?.premium_since) {
+    if (!premiumTimestamp) {
       return null;
     }
 
-    const parsed = new Date(settingsJson.premium_since);
+    const parsed = new Date(premiumTimestamp);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }, [settingsJson?.premium_since]);
+  }, [premiumTimestamp]);
 
   return {
     settings,
-    isPremium,
+    isPremium: premiumFlag,
     premiumSince,
     isLoading: userId ? query.isPending : false,
     error: query.error ?? null,
