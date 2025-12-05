@@ -411,23 +411,76 @@ export type Database = {
       user_settings: {
         Row: {
           created_at: string
+          is_premium: boolean
+          premium_since: string | null
           settings_json: Json | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          is_premium?: boolean
+          premium_since?: string | null
           settings_json?: Json | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          is_premium?: boolean
+          premium_since?: string | null
           settings_json?: Json | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      premium_checkout_sessions: {
+        Row: {
+          cancel_url: string | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          provider_session_id: string | null
+          status: string
+          success_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_url?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          provider_session_id?: string | null
+          status?: string
+          success_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_url?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          provider_session_id?: string | null
+          status?: string
+          success_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "premium_checkout_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       wine_index: {
         Row: {
