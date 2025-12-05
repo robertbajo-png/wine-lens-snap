@@ -16,6 +16,7 @@ export type StartScanOptions = {
   uiLang: string;
   supabaseUrl: string;
   supabaseAnonKey: string;
+  allowFullAnalysis?: boolean;
 };
 
 export type ScanPipelineState = {
@@ -72,7 +73,7 @@ export const useScanPipeline = () => {
   }, []);
 
   const startScan = useCallback(
-    async ({ source, uiLang, supabaseUrl, supabaseAnonKey }: StartScanOptions) => {
+    async ({ source, uiLang, supabaseUrl, supabaseAnonKey, allowFullAnalysis = true }: StartScanOptions) => {
       scanStartTimeRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
       setScanStatus("processing");
       setIsProcessing(true);
@@ -88,6 +89,7 @@ export const useScanPipeline = () => {
           uiLang,
           supabaseUrl,
           supabaseAnonKey,
+          allowFullAnalysis,
           onProgress: (progress: ScanPipelineProgress) => {
             setProgressStep(progress.step);
             setProgressPercent(progress.percent);
