@@ -51,6 +51,7 @@ export type RunFullScanPipelineParams = {
   supabaseUrl: string;
   supabaseAnonKey: string;
   onProgress?: (progress: ScanPipelineProgress) => void;
+  allowFullAnalysis?: boolean;
 };
 
 const MAX_FILE_SIDE = 2048;
@@ -195,6 +196,7 @@ export const runFullScanPipeline = async ({
   supabaseUrl,
   supabaseAnonKey,
   onProgress,
+  allowFullAnalysis = true,
 }: RunFullScanPipelineParams): Promise<ScanPipelineResult> => {
   await prewarmOcr(uiLang).catch(() => {
     // ignorerad förladdningsfail
@@ -265,7 +267,7 @@ export const runFullScanPipeline = async ({
   onProgress?.({ step: "analysis", note: "Analyserar vinet …", percent: null, label: null });
 
   let response: Response | null = null;
-  let analysisMode: "full" | "label_only" = "full";
+  let analysisMode: "full" | "label_only" = allowFullAnalysis ? "full" : "label_only";
 
   try {
     response = await callAnalysis({
@@ -276,10 +278,10 @@ export const runFullScanPipeline = async ({
       noTextFound,
       uiLang,
       ocrKey,
-      labelOnly: false,
+      labelOnly: !allowFullAnalysis,
     });
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") {
+    if (allowFullAnalysis && error instanceof Error && error.name === "AbortError") {
       onProgress?.({ step: "analysis", label: "Etikettläge", note: "Webbsökning tog för lång tid – visar etikettinfo.", percent: 65 });
       analysisMode = "label_only";
       response = await callAnalysis({

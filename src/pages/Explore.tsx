@@ -24,6 +24,7 @@ import { trackEvent } from "@/lib/telemetry";
 import { logEvent } from "@/lib/logger";
 import { withTimeoutFallback } from "@/lib/fallback";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useIsPremium } from "@/hooks/useUserSettings";
 
 const SEARCH_PLACEHOLDER = "Sök bland etiketter, producenter eller anteckningar";
 const TREND_LIMIT = 3;
@@ -882,6 +883,7 @@ ExploreScanList.displayName = "ExploreScanList";
 const Explore = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isPremium, isLoading: isPremiumLoading } = useIsPremium();
   const [searchParams, setSearchParams] = useSearchParams();
   const sessionIdRef = useRef<string>();
   const exploreOpenedRef = useRef(false);
@@ -899,6 +901,10 @@ const Explore = () => {
       logExploreCardOpened(cardType);
     }
   };
+
+  const handleUpgrade = useCallback(() => {
+    navigate("/me");
+  }, [navigate]);
 
   if (!sessionIdRef.current) {
     sessionIdRef.current = createExploreSessionId();
@@ -1002,6 +1008,7 @@ const Explore = () => {
   }, [manualFiltersActive, paramsFilters, fallbackQuickFilter]);
 
   const highlightedFilterId = selectedFilterId ?? (!manualFiltersActive ? fallbackQuickFilter?.id ?? null : null);
+  const advancedFiltersLocked = !isPremium && !isPremiumLoading;
 
   const debouncedFilters = useDebouncedValue(effectiveFilters, 250);
   const debouncedSerializedFilters = useMemo(
@@ -1065,6 +1072,9 @@ const Explore = () => {
 
   const handleSearchFilterChange = useCallback(
     (field: SearchFilterField, value: string) => {
+      if (advancedFiltersLocked && field !== "label") {
+        return;
+      }
       const params = new URLSearchParams(searchParams);
       const normalizedValue = field === "label" ? value : value === FILTER_EMPTY_VALUE ? "" : value;
       if (normalizedValue) {
@@ -1091,7 +1101,7 @@ const Explore = () => {
         { sessionId: sessionIdRef.current },
       );
     },
-    [availableFilters, searchParams, setSearchParams],
+    [advancedFiltersLocked, availableFilters, searchParams, setSearchParams],
   );
 
   const handleClearFilters = useCallback(() => {
@@ -1180,25 +1190,27 @@ const Explore = () => {
 
   const handleScanOpen = useCallback(
     (scan: ExploreScan) => {
-    trackEvent(
-      "explore_scan_opened",
-      {
-        scanId: scan.id,
-        source: scan.source,
-        manualFiltersActive,
-        quickFilterId: highlightedFilterId,
-      },
-      { sessionId: sessionIdRef.current },
-    );
-  }, [highlightedFilterId, manualFiltersActive]);
+      trackEvent(
+        "explore_scan_opened",
+        {
+          scanId: scan.id,
+          source: scan.source,
+          manualFiltersActive,
+          quickFilterId: highlightedFilterId,
+        },
+        { sessionId: sessionIdRef.current },
+      );
+    },
+    [highlightedFilterId, manualFiltersActive],
+  );
 
   const handleScanCardKeyDown = useCallback(
     (event: KeyboardEvent<HTMLElement>, scan: ExploreScan) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      handleScanOpen(scan);
-    }
-  },
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        handleScanOpen(scan);
+      }
+    },
     [handleScanOpen],
   );
 
@@ -1269,10 +1281,30 @@ const Explore = () => {
             </div>
           </label>
 
+          {advancedFiltersLocked && (
+            <div className="rounded-2xl border border-[hsl(var(--color-border)/0.45)] bg-[hsl(var(--color-surface)/0.35)] p-4 text-sm text-theme-secondary">
+              <p className="font-semibold text-theme-primary">Avancerade filter är premium</p>
+              <p className="mt-1">
+                Filtrera på druva, region och stil med premium för att låsa upp fler träffar och bättre rekommendationer.
+              </p>
+              <Button
+                size="sm"
+                className="mt-3 w-fit rounded-full bg-theme-accent px-4 text-theme-on-accent"
+                onClick={handleUpgrade}
+              >
+                Bli premium
+              </Button>
+            </div>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Druva</Label>
-              <Select value={effectiveFilters.grape ?? FILTER_EMPTY_VALUE} onValueChange={(value) => handleSearchFilterChange("grape", value)}>
+              <Select
+                value={effectiveFilters.grape ?? FILTER_EMPTY_VALUE}
+                onValueChange={(value) => handleSearchFilterChange("grape", value)}
+                disabled={advancedFiltersLocked}
+              >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla druvor" />
                 </SelectTrigger>
@@ -1289,7 +1321,11 @@ const Explore = () => {
 
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Region</Label>
-              <Select value={effectiveFilters.region ?? FILTER_EMPTY_VALUE} onValueChange={(value) => handleSearchFilterChange("region", value)}>
+              <Select
+                value={effectiveFilters.region ?? FILTER_EMPTY_VALUE}
+                onValueChange={(value) => handleSearchFilterChange("region", value)}
+                disabled={advancedFiltersLocked}
+              >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla regioner" />
                 </SelectTrigger>
@@ -1306,7 +1342,11 @@ const Explore = () => {
 
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Stil</Label>
-              <Select value={effectiveFilters.style ?? FILTER_EMPTY_VALUE} onValueChange={(value) => handleSearchFilterChange("style", value)}>
+              <Select
+                value={effectiveFilters.style ?? FILTER_EMPTY_VALUE}
+                onValueChange={(value) => handleSearchFilterChange("style", value)}
+                disabled={advancedFiltersLocked}
+              >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla stilar" />
                 </SelectTrigger>

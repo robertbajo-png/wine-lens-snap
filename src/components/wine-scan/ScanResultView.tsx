@@ -16,10 +16,11 @@ import { PremiumBadge } from "@/components/PremiumBadge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookmarkPlus, Download, ImageUp, Loader2, RefreshCcw, Trash2 } from "lucide-react";
+import { BookmarkPlus, Download, ImageUp, Loader2, Lock, RefreshCcw, Trash2 } from "lucide-react";
 import type { BadgeProps } from "@/components/ui/badge";
 import type { WineAnalysisResult } from "@/lib/wineCache";
 import { ReactNode } from "react";
+import { FREE_SCAN_LIMIT_PER_DAY } from "@/lib/premiumAccess";
 
 interface ScanResultViewProps {
   results: WineAnalysisResult;
@@ -69,6 +70,9 @@ interface ScanResultViewProps {
   ocrText?: string | null;
   evidenceLinks?: string[] | null;
   detectedLanguage?: string;
+  isPremium: boolean;
+  onUpgrade: () => void;
+  freeScansRemaining: number;
 }
 
 export const ScanResultView = ({
@@ -119,6 +123,9 @@ export const ScanResultView = ({
   ocrText,
   evidenceLinks,
   detectedLanguage,
+  isPremium,
+  onUpgrade,
+  freeScansRemaining,
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
 
@@ -274,6 +281,27 @@ export const ScanResultView = ({
 
           {banner}
 
+          {!isPremium && (
+            <Card className="mb-4 border-theme-card/80 bg-theme-elevated/70 backdrop-blur">
+              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1 text-sm text-theme-secondary">
+                  <p className="text-base font-semibold text-theme-primary">Premium låser upp djupanalys</p>
+                  <p>
+                    Gratisläget ger {FREE_SCAN_LIMIT_PER_DAY} analyser per dag och ett etikettläge. Du har
+                    {" "}
+                    {freeScansRemaining} kvar idag. Premium ger obegränsad skanning och alla detaljer.
+                  </p>
+                </div>
+                <Button
+                  className="self-start rounded-full bg-theme-accent px-5 text-theme-on-accent shadow-theme-card"
+                  onClick={onUpgrade}
+                >
+                  Bli premium
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <Badge variant={statusTone}>{statusLabel}</Badge>
             <div className="flex flex-wrap gap-2">
@@ -398,23 +426,49 @@ export const ScanResultView = ({
               />
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <ClampTextCard title="Karaktär" text={results.karaktär} />
-                <ClampTextCard title="Smak" text={results.smak} />
-              </div>
+              <ClampTextCard title="Karaktär" text={results.karaktär} />
+              <ClampTextCard title="Smak" text={results.smak} />
+            </div>
 
-              <Pairings items={pairings} />
+            {isPremium ? (
+              <>
+                <Pairings items={pairings} />
 
-              <ServingCard servering={results.servering} />
+                <ServingCard servering={results.servering} />
 
-              <EvidenceAccordion
-                ocr={ocrText}
-                hits={evidenceLinks}
-                primary={results.källa}
-              />
+                <EvidenceAccordion
+                  ocr={ocrText}
+                  hits={evidenceLinks}
+                  primary={results.källa}
+                />
+              </>
+            ) : (
+              <Card className="border-theme-card/70 bg-theme-elevated/70">
+                <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3 text-sm text-theme-secondary">
+                    <Lock className="mt-1 h-4 w-4 text-theme-primary" aria-hidden="true" />
+                    <div className="space-y-1">
+                      <p className="font-semibold text-theme-primary">Djupare analys är låst</p>
+                      <p>
+                        Matrekommendationer, serveringstips och källor ingår i premium. Uppgradera för att se
+                        helheten.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="rounded-full border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
+                    onClick={onUpgrade}
+                  >
+                    Lås upp Premium
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
-              {detectedLanguage && (
-                <p className="text-xs text-theme-secondary opacity-80">Upptäckt språk: {detectedLanguage.toUpperCase()}</p>
-              )}
+            {detectedLanguage && (
+              <p className="text-xs text-theme-secondary opacity-80">Upptäckt språk: {detectedLanguage.toUpperCase()}</p>
+            )}
 
               <p className="text-xs text-theme-secondary opacity-80">
                 Spara profilen för att lägga till den i dina viner. Osparade skanningar rensas när du lämnar sidan.

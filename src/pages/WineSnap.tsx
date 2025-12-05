@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
+import { useIsPremium } from "@/hooks/useUserSettings";
 import { computeLabelHash, type WineAnalysisResult } from "@/lib/wineCache";
 import { prewarmOcr } from "@/lib/ocrWorker";
 import { Banner } from "@/components/Banner";
@@ -23,6 +24,7 @@ import { useScanPipeline } from "@/hooks/useScanPipeline";
 import type { PipelineSource, ProgressKey, ScanStatus } from "@/services/scanPipelineService";
 import { ScanResultView } from "@/components/wine-scan/ScanResultView";
 import { ScanEmptyState } from "@/components/wine-scan/ScanEmptyState";
+import { FREE_SCAN_LIMIT_PER_DAY, getFreeScanUsage, incrementFreeScanUsage } from "@/lib/premiumAccess";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -56,6 +58,7 @@ const WineSnap = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isPremium, isLoading: isPremiumLoading } = useIsPremium();
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [banner, setBanner] = useState<BannerState | null>(null);
@@ -97,6 +100,7 @@ const WineSnap = () => {
   } = useScanPipeline();
   const { setTabState } = useTabStateContext();
   const triggerHaptic = useHapticFeedback();
+  const [freeScanUsage, setFreeScanUsage] = useState(() => getFreeScanUsage());
 
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
@@ -153,6 +157,27 @@ const WineSnap = () => {
       return;
     }
 
+    if (!isPremium && !isPremiumLoading) {
+      const usage = getFreeScanUsage();
+      if (usage.count >= usage.limit) {
+        setBanner({
+          type: "warning",
+          title: "Premium-funktion",
+          text: `Gratis ger ${usage.limit} analyser per dag. Lås upp obegränsade skanningar och djupanalys med Premium.`,
+          ctaLabel: "Bli premium",
+          onCta: () => navigate("/me"),
+        });
+        toast({
+          title: "Begränsat i gratisläget",
+          description: "Du har nått dagens gräns. Uppgradera till premium för obegränsade analyser.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setFreeScanUsage(usage);
+    }
+
     const modeHint = cameraModeRef.current ? "camera" : "manual";
     const labelHashPresent = Boolean(
       computeLabelHash(currentOcrText ?? results?.originaltext ?? results?.vin ?? null),
@@ -194,6 +219,7 @@ const WineSnap = () => {
         uiLang,
         supabaseUrl,
         supabaseAnonKey,
+        allowFullAnalysis: isPremium || isPremiumLoading,
       });
 
       const {
@@ -233,6 +259,11 @@ const WineSnap = () => {
         });
       } else {
         shouldAutoRetakeRef.current = false;
+      }
+
+      if (!isPremium) {
+        incrementFreeScanUsage();
+        setFreeScanUsage(getFreeScanUsage());
       }
 
       if (fromCache) {
@@ -809,7 +840,7 @@ const WineSnap = () => {
     const refinementReason = results.mode === "label_only"
       ? "Det här bygger bara på etiketten – lägg till detaljer eller försök igen."
       : "Analysen är osäker – förbättra resultatet med fler detaljer.";
-    const showDetailedSections = true;
+    const showDetailedSections = isPremium;
     const grapeSuggestions = Array.from(
       new Set(
         [
@@ -825,6 +856,7 @@ const WineSnap = () => {
           .slice(0, 6),
       ),
     );
+    const freeScansRemaining = Math.max(0, freeScanUsage.remaining);
 
     return (
       <>
@@ -882,6 +914,9 @@ const WineSnap = () => {
           showVerifiedMeters={showVerifiedMeters}
           metersAreEstimated={metersAreEstimated}
           showDetailedSections={showDetailedSections}
+          isPremium={isPremium}
+          onUpgrade={() => navigate("/me")}
+          freeScansRemaining={freeScansRemaining}
           ocrText={ocrText}
           evidenceLinks={
             sourceStatus?.evidence_links?.length
