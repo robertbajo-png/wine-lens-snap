@@ -30,8 +30,8 @@ export const useUserSettings = () => {
 
   const settings = userId ? query.data ?? null : null;
   const settingsJson = settings?.settings_json as { is_premium?: boolean; premium_since?: string } | null;
-  const premiumFlag = settings?.is_premium ?? settingsJson?.is_premium ?? false;
-  const premiumTimestamp = settings?.premium_since ?? settingsJson?.premium_since ?? null;
+  const premiumFlag = settingsJson?.is_premium ?? false;
+  const premiumTimestamp = settingsJson?.premium_since ?? null;
   const premiumSince = useMemo(() => {
     if (!premiumTimestamp) {
       return null;
