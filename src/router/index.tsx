@@ -1,26 +1,31 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Navigate, Outlet, createBrowserRouter, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthProvider";
 import BottomTabLayout from "@/layouts/BottomTabLayout";
-import ForYou from "@/pages/ForYou";
-import Explore from "@/pages/Explore";
-import WineSnap from "@/pages/WineSnap";
-import Following from "@/pages/Following";
-import History from "@/pages/History";
-import About from "@/pages/About";
-import NotFound from "@/pages/NotFound";
-import Login from "@/pages/Login";
-import LoginCallback from "@/pages/LoginCallback";
-import Me from "@/pages/Me";
-import PremiumCheckoutSession from "@/pages/PremiumCheckoutSession";
-import DevEventsPage from "@/pages/dev/Events";
+
+const ForYou = lazy(() => import("@/pages/ForYou"));
+const Explore = lazy(() => import("@/pages/Explore"));
+const WineSnap = lazy(() => import("@/pages/WineSnap"));
+const Following = lazy(() => import("@/pages/Following"));
+const History = lazy(() => import("@/pages/History"));
+const About = lazy(() => import("@/pages/About"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Login = lazy(() => import("@/pages/Login"));
+const LoginCallback = lazy(() => import("@/pages/LoginCallback"));
+const Me = lazy(() => import("@/pages/Me"));
+const PremiumCheckoutSession = lazy(() => import("@/pages/PremiumCheckoutSession"));
+const DevEventsPage = lazy(() => import("@/pages/dev/Events"));
 
 const LoadingScreen = () => (
   <div className="flex min-h-[50vh] items-center justify-center text-theme-secondary">
     Laddar...
   </div>
+);
+
+const withSuspense = (node: JSX.Element) => (
+  <Suspense fallback={<LoadingScreen />}>{node}</Suspense>
 );
 
 const GuardSkeleton = () => (
@@ -120,32 +125,32 @@ export const router = createBrowserRouter([
     element: <BottomTabLayout />,
     children: [
       { index: true, element: <StartRedirect /> },
-      { path: "for-you", element: <ForYou /> },
-      { path: "explore", element: <Explore /> },
-      { path: "scan", element: <WineSnap /> },
-      { path: "following", element: <Following /> },
+      { path: "for-you", element: withSuspense(<ForYou />) },
+      { path: "explore", element: withSuspense(<Explore />) },
+      { path: "scan", element: withSuspense(<WineSnap />) },
+      { path: "following", element: withSuspense(<Following />) },
       {
         element: <ProtectedRoute />,
         children: [
-          { path: "me", element: <Me /> },
-          { path: "me/wines", element: <History /> },
-          { path: "premium/checkout/session", element: <PremiumCheckoutSession /> },
+          { path: "me", element: withSuspense(<Me />) },
+          { path: "me/wines", element: withSuspense(<History />) },
+          { path: "premium/checkout/session", element: withSuspense(<PremiumCheckoutSession />) },
         ],
       },
     ],
   },
-  { path: "/login", element: <Login /> },
-  { path: "/login/callback", element: <LoginCallback /> },
+  { path: "/login", element: withSuspense(<Login />) },
+  { path: "/login/callback", element: withSuspense(<LoginCallback />) },
   ...(import.meta.env.DEV
     ? [
         {
           element: <ProtectedRoute />,
-          children: [{ path: "/dev/events", element: <DevEventsPage /> }],
+          children: [{ path: "/dev/events", element: withSuspense(<DevEventsPage />) }],
         },
       ]
     : []),
-  { path: "/om", element: <About /> },
+  { path: "/om", element: withSuspense(<About />) },
   { path: "/skanna", element: <Navigate to="/scan" replace /> },
   { path: "/historik", element: <Navigate to="/me/wines" replace /> },
-  { path: "*", element: <NotFound /> },
+  { path: "*", element: withSuspense(<NotFound />) },
 ]);

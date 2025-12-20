@@ -1,5 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { WineAnalysisResult } from "@/lib/wineCache";
 import { runFullScanPipeline } from "../scanPipelineService";
+
+const telemetryMocks = vi.hoisted(() => ({
+  trackEventMock: vi.fn(),
+}));
+
+vi.mock("@/lib/telemetry", () => ({
+  trackEvent: telemetryMocks.trackEventMock,
+}));
 
 const workerMocks = vi.hoisted(() => ({
   prewarmOcrMock: vi.fn(),
@@ -66,6 +75,7 @@ const baseSource = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  telemetryMocks.trackEventMock.mockReset();
   fetchMock.mockReset();
   pipelineMocks.supportsOffscreenCanvasMock.mockReturnValue(false);
   pipelineMocks.runPipelineOnMainMock.mockResolvedValue({ base64: "processed-image", bitmap: null });
@@ -85,6 +95,52 @@ afterEach(() => {
 });
 
 describe("runFullScanPipeline", () => {
+  it("returnerar cache-träff med telemetri", async () => {
+    const cachedResult: WineAnalysisResult = {
+      vin: "Cached Wine",
+      land_region: "Spanien",
+      producent: "Bodega",
+      druvor: "Tempranillo",
+      årgång: "2019",
+      typ: "Rött",
+      färgtyp: "Rött",
+      klassificering: "DOCa",
+      alkoholhalt: "14%",
+      volym: "750ml",
+      karaktär: "Kryddig",
+      smak: "Fruktig",
+      passar_till: ["Tapas"],
+      servering: "16°C",
+      sockerhalt: "2 g/l",
+      syra: "Medel",
+      källa: "cache",
+      meters: { sötma: 1, fyllighet: 2, fruktighet: 3, fruktsyra: 4 },
+      evidence: { etiketttext: "etikett", webbträffar: [] },
+      källstatus: { source: "cache", evidence_links: [] },
+      mode: "label_only",
+      detekterat_språk: "sv",
+      originaltext: "cached text",
+    };
+
+    cacheMocks.getCachedAnalysisEntryMock.mockReturnValue({ result: cachedResult, saved: true });
+
+    const result = await runFullScanPipeline({
+      source: baseSource,
+      uiLang: "sv",
+      supabaseUrl: "https://example.supabase.co",
+      supabaseAnonKey: "anon",
+    });
+
+    expect(result.fromCache).toBe(true);
+    expect(result.savedFromCache).toBe(true);
+    expect(result.analysisMode).toBe("label_only");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(telemetryMocks.trackEventMock).toHaveBeenCalledWith(
+      "analysis_cache_hit",
+      expect.objectContaining({ saved: true }),
+    );
+  });
+
   it("kör full analys och cacher resultat", async () => {
     fetchMock.mockResolvedValue(
       new Response(
@@ -200,6 +256,10 @@ describe("runFullScanPipeline", () => {
     expect(secondBody.labelOnly).toBe(true);
     expect(result.analysisMode).toBe("label_only");
     expect(result.resolvedNote).toBe("label_only_fallback");
+    expect(telemetryMocks.trackEventMock).toHaveBeenCalledWith(
+      "analysis_label_only_fallback",
+      expect.objectContaining({ note: "label_only_fallback" }),
+    );
   });
 
   it("kastar vänligt fel när rate-limit nås", async () => {
