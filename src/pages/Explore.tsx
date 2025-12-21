@@ -1466,8 +1466,8 @@ const Explore = () => {
                     aria-pressed={isActive}
                   >
                     <div className="flex flex-col text-left">
-                      <span className="text-sm font-semibold">{filter.label}</span>
-                      <span className="text-[11px] uppercase tracking-[0.3em] text-theme-secondary/60">
+                      <span className="text-sm font-semibold leading-tight">{filter.label}</span>
+                      <span className="text-xs text-theme-secondary/70">
                         {filter.description}
                       </span>
                     </div>
