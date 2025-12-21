@@ -251,7 +251,10 @@ export const runFullScanPipeline = async ({
   const cacheLookupKey = !noTextFound && ocrText ? ocrText : processedImage;
   const cacheKey = getCacheKey(cacheLookupKey);
   const cachedEntry = getCachedAnalysisEntry(cacheLookupKey);
-  if (cachedEntry) {
+  
+  // Only use cache if it contains full analysis (label+web), not label_only
+  // This ensures we always try to get full analysis when possible
+  if (cachedEntry && cachedEntry.result.mode !== 'label_only') {
     const cachedResult = normalizeAnalysisSchema(cachedEntry.result) ?? cachedEntry.result;
     const cachedRawOcrValue = !noTextFound && ocrText ? ocrText : null;
     trackEvent("analysis_cache_hit", {
@@ -268,6 +271,8 @@ export const runFullScanPipeline = async ({
       fromCache: true,
       savedFromCache: cachedEntry.saved,
     };
+  } else if (cachedEntry && cachedEntry.result.mode === 'label_only') {
+    console.log('[scanPipeline] Skipping label_only cached result, forcing fresh full analysis');
   }
 
   onProgress?.({ step: "analysis", note: "Analyserar vinet …", percent: null, label: null });
