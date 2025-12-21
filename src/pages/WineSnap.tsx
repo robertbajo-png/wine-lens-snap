@@ -111,9 +111,23 @@ const WineSnap = () => {
   const shouldAutoRetakeRef = useRef(false);
   const currentImageRef = useRef<PipelineSource | null>(null);
   const ensureScanPromiseRef = useRef<Promise<string> | null>(null);
+  const filePickerPendingRef = useRef(false);
 
   const openFilePicker = (useCamera: boolean) => {
+    // Prevent duplicate calls - if we already tried to open the file picker recently, abort
+    if (filePickerPendingRef.current) {
+      console.log('[openFilePicker] Already pending, skipping duplicate call');
+      return;
+    }
+    
     console.log('[openFilePicker] Called, useCamera:', useCamera);
+    filePickerPendingRef.current = true;
+    
+    // Reset pending status after short delay (to allow new clicks later)
+    setTimeout(() => {
+      filePickerPendingRef.current = false;
+    }, 500);
+    
     cameraOpenedRef.current = true;
     cameraModeRef.current = useCamera;
     const input = document.getElementById("wineImageUpload") as HTMLInputElement | null;
@@ -147,15 +161,17 @@ const WineSnap = () => {
     };
   }, [terminateWorker]);
 
-  useEffect(() => {
-    if (results || previewImage) return;
-    if (autoOpenedRef.current) return;
-    autoOpenedRef.current = true;
-    const t = setTimeout(() => {
-      openFilePicker(true);
-    }, 0);
-    return () => clearTimeout(t);
-  }, [results, previewImage]);
+  // Auto-trigger on mount disabled - user should click the button themselves
+  // This prevents conflicts with manual button clicks on mobile browsers
+  // useEffect(() => {
+  //   if (results || previewImage) return;
+  //   if (autoOpenedRef.current) return;
+  //   autoOpenedRef.current = true;
+  //   const t = setTimeout(() => {
+  //     openFilePicker(true);
+  //   }, 0);
+  //   return () => clearTimeout(t);
+  // }, [results, previewImage]);
 
   const processWineImage = async (source?: PipelineSource | null) => {
     const uiLang = navigator.language || "sv-SE";
@@ -649,19 +665,28 @@ const WineSnap = () => {
       lastTriggerRef.current = state.triggerNewScan;
       // Clear the state to prevent re-triggering on refresh
       navigate(location.pathname, { replace: true, state: {} });
-      // Reset and open camera
-      handleReset({ reopenPicker: true, useCamera: true });
+      // Check if file picker is already pending before triggering
+      if (!filePickerPendingRef.current) {
+        // Reset and open camera
+        handleReset({ reopenPicker: true, useCamera: true });
+      }
     }
   }, [location.state, location.pathname, navigate]);
 
   const handleRetryScan = () => {
     if (isProcessing) return;
-    handleReset({ reopenPicker: true, useCamera: true });
+    // Open file picker FIRST (synchronously in click handler) to preserve user gesture
+    openFilePicker(true);
+    // Then reset state (without reopening picker)
+    handleReset({ reopenPicker: false });
   };
 
   const handleChangeImage = () => {
     if (isProcessing) return;
-    handleReset({ reopenPicker: true, useCamera: false });
+    // Open file picker FIRST (synchronously in click handler) to preserve user gesture
+    openFilePicker(false);
+    // Then reset state (without reopening picker)
+    handleReset({ reopenPicker: false });
   };
 
   const handleSaveWine = useCallback(() => {
