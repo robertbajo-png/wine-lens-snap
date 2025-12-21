@@ -252,9 +252,27 @@ export const runFullScanPipeline = async ({
   const cacheKey = getCacheKey(cacheLookupKey);
   const cachedEntry = getCachedAnalysisEntry(cacheLookupKey);
   
-  // Only use cache if it contains full analysis (label+web), not label_only
-  // This ensures we always try to get full analysis when possible
-  if (cachedEntry && cachedEntry.result.mode !== 'label_only') {
+  // Helper to check if a cached result has actual useful wine data
+  const hasUsefulData = (result: WineAnalysisResult): boolean => {
+    const vin = result.vin;
+    const isEmptyVin = !vin || vin === '-' || vin === '–' || vin.trim() === '';
+    if (isEmptyVin) return false;
+    
+    // Also check if we have at least some meaningful data
+    const hasRegion = result.land_region && result.land_region !== '-' && result.land_region !== '–';
+    const hasProducer = result.producent && result.producent !== '-' && result.producent !== '–';
+    const hasGrapes = result.druvor && result.druvor !== '-' && result.druvor !== '–';
+    
+    return hasRegion || hasProducer || hasGrapes;
+  };
+  
+  // Only use cache if it contains full analysis with actual useful data
+  // Skip if: label_only mode, OR result has no useful data (empty/placeholder values)
+  const shouldUseCache = cachedEntry && 
+    cachedEntry.result.mode !== 'label_only' && 
+    hasUsefulData(cachedEntry.result);
+    
+  if (shouldUseCache) {
     const cachedResult = normalizeAnalysisSchema(cachedEntry.result) ?? cachedEntry.result;
     const cachedRawOcrValue = !noTextFound && ocrText ? ocrText : null;
     trackEvent("analysis_cache_hit", {
@@ -271,8 +289,11 @@ export const runFullScanPipeline = async ({
       fromCache: true,
       savedFromCache: cachedEntry.saved,
     };
-  } else if (cachedEntry && cachedEntry.result.mode === 'label_only') {
-    console.log('[scanPipeline] Skipping label_only cached result, forcing fresh full analysis');
+  } else if (cachedEntry) {
+    const reason = cachedEntry.result.mode === 'label_only' 
+      ? 'label_only mode' 
+      : 'no useful data in cached result';
+    console.log(`[scanPipeline] Skipping cached result (${reason}), forcing fresh full analysis`);
   }
 
   onProgress?.({ step: "analysis", note: "Analyserar vinet …", percent: null, label: null });
