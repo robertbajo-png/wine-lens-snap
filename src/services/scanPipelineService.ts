@@ -203,8 +203,12 @@ export const runFullScanPipeline = async ({
     // ignorerad förladdningsfail
   });
 
+  // DEBUG: Log original image size
+  const originalSizeKB = Math.round(source.buffer.byteLength / 1024);
+  console.log(`[scanPipeline] Original image: ${originalSizeKB}KB, type: ${source.type}`);
+
   const options: PipelineOptions = {
-    autoCrop: { fallbackCropPct: 0.1 },
+    autoCrop: null, // DISABLED for debugging - to see if auto-crop is cutting text
     preprocess: {
       maxSide: MAX_FILE_SIDE,
       quality: JPEG_QUALITY,
@@ -212,6 +216,8 @@ export const runFullScanPipeline = async ({
       contrast: 1.0,     // No contrast adjustment - preserve original details
     },
   };
+
+  console.log(`[scanPipeline] Pipeline options:`, JSON.stringify(options));
 
   const progressHandler = (update: PipelineProgress) => {
     onProgress?.(toProgressState(update));
@@ -222,6 +228,7 @@ export const runFullScanPipeline = async ({
     try {
       const blob = new Blob([source.buffer], { type: source.type || "image/jpeg" });
       const bitmap = await createImageBitmap(blob);
+      console.log(`[scanPipeline] Bitmap created: ${bitmap.width}x${bitmap.height}`);
       pipelineResult = await runWorkerPipeline(bitmap, options, source.orientation, progressHandler);
     } catch (workerError) {
       console.warn("Worker pipeline misslyckades, faller tillbaka på huvudtråden", workerError);
@@ -230,6 +237,11 @@ export const runFullScanPipeline = async ({
   } else {
     pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
   }
+
+  // DEBUG: Log processed image size
+  const processedSizeKB = Math.round((pipelineResult.base64.length * 0.75) / 1024);
+  console.log(`[scanPipeline] Processed image: ~${processedSizeKB}KB base64 (after pipeline)`);
+  console.log(`[scanPipeline] Size change: ${originalSizeKB}KB -> ~${processedSizeKB}KB`);
 
   if (pipelineResult.bitmap) {
     pipelineResult.bitmap.close();

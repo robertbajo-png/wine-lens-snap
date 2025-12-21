@@ -1586,6 +1586,11 @@ Deno.serve(async (req) => {
     const startTime = Date.now();
     console.log(`[${new Date().toISOString()}] Wine analysis started`);
 
+    // DEBUG: Log received image size
+    const imageSizeKB = Math.round((imageBase64.length * 0.75) / 1024);
+    console.log(`[${new Date().toISOString()}] DEBUG - Received image: ~${imageSizeKB}KB, base64 length: ${imageBase64.length}`);
+    console.log(`[${new Date().toISOString()}] DEBUG - Client OCR provided: ${!!ocrTextFromClient}, length: ${ocrTextFromClient?.length ?? 0}`);
+
     let analysisKey = "";
 
     // OCR Quality Validation Function
