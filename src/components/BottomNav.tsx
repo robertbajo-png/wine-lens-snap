@@ -14,6 +14,7 @@ import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { trackEvent } from "@/lib/telemetry";
 import { useFollowingFeedNotifications } from "@/hooks/useFollowingFeedNotifications";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const iconMap: Record<TabKey, ComponentType<SVGProps<SVGSVGElement>>> = {
   "for-you": ForYouIcon,
@@ -23,6 +24,14 @@ const iconMap: Record<TabKey, ComponentType<SVGProps<SVGSVGElement>>> = {
   profile: ProfileIcon,
 };
 
+const tabLabelKeys: Record<TabKey, "nav.forYou" | "nav.explore" | "nav.scan" | "nav.following" | "nav.profile"> = {
+  "for-you": "nav.forYou",
+  explore: "nav.explore",
+  scan: "nav.scan",
+  following: "nav.following",
+  profile: "nav.profile",
+};
+
 const BottomNav = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -30,6 +39,7 @@ const BottomNav = () => {
   const triggerHaptic = useHapticFeedback();
   const { user, loading } = useAuth();
   const { newPostsCount } = useFollowingFeedNotifications();
+  const { t } = useTranslation();
 
   const activeKey = useMemo(() => {
     const current = TAB_DEFINITIONS.find((tab) =>
@@ -47,6 +57,7 @@ const BottomNav = () => {
     (tab: TabDefinition) => {
       const targetState = stateMap[tab.key];
       const targetPath = targetState?.lastPath ?? getDefaultTabPath(tab.key);
+      const label = t(tabLabelKeys[tab.key]);
 
       const isProfileTab = tab.key === "profile";
 
@@ -84,12 +95,12 @@ const BottomNav = () => {
         navigate(targetPath);
       }
     },
-    [activeKey, loading, location.pathname, navigate, stateMap, triggerHaptic, user],
+    [activeKey, loading, location.pathname, navigate, stateMap, t, triggerHaptic, user],
   );
 
   return (
     <nav
-      aria-label="Huvudnavigation"
+      aria-label={t("nav.forYou")}
       className="sticky bottom-0 left-0 right-0 z-40 border-t border-[var(--bottom-nav-border)] bg-[var(--bottom-nav-bg)] py-3 shadow-theme-bottom-nav backdrop-blur"
       style={safeAreaPadding}
     >
@@ -100,9 +111,10 @@ const BottomNav = () => {
             const isActive = activeKey === tab.key;
             const tabState = stateMap[tab.key];
             const showProcessingIndicator = tab.key === "scan" && Boolean(tabState?.isProcessing);
+            const label = t(tabLabelKeys[tab.key]);
             const scanStatusLabel = tab.key === "scan" ? tabState?.progressLabel ?? null : null;
             const scanAriaLabel =
-              tab.key === "scan" && scanStatusLabel ? `${tab.label}. ${scanStatusLabel}` : tab.label;
+              tab.key === "scan" && scanStatusLabel ? `${label}. ${scanStatusLabel}` : label;
 
             if (tab.key === "scan") {
               return (
@@ -120,7 +132,7 @@ const BottomNav = () => {
                     )}
                     <Icon className="h-7 w-7" aria-hidden="true" />
                     <span className="sr-only" aria-live="polite">
-                      {scanStatusLabel ?? tab.label}
+                      {scanStatusLabel ?? label}
                     </span>
                   </button>
                 </li>
@@ -135,7 +147,7 @@ const BottomNav = () => {
                 <button
                   type="button"
                   onClick={() => handleNavigate(tab)}
-                  aria-label={tab.label}
+                  aria-label={label}
                   className={cn(
                     "flex flex-col items-center gap-1 rounded-full px-3 py-2 text-[0.7rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent))]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bottom-nav-bg)]",
                     isActive
@@ -154,7 +166,7 @@ const BottomNav = () => {
                       </span>
                     ) : null}
                   </span>
-                  <span>{tab.label}</span>
+                  <span>{label}</span>
                 </button>
               </li>
             );

@@ -33,40 +33,11 @@ import { trackEvent } from "@/lib/telemetry";
 import { WineListsSection } from "@/components/profile/WineListsSection";
 import { useTheme } from "@/ui/ThemeProvider";
 import type { ThemePreference } from "@/ui/theme";
-import { Camera, Laptop, Loader2, LogOut, Moon, PenLine, Sparkles, SunMedium, UploadCloud } from "lucide-react";
+import { Camera, Globe, Laptop, Loader2, LogOut, Moon, PenLine, Sparkles, SunMedium, UploadCloud } from "lucide-react";
 import { useIsPremium } from "@/hooks/useUserSettings";
 import { createPremiumCheckoutSession } from "@/services/premiumCheckout";
-
-const getDisplayName = (metadata: Record<string, unknown> | undefined, email: string | null) => {
-  const candidate =
-    typeof metadata?.full_name === "string"
-      ? metadata.full_name
-      : typeof metadata?.name === "string"
-        ? metadata.name
-        : typeof metadata?.display_name === "string"
-          ? metadata.display_name
-          : null;
-
-  if (candidate && candidate.trim().length > 0) {
-    return candidate;
-  }
-
-  if (email) {
-    return email.split("@")[0];
-  }
-
-  return "WineSnap-användare";
-};
-
-const getInitials = (name: string) => {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join("")
-    .slice(0, 2);
-};
+import { useTranslation } from "@/hooks/useTranslation";
+import { useSettings } from "@/settings/SettingsContext";
 
 const Me = () => {
   const navigate = useNavigate();
@@ -84,14 +55,38 @@ const Me = () => {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [themeSaving, setThemeSaving] = useState(false);
+  const [langSaving, setLangSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const avatarObjectUrlRef = useRef<string | null>(null);
+  const { t, locale, dateLocale } = useTranslation();
+  const { lang, setLang } = useSettings();
 
   const email = user?.email ?? (typeof user?.user_metadata?.email === "string" ? user.user_metadata.email : null);
   const metadataAvatarUrl =
     typeof user?.user_metadata?.avatar_url === "string" && user.user_metadata.avatar_url.trim().length > 0
       ? user.user_metadata.avatar_url
       : null;
+
+  const getDisplayName = useCallback((metadata: Record<string, unknown> | undefined, userEmail: string | null) => {
+    const candidate =
+      typeof metadata?.full_name === "string"
+        ? metadata.full_name
+        : typeof metadata?.name === "string"
+          ? metadata.name
+          : typeof metadata?.display_name === "string"
+            ? metadata.display_name
+            : null;
+
+    if (candidate && candidate.trim().length > 0) {
+      return candidate;
+    }
+
+    if (userEmail) {
+      return userEmail.split("@")[0];
+    }
+
+    return t("me.wineSnapUser");
+  }, [t]);
 
   const displayName = useMemo(() => {
     const profileName = profile?.displayName?.trim();
@@ -100,7 +95,7 @@ const Me = () => {
     }
 
     return getDisplayName(user?.user_metadata ?? undefined, email);
-  }, [email, profile?.displayName, user?.user_metadata]);
+  }, [email, getDisplayName, profile?.displayName, user?.user_metadata]);
 
   const avatarUrl = useMemo(() => {
     const profileAvatar = profile?.avatarUrl?.trim();
@@ -111,44 +106,62 @@ const Me = () => {
     return metadataAvatarUrl;
   }, [metadataAvatarUrl, profile?.avatarUrl]);
 
-  const initials = useMemo(() => getInitials(displayName), [displayName]);
+  const getInitials = useCallback((name: string) => {
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join("")
+      .slice(0, 2);
+  }, []);
+
+  const initials = useMemo(() => getInitials(displayName), [displayName, getInitials]);
   const previewInitials = useMemo(
     () => getInitials((formDisplayName && formDisplayName.trim().length > 0 ? formDisplayName : displayName) ?? ""),
-    [displayName, formDisplayName],
+    [displayName, formDisplayName, getInitials],
   );
   const premiumDescription = useMemo(() => {
     if (isPremium) {
       if (premiumSince) {
-        return `Premium sedan ${premiumSince.toLocaleDateString("sv-SE")}`;
+        return t("me.premiumSince", { date: premiumSince.toLocaleDateString(dateLocale) });
       }
 
-      return "Premium är aktivt.";
+      return t("me.premiumActive");
     }
 
-    return "Gratisläge – lås upp fler analyser och sparade listor med Premium.";
-  }, [isPremium, premiumSince]);
+    return t("me.freeDescription");
+  }, [dateLocale, isPremium, premiumSince, t]);
   const themeOptions = useMemo(
     () => [
       {
         value: "light" as const,
-        title: "Ljust läge",
-        description: "Ljus bakgrund och högsta kontrast för detaljer.",
+        title: t("me.lightMode"),
+        description: t("me.lightModeDesc"),
         Icon: SunMedium,
       },
       {
         value: "dark" as const,
-        title: "Mörkt läge",
-        description: "Skonsamt för ögonen i dunkla miljöer.",
+        title: t("me.darkMode"),
+        description: t("me.darkModeDesc"),
         Icon: Moon,
       },
       {
         value: "system" as const,
-        title: "Följ systeminställning",
-        description: "Använd samma tema som din enhet.",
+        title: t("me.systemMode"),
+        description: t("me.systemModeDesc"),
         Icon: Laptop,
       },
     ],
-    [],
+    [t],
+  );
+
+  const languageOptions = useMemo(
+    () => [
+      { value: "sv-SE", label: t("me.swedish"), flag: "🇸🇪" },
+      { value: "en-US", label: t("me.english"), flag: "🇬🇧" },
+    ],
+    [t],
   );
 
   const clearAvatarObjectUrl = useCallback(() => {
@@ -181,8 +194,8 @@ const Me = () => {
       if (error) {
         console.error("Failed to load profile", error);
         toast({
-          title: "Kunde inte läsa profilen",
-          description: "Vi kunde inte hämta dina profiluppgifter just nu.",
+          title: t("me.couldNotReadProfile"),
+          description: t("me.couldNotReadProfileDesc"),
           variant: "destructive",
         });
         setProfile({ displayName: null, avatarUrl: null });
@@ -201,7 +214,7 @@ const Me = () => {
     return () => {
       ignore = true;
     };
-  }, [toast, user?.id]);
+  }, [t, toast, user?.id]);
 
   useEffect(() => {
     return () => {
@@ -253,8 +266,8 @@ const Me = () => {
 
       if (!file.type.startsWith("image/")) {
         toast({
-          title: "Ogiltig filtyp",
-          description: "Välj en bild i formatet PNG, JPG eller WEBP.",
+          title: t("me.invalidFileType"),
+          description: t("me.chooseImageFormat"),
           variant: "destructive",
         });
         event.target.value = "";
@@ -265,8 +278,8 @@ const Me = () => {
 
       if (file.size > 1024 * 1024) {
         toast({
-          title: "Filen är för stor",
-          description: "Profilbilden får högst vara 1 MB.",
+          title: t("me.fileTooLarge"),
+          description: t("me.maxFileSize"),
           variant: "destructive",
         });
         event.target.value = "";
@@ -281,7 +294,7 @@ const Me = () => {
       setAvatarFile(file);
       setAvatarPreview(previewUrl);
     },
-    [avatarUrl, clearAvatarObjectUrl, resetAvatarPreview, toast],
+    [avatarUrl, clearAvatarObjectUrl, resetAvatarPreview, t, toast],
   );
 
   const handleThemeChange = useCallback(
@@ -294,21 +307,21 @@ const Me = () => {
       try {
         await setThemePreference(nextPreference);
         toast({
-          title: "Tema uppdaterat",
-          description: "Ditt val sparades.",
+          title: t("me.themeUpdated"),
+          description: t("me.choiceSaved"),
         });
       } catch (error) {
         console.error("Failed to update theme preference", error);
         toast({
-          title: "Kunde inte spara temat",
-          description: "Försök igen om en stund.",
+          title: t("me.couldNotSaveTheme"),
+          description: t("me.tryAgainSoon"),
           variant: "destructive",
         });
       } finally {
         setThemeSaving(false);
       }
     },
-    [setThemePreference, themePreference, toast],
+    [setThemePreference, t, themePreference, toast],
   );
 
   const handleThemeValueChange = useCallback(
@@ -322,6 +335,34 @@ const Me = () => {
       }
     },
     [handleThemeChange, themeSaving],
+  );
+
+  const handleLanguageChange = useCallback(
+    async (value: string) => {
+      if (langSaving || value === lang) {
+        return;
+      }
+
+      setLangSaving(true);
+      try {
+        await setLang(value);
+        const langLabel = value.startsWith("en") ? "English" : "Svenska";
+        toast({
+          title: t("me.languageUpdated"),
+          description: t("me.languageSaved", { lang: langLabel }),
+        });
+      } catch (error) {
+        console.error("Failed to update language", error);
+        toast({
+          title: t("me.couldNotSaveTheme"),
+          description: t("me.tryAgainSoon"),
+          variant: "destructive",
+        });
+      } finally {
+        setLangSaving(false);
+      }
+    },
+    [lang, langSaving, setLang, t, toast],
   );
 
   const handlePremiumCtaClick = useCallback(async () => {
@@ -349,14 +390,14 @@ const Me = () => {
       console.error("Failed to start premium checkout", error);
       trackEvent("premium_checkout_failed", { source: "profile", message: (error as Error)?.message });
       toast({
-        title: "Kunde inte starta betalningen",
-        description: "Försök igen om en stund.",
+        title: t("me.couldNotStartPayment"),
+        description: t("me.tryAgainSoon"),
         variant: "destructive",
       });
     } finally {
       setIsStartingPremium(false);
     }
-  }, [navigate, toast, user]);
+  }, [navigate, t, toast, user]);
 
   const handleSignOut = async () => {
     try {
@@ -365,8 +406,8 @@ const Me = () => {
     } catch (error) {
       console.error("Failed to sign out", error);
       toast({
-        title: "Kunde inte logga ut",
-        description: "Försök igen om en liten stund.",
+        title: t("me.couldNotSignOut"),
+        description: t("me.tryAgainMoment"),
         variant: "destructive",
       });
     }
@@ -381,12 +422,12 @@ const Me = () => {
 
       const trimmedName = formDisplayName.trim();
       if (trimmedName.length === 0) {
-        setFormNameError("Ange ett visningsnamn.");
+        setFormNameError(t("me.enterDisplayName"));
         return;
       }
 
       if (trimmedName.length > 60) {
-        setFormNameError("Namnet får vara högst 60 tecken.");
+        setFormNameError(t("me.nameTooLong"));
         return;
       }
 
@@ -417,8 +458,8 @@ const Me = () => {
           if (uploadError) {
             console.error("Failed to upload avatar", uploadError);
             toast({
-              title: "Kunde inte ladda upp bilden",
-              description: "Försök igen eller välj en annan bild.",
+              title: t("me.couldNotUploadImage"),
+              description: t("me.tryAgainOtherImage"),
               variant: "destructive",
             });
             return;
@@ -446,8 +487,8 @@ const Me = () => {
         if (upsertError) {
           console.error("Failed to update profile", upsertError);
           toast({
-            title: "Kunde inte spara profilen",
-            description: "Försök igen om en stund.",
+            title: t("me.couldNotSaveProfile"),
+            description: t("me.tryAgainSoon"),
             variant: "destructive",
           });
           return;
@@ -469,13 +510,13 @@ const Me = () => {
         if (metadataError) {
           console.error("Failed to sync auth metadata", metadataError);
           toast({
-            title: "Profilen sparades med varning",
-            description: "Namnet är uppdaterat men metadata kunde inte synkas helt.",
+            title: t("me.profileSavedWarning"),
+            description: t("me.metadataNotSynced"),
           });
         } else {
           toast({
-            title: "Profilen uppdaterades",
-            description: "Ditt namn och din bild visas nu i sociala ytor.",
+            title: t("me.profileUpdated"),
+            description: t("me.profileUpdatedDesc"),
           });
         }
 
@@ -484,7 +525,7 @@ const Me = () => {
         setSavingProfile(false);
       }
     },
-    [avatarFile, avatarUrl, formDisplayName, handleDialogOpenChange, toast, user?.id],
+    [avatarFile, avatarUrl, formDisplayName, handleDialogOpenChange, t, toast, user?.id],
   );
 
   return (
@@ -492,7 +533,7 @@ const Me = () => {
       <header className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 border border-[hsl(var(--color-border))] bg-theme-elevated">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt="Profilbild" className="object-cover" /> : null}
+            {avatarUrl ? <AvatarImage src={avatarUrl} alt={t("me.profileImage")} className="object-cover" /> : null}
             <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
               {initials || "WS"}
             </AvatarFallback>
@@ -509,7 +550,7 @@ const Me = () => {
                     : "bg-theme-elevated text-theme-primary"
                 }`}
               >
-                {isPremium ? "Premium" : "Gratis"}
+                {isPremium ? t("me.premium") : t("me.free")}
               </Badge>
               <span className="text-theme-secondary">{premiumDescription}</span>
             </div>
@@ -521,28 +562,28 @@ const Me = () => {
               <Button
                 className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
                 onClick={handlePremiumCtaClick}
-                aria-label="Bli premium"
+                aria-label={t("me.becomePremium")}
                 disabled={isPremiumLoading || isStartingPremium}
               >
                 {isStartingPremium ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {isStartingPremium ? "Startar..." : "Bli premium"}
+                {isStartingPremium ? t("me.starting") : t("me.becomePremium")}
               </Button>
             ) : null}
             <Button
               className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
               onClick={() => navigate("/scan")}
-              aria-label="Starta ny skanning"
+              aria-label={t("me.newScan")}
             >
               <Camera className="h-4 w-4" />
-              Ny skanning
+              {t("me.newScan")}
             </Button>
             <Button
               variant="outline"
               className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
               onClick={() => navigate("/me/wines")}
-              aria-label="Visa sparade viner"
+              aria-label={t("me.myWines")}
             >
-              Mina viner
+              {t("me.myWines")}
             </Button>
           </div>
         </div>
@@ -552,33 +593,33 @@ const Me = () => {
         <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <CardTitle className="text-theme-primary">WineSnap Premium</CardTitle>
+              <CardTitle className="text-theme-primary">{t("me.premiumTitle")}</CardTitle>
               <CardDescription className="text-theme-secondary">
-                Premiumläget rullas ut snart. Här är vad som väntar när du uppgraderar.
+                {t("me.premiumSubtitle")}
               </CardDescription>
             </div>
-            <PremiumBadge message="Premium släpps snart – passa på att visa intresse redan nu." />
+            <PremiumBadge message={t("me.premiumComingSoon")} />
           </CardHeader>
           <CardContent className="space-y-4 text-sm text-theme-secondary">
             <div className="flex items-start gap-3">
-              <PremiumBadge message="Planerat: fler fria analyser per vecka och kortare väntetider." className="mt-0.5" />
+              <PremiumBadge message={t("me.moreAnalysesDesc")} className="mt-0.5" />
               <div>
-                <p className="font-semibold text-theme-primary">Fler analyser per vecka</p>
-                <p>Premium låter dig köra fler skanningar utan att vänta till nästa vecka.</p>
+                <p className="font-semibold text-theme-primary">{t("me.moreAnalyses")}</p>
+                <p>{t("me.moreAnalysesDesc")}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <PremiumBadge message="Förfina smakprofilen med fler smaknyanser och djupare rekommendationer." className="mt-0.5" />
+              <PremiumBadge message={t("me.deeperProfileDesc")} className="mt-0.5" />
               <div>
-                <p className="font-semibold text-theme-primary">Djupare smakprofil</p>
-                <p>Få fler smaknyanser och mer precisa rekommendationer i smakprofilen.</p>
+                <p className="font-semibold text-theme-primary">{t("me.deeperProfile")}</p>
+                <p>{t("me.deeperProfileDesc")}</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
-              <PremiumBadge message="Spara och organisera obegränsat med listor, redo inför lanseringen." className="mt-0.5" />
+              <PremiumBadge message={t("me.savedListsDesc")} className="mt-0.5" />
               <div>
-                <p className="font-semibold text-theme-primary">Sparade listor</p>
-                <p>Bygg favoritlistor, köp-igen och gästdetaljer utan begränsning.</p>
+                <p className="font-semibold text-theme-primary">{t("me.savedLists")}</p>
+                <p>{t("me.savedListsDesc")}</p>
               </div>
             </div>
           </CardContent>
@@ -587,9 +628,9 @@ const Me = () => {
         <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-1">
-              <CardTitle className="text-theme-primary">Din profil</CardTitle>
+              <CardTitle className="text-theme-primary">{t("me.yourProfile")}</CardTitle>
               <CardDescription className="text-theme-secondary">
-                Uppdatera namn och bild så visas de på följelistor och kommande sociala ytor.
+                {t("me.profileSubtitle")}
               </CardDescription>
             </div>
             <Dialog open={isEditOpen} onOpenChange={handleDialogOpenChange}>
@@ -600,20 +641,20 @@ const Me = () => {
                   disabled={profileLoading}
                 >
                   <PenLine className="h-4 w-4" />
-                  Redigera profil
+                  {t("me.editProfile")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg border-[hsl(var(--color-border)/0.8)] bg-theme-elevated text-left text-theme-primary">
                 <DialogHeader>
-                  <DialogTitle>Redigera profil</DialogTitle>
+                  <DialogTitle>{t("me.editProfileTitle")}</DialogTitle>
                   <DialogDescription>
-                    Ändra visningsnamn och profilbild. Bilden måste vara en PNG, JPG eller WEBP på högst 1 MB.
+                    {t("me.editProfileSubtitle")}
                   </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleProfileSubmit} className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="display-name" className="text-theme-primary">
-                      Visningsnamn
+                      {t("me.displayName")}
                     </Label>
                     <Input
                       id="display-name"
@@ -624,7 +665,7 @@ const Me = () => {
                           setFormNameError(null);
                         }
                       }}
-                      placeholder="Ditt namn"
+                      placeholder={t("me.yourName")}
                       className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary"
                       maxLength={80}
                     />
@@ -632,10 +673,10 @@ const Me = () => {
                   </div>
 
                   <div className="space-y-3">
-                    <Label className="text-theme-primary">Profilbild</Label>
+                    <Label className="text-theme-primary">{t("me.profileImage")}</Label>
                     <div className="flex items-center gap-4">
                       <Avatar className="h-16 w-16 border border-[hsl(var(--color-border))] bg-theme-elevated">
-                        {avatarPreview ? <AvatarImage src={avatarPreview} alt="Förhandsvisning" className="object-cover" /> : null}
+                        {avatarPreview ? <AvatarImage src={avatarPreview} alt={t("me.profileImage")} className="object-cover" /> : null}
                         <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
                           {previewInitials || "WS"}
                         </AvatarFallback>
@@ -649,9 +690,9 @@ const Me = () => {
                           disabled={savingProfile}
                         >
                           <UploadCloud className="h-4 w-4" />
-                          Välj bild
+                          {t("me.chooseImage")}
                         </Button>
-                        <p>PNG, JPG eller WEBP. Max 1 MB.</p>
+                        <p>{t("me.imageRequirements")}</p>
                       </div>
                     </div>
                     <input
@@ -671,7 +712,7 @@ const Me = () => {
                       className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
                       disabled={savingProfile}
                     >
-                      Avbryt
+                      {t("me.cancel")}
                     </Button>
                   </DialogClose>
                   <Button
@@ -680,7 +721,7 @@ const Me = () => {
                     disabled={savingProfile}
                   >
                       {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      Spara ändringar
+                      {t("me.saveChanges")}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -689,12 +730,12 @@ const Me = () => {
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-theme-secondary">
             <div>
-              <p className="font-medium text-theme-primary">Namn</p>
+              <p className="font-medium text-theme-primary">{t("me.name")}</p>
               <p>{displayName}</p>
             </div>
             {email ? (
               <div>
-                <p className="font-medium text-theme-primary">E-post</p>
+                <p className="font-medium text-theme-primary">{t("me.email")}</p>
                 <p>{email}</p>
               </div>
             ) : null}
@@ -703,9 +744,9 @@ const Me = () => {
 
         <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
           <CardHeader>
-            <CardTitle className="text-theme-primary">Utseende</CardTitle>
+            <CardTitle className="text-theme-primary">{t("me.appearance")}</CardTitle>
             <CardDescription className="text-theme-secondary">
-              Välj hur WineSnap ska se ut. Ditt val sparas i profilen eller lokalt.
+              {t("me.appearanceSubtitle")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -736,7 +777,44 @@ const Me = () => {
                 </label>
               ))}
             </RadioGroup>
-            {themeSaving ? <p className="text-sm text-theme-secondary">Sparar temat...</p> : null}
+            {themeSaving ? <p className="text-sm text-theme-secondary">{t("me.savingTheme")}</p> : null}
+          </CardContent>
+        </Card>
+
+        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-theme-primary">
+              <Globe className="h-5 w-5" />
+              {t("me.language")}
+            </CardTitle>
+            <CardDescription className="text-theme-secondary">
+              {t("me.languageSubtitle")}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <RadioGroup
+              value={lang.startsWith("en") ? "en-US" : "sv-SE"}
+              onValueChange={handleLanguageChange}
+              className="grid gap-3 sm:grid-cols-2"
+            >
+              {languageOptions.map(({ value, label, flag }) => (
+                <label
+                  key={value}
+                  htmlFor={`lang-${value}`}
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl border border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] p-3 transition hover:border-[hsl(var(--color-border))] ${langSaving ? "opacity-70" : ""}`}
+                >
+                  <RadioGroupItem
+                    id={`lang-${value}`}
+                    value={value}
+                    disabled={langSaving}
+                    className="text-theme-primary"
+                  />
+                  <span className="text-xl">{flag}</span>
+                  <span className="font-medium text-theme-primary">{label}</span>
+                </label>
+              ))}
+            </RadioGroup>
+            {langSaving ? <p className="text-sm text-theme-secondary">{t("me.savingTheme")}</p> : null}
           </CardContent>
         </Card>
 
@@ -744,9 +822,9 @@ const Me = () => {
 
         <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
           <CardHeader>
-            <CardTitle className="text-theme-primary">Hantera konto</CardTitle>
+            <CardTitle className="text-theme-primary">{t("me.manageAccount")}</CardTitle>
             <CardDescription className="text-theme-secondary">
-              Behöver du ändra något? Kontakta supporten eller uppdatera dina uppgifter via Google/Supabase.
+              {t("me.manageAccountSubtitle")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -756,7 +834,7 @@ const Me = () => {
               onClick={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
-              Logga ut
+              {t("me.signOut")}
             </Button>
           </CardContent>
         </Card>
