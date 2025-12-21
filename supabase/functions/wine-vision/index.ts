@@ -394,89 +394,12 @@ ${ocrText ? `
       return normalized;
     }
     
-    // If Gemini returned empty data, try Gemini 3 Pro as fallback
-    console.log(`[${new Date().toISOString()}] Gemini Vision returned empty data, trying Gemini 3 Pro fallback...`);
-    return await runGemini3ProFallback(ocrText, imageUrl);
+    // Gemini returned empty data - no point retrying same model
+    console.log(`[${new Date().toISOString()}] Gemini Vision returned empty data`);
+    return null;
     
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Gemini Vision error:`, error);
-    
-    // Try Gemini 3 Pro as fallback on error
-    console.log(`[${new Date().toISOString()}] Trying Gemini 3 Pro fallback after Gemini error...`);
-    return await runGemini3ProFallback(ocrText, imageUrl);
-  }
-}
-
-async function runGemini3ProFallback(ocrText: string, imageUrl?: string): Promise<WebJson> {
-  if (!LOVABLE_API_KEY || !imageUrl) return null;
-
-  const prompt = `
-Du är en EXPERT på att läsa vinetiketter, även de svåraste konstnärliga etiketterna.
-
-## DIN UPPGIFT
-Analysera denna bild av en vinflaska/etikett och extrahera ALL synlig information.
-
-## VANLIGA UTMANINGAR (som du MÅSTE hantera):
-- Stiliserade/konstnärliga typsnitt som är svårlästa
-- Text i bågar, cirklar, vertikalt eller diagonalt
-- Låg kontrast mellan text och bakgrund
-- Handskrivna eller kalligrafiska stilar
-- Delvis skymd eller suddig text
-- Blandning av flera språk
-
-## EXTRAHERA (leta ÖVERALLT på etiketten):
-1. VINNAMN - ofta den största/mest framträdande texten
-2. PRODUCENT/VINGÅRD - kan innehålla "Winery", "Estate", "Château", "Domaine", etc.
-3. REGION - geografiska namn, landsnamn, klassificeringar (DOC, AOC, etc.)
-4. DRUVA - sortnamn, ibland med procentandel
-5. ÅRGÅNG - 4-siffrigt årtal
-6. ALKOHOL - t.ex. "13.5% vol"
-7. VOLYM - t.ex. "750ml"
-
-${ocrText ? `
-## OCR-LEDTRÅD (kan vara felaktig):
-"${ocrText.slice(0, 400)}"
-` : '## Ingen OCR - läs direkt från bilden'}
-
-## RETURNERA ENDAST GILTIG JSON (ingen markdown):
-{
-  "vin": "vinets namn",
-  "producent": "producentens namn",
-  "druvor": "druvsort(er)",
-  "land_region": "Land, Region",
-  "årgång": "YYYY eller -",
-  "alkoholhalt": "t.ex. 13.5% vol eller -",
-  "volym": "t.ex. 750ml eller -",
-  "klassificering": "DOC/DOCG/AOC eller -",
-  "karaktär": "kort beskrivning eller -",
-  "smak": "smaknyanser eller -",
-  "servering": "serveringstemperatur eller -",
-  "passar_till": ["mat1", "mat2", "mat3"],
-  "källor": []
-}
-
-## KRITISKT:
-- GE DITT BÄSTA FÖRSÖK - returnera ALDRIG alla fält som "-"
-- Om du ser NÅGOT som kan vara ett vinnamn, använd det!
-- Beskriv vad du ser om du är osäker
-  `.trim();
-
-  try {
-    const result = await aiClient.gemini(prompt, {
-      model: "google/gemini-3-pro-preview",
-      imageUrl,
-      json: true,
-      timeoutMs: 60000,
-    }) as Record<string, unknown>;
-
-    const normalized = normalizeSearchResult(result);
-    normalized.fallback_mode = false;
-    normalized.källor = ["gemini-3-pro-vision"];
-    
-    console.log(`[${new Date().toISOString()}] Gemini 3 Pro Vision success:`, JSON.stringify(normalized, null, 2));
-    return normalized;
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Gemini 3 Pro Vision error:`, error);
     return null;
   }
 }
@@ -1655,46 +1578,13 @@ Returnera ENDAST ren text, separerad med mellanslag. Ingen formatering, inga kom
         const ocrTime = Date.now() - ocrStart;
         ocrSource = "gemini";
         console.log(`[${new Date().toISOString()}] OCR success (${ocrTime}ms), text length: ${ocrText.length}`);
-        
-        // If OCR returned very little, try Gemini 3 Pro as backup
-        if (ocrText.length < 20) {
-          console.log(`[${new Date().toISOString()}] OCR text too short, trying Gemini 3 Pro backup...`);
-          try {
-            const gemini3OcrText = await aiClient.gemini(ocrPrompt, {
-              model: "google/gemini-3-pro-preview",
-              imageUrl: imageBase64,
-              timeoutMs: 60000,
-            });
-            if (gemini3OcrText.length > ocrText.length) {
-              ocrText = gemini3OcrText;
-              ocrSource = "gemini";
-              console.log(`[${new Date().toISOString()}] Gemini 3 Pro OCR backup success, text length: ${ocrText.length}`);
-            }
-          } catch (gemini3Error) {
-            console.warn(`[${new Date().toISOString()}] Gemini 3 Pro OCR backup failed:`, gemini3Error);
-          }
-        }
       } catch (error) {
         const ocrTime = Date.now() - ocrStart;
         console.error(`[${new Date().toISOString()}] OCR error (${ocrTime}ms):`, error);
-        
-        // Try Gemini 3 Pro as fallback
-        console.log(`[${new Date().toISOString()}] Trying Gemini 3 Pro OCR fallback after Gemini error...`);
-        try {
-          ocrText = await aiClient.gemini(ocrPrompt, {
-            model: "google/gemini-3-pro-preview",
-            imageUrl: imageBase64,
-            timeoutMs: 60000,
-          });
-          ocrSource = "gemini";
-          console.log(`[${new Date().toISOString()}] Gemini 3 Pro OCR fallback success, text length: ${ocrText.length}`);
-        } catch (gemini3Error) {
-          console.error(`[${new Date().toISOString()}] Gemini 3 Pro OCR fallback also failed:`, gemini3Error);
-          return new Response(
-            JSON.stringify({ ok: false, error: "OCR misslyckades" }),
-            { status: 500, headers: { ...cors, "content-type": "application/json" } }
-          );
-        }
+        return new Response(
+          JSON.stringify({ ok: false, error: "OCR misslyckades" }),
+          { status: 500, headers: { ...cors, "content-type": "application/json" } }
+        );
       }
     }
 
