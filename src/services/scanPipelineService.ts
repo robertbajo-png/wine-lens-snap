@@ -59,6 +59,44 @@ const MAX_FILE_SIDE = 2560;  // Larger image = more details for OCR
 const JPEG_QUALITY = 0.92;  // Higher quality for better text recognition
 const OCR_MIN_LENGTH = 10;
 
+/**
+ * Validates OCR text quality on client-side.
+ * If the text looks like garbage, returns false so server uses Gemini OCR instead.
+ */
+const isValidClientOcr = (text: string | null): boolean => {
+  if (!text || text.length < 10) return false;
+  
+  // Check for garbage characters ratio - if too many weird symbols, reject
+  const garbageChars = (text.match(/[|;{}\[\]<>@#$%&*_=+\\^~`]/g) || []).length;
+  const totalChars = text.length;
+  if (garbageChars / totalChars > 0.1) {
+    console.log(`[Client OCR] Rejected: too many garbage chars (${garbageChars}/${totalChars})`);
+    return false;
+  }
+  
+  // Check for broken text patterns
+  const brokenPatterns = /(\n.{1,2}\n)|(\n-\s)|(\s-\s\n)|([\|;]{2,})/g;
+  if (brokenPatterns.test(text)) {
+    console.log(`[Client OCR] Rejected: broken text patterns detected`);
+    return false;
+  }
+  
+  // Count substantial words (4+ letters, at least 70% alphabetic)
+  const words = text.split(/\s+/).filter(w => {
+    if (w.length < 4) return false;
+    const letterCount = (w.match(/[a-zA-ZåäöÅÄÖéèêëàáâãæçñüúùûîïíìôóòõøœßđğışžćčšśźżłńţţ]/gi) || []).length;
+    return letterCount >= w.length * 0.7;
+  });
+  
+  if (words.length < 2) {
+    console.log(`[Client OCR] Rejected: only ${words.length} substantial words`);
+    return false;
+  }
+  
+  console.log(`[Client OCR] Accepted: ${words.length} valid words in "${text.substring(0, 50)}..."`);
+  return true;
+};
+
 let workerRef: Worker | null = null;
 
 const ensureWorker = () => {
@@ -169,6 +207,16 @@ const callAnalysis = async (
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => abortController.abort(), ANALYSIS_TIMEOUT_MS);
   const functionUrl = `${supabaseUrl}/functions/v1/wine-vision`;
+  
+  // Validate OCR text - if it looks like garbage, don't send it
+  // Let the server run Gemini OCR instead
+  const validatedOcrText = isValidClientOcr(ocrText) ? ocrText : null;
+  const clientOcrRejected = ocrText && !validatedOcrText;
+  
+  if (clientOcrRejected) {
+    console.log(`[callAnalysis] Client OCR rejected as garbage, server will use Gemini OCR`);
+  }
+  
   const response = await fetch(functionUrl, {
     method: "POST",
     headers: {
@@ -177,9 +225,9 @@ const callAnalysis = async (
       apikey: supabaseAnonKey,
     },
     body: JSON.stringify({
-      ocrText,
+      ocrText: validatedOcrText,
       imageBase64: processedImage,
-      noTextFound,
+      noTextFound: noTextFound || clientOcrRejected,
       uiLang,
       ocr_image_hash: ocrKey,
       skipCache: true,
