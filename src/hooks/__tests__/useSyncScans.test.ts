@@ -7,7 +7,12 @@ describe("createSyncCoordinator", () => {
   const markReadyMock = vi.fn();
   const markSyncedMock = vi.fn();
   const clearScheduleMock = vi.fn();
-  const scheduleMock = vi.fn<(cb: () => Promise<void>, delay?: number) => number>(() => Date.now());
+  // Use a simple mock that stores calls for later inspection
+  let scheduleCalls: Array<{ cb: () => Promise<void>; delay?: number }> = [];
+  const scheduleMock = vi.fn((cb: () => Promise<void>, delay?: number) => {
+    scheduleCalls.push({ cb, delay });
+    return Date.now();
+  }) as unknown as typeof window.setTimeout;
   const isOnlineMock = vi.fn(() => true);
   const syncMock = vi.fn();
   let pending: CachedWineAnalysisEntry[];
@@ -26,12 +31,12 @@ describe("createSyncCoordinator", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    scheduleCalls = [];
     telemetryMock.mockReset();
     markReadyMock.mockReset();
     markSyncedMock.mockReset();
     clearScheduleMock.mockReset();
-    scheduleMock.mockReset();
-    scheduleMock.mockImplementation(() => Date.now());
+    scheduleCalls = [];
     isOnlineMock.mockReset();
     isOnlineMock.mockReturnValue(true);
     syncMock.mockReset();
@@ -62,39 +67,33 @@ describe("createSyncCoordinator", () => {
     expect(markSyncedMock).toHaveBeenCalledTimes(2);
     expect(telemetryMock).toHaveBeenCalledWith("sync_attempt", { pending: 1 });
     expect(telemetryMock).toHaveBeenCalledWith("sync_completed", { inserted: 1, duplicates: 1 });
-    expect(scheduleMock).not.toHaveBeenCalled();
+    expect(scheduleCalls).toHaveLength(0);
   });
 
   it("applies exponential backoff on failure", async () => {
     syncMock.mockRejectedValueOnce(new Error("network"));
     syncMock.mockRejectedValueOnce(new Error("network"));
     const coordinator = buildCoordinator();
-    const secondScheduleMock = vi.fn();
-
-    scheduleMock.mockImplementationOnce((cb: () => Promise<void>, delay?: number) => {
-      secondScheduleMock(delay);
-      return cb.length ? cb.length : Date.now();
-    });
 
     await coordinator.runSync();
 
     expect(telemetryMock).toHaveBeenCalledWith("sync_failed", { message: "network" });
     expect(telemetryMock).toHaveBeenCalledWith("sync_backoff_scheduled", { delayMs: SYNC_BACKOFF_INITIAL_MS });
-    expect(secondScheduleMock).toHaveBeenCalledWith(SYNC_BACKOFF_INITIAL_MS);
+    expect(scheduleCalls).toHaveLength(1);
+    expect(scheduleCalls[0].delay).toBe(SYNC_BACKOFF_INITIAL_MS);
 
-    const retryCallback = scheduleMock.mock.calls[0][0] as () => Promise<void>;
-    scheduleMock.mockImplementationOnce((cb: () => Promise<void>, delay?: number) => {
-      secondScheduleMock(delay);
-      return cb.length;
-    });
+    // Execute the retry callback
+    const retryCallback = scheduleCalls[0].cb;
     await retryCallback();
 
     expect(telemetryMock).toHaveBeenCalledWith("sync_backoff_scheduled", {
       delayMs: SYNC_BACKOFF_INITIAL_MS * 2,
     });
-    expect(secondScheduleMock).toHaveBeenCalledWith(SYNC_BACKOFF_INITIAL_MS * 2);
+    expect(scheduleCalls).toHaveLength(2);
+    expect(scheduleCalls[1].delay).toBe(SYNC_BACKOFF_INITIAL_MS * 2);
   });
 });
+
 vi.mock("@/lib/telemetry", () => ({
   trackEvent: vi.fn(),
 }));
