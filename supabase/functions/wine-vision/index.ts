@@ -1653,31 +1653,18 @@ Deno.serve(async (req) => {
       console.log(`[${new Date().toISOString()}] Starting Gemini OCR (client OCR was invalid/missing)...`);
 
       const ocrPrompt = `
-Du är en expert på att läsa text från vinetiketter. Din uppgift är att extrahera ALL synlig text från bilden.
+Läs ALL synlig text från denna vinetikett. Returnera ENDAST den rena texten, inget annat.
 
-STEG 1: Beskriv först vad du ser på etiketten (form, färger, layout).
-STEG 2: Läs sedan ALL text, även konstnärlig/stiliserad text.
-
-VIKTIGT för svåra etiketter:
+VIKTIGT:
 - Läs text i ALLA riktningar (horisontell, vertikal, bågar, cirklar)
 - Läs konstnärliga/stiliserade typsnitt - dessa är ofta VINNAMNET
 - Läs text med låg kontrast mot bakgrunden
-- Läs text på flera språk (ungerska, italienska, franska, spanska, tyska, etc.)
-- Läs präglad eller upphöjd text
-- Läs text på flaskans hals, botten och sidor
-- Om text är svårläst, gör ditt bästa försök!
+- Om etiketten är minimalistisk med bara ETT ord - returnera det ordet
+- Gör ditt bästa försök även om texten är svårläst
 
-FOKUSERA på:
-1. Vinnamn (ofta störst/mest framträdande - KAN vara konstnärligt skrivet)
-2. Producent/vingård (ofta mindre text)
-3. Region/land
-4. Årgång (4-siffrig årtal som 2019, 2020, 2021)
-5. Druva/sort
-6. Alkoholhalt (XX% eller XX,X%)
-7. Volym (ml, cl, L)
-8. Klassificering (DOC, DOCG, AOC, VDP, IGT, etc.)
+FOKUSERA på: vinnamn, producent, region, årgång, druva, alkoholhalt.
 
-Returnera ENDAST ren text, separerad med mellanslag. Ingen formatering, inga kommentarer, ingen beskrivning.
+Returnera ENDAST ren text separerad med mellanslag. Ingen beskrivning, inga kommentarer.
       `.trim();
 
       try {
@@ -1698,14 +1685,22 @@ Returnera ENDAST ren text, separerad med mellanslag. Ingen formatering, inga kom
       }
     }
 
-    if (!ocrText || ocrText.length < 5) {
+    // Validate OCR result - minimum 3 characters
+    if (!ocrText || ocrText.length < 3) {
       return new Response(
         JSON.stringify({ ok: false, error: "Ingen text hittades på etiketten" }),
         { status: 400, headers: { ...cors, "content-type": "application/json" } }
       );
     }
 
-    console.log(`[${new Date().toISOString()}] OCR source: ${ocrSource}, final text length: ${ocrText.length}`);
+    // Smart handling for short wine names (3-15 chars, single word)
+    const trimmedOcr = ocrText.trim();
+    const isMinimalLabel = trimmedOcr.length <= 15 && !trimmedOcr.includes(' ');
+    if (isMinimalLabel) {
+      console.log(`[${new Date().toISOString()}] Minimal label detected: "${trimmedOcr}" - treating as wine name`);
+    }
+
+    console.log(`[${new Date().toISOString()}] OCR source: ${ocrSource}, final text length: ${ocrText.length}, minimal: ${isMinimalLabel}`);
 
     // Check cache (memory first, then Supabase)
     const cacheKey = getCacheKey(ocrText);
