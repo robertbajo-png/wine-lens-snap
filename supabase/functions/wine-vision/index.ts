@@ -1588,49 +1588,96 @@ Deno.serve(async (req) => {
 
     let analysisKey = "";
 
-    // Step 1: OCR (try client/server cache before Gemini)
-    let ocrText = ocrTextFromClient;
-    let ocrSource: "client" | "server_cache" | "gemini" | "unknown" = ocrText ? "client" : "unknown";
+    // OCR Quality Validation Function
+    function isValidOcrText(text: string | null | undefined): boolean {
+      if (!text || text.length < 10) return false;
+      
+      // Count "real" words (3+ letters, mostly alphabetic)
+      const words = text.split(/\s+/).filter(w => {
+        if (w.length < 3) return false;
+        const letterCount = (w.match(/[a-zA-ZåäöÅÄÖéèêëàáâãæçñüúùûîïíìôóòõøœßđğışžćčšśźżłńţţ]/gi) || []).length;
+        return letterCount >= w.length * 0.5; // At least 50% letters
+      });
+      
+      // Need at least 2 valid words
+      if (words.length < 2) {
+        console.log(`[OCR Validation] Failed: only ${words.length} valid words found in "${text.substring(0, 50)}..."`);
+        return false;
+      }
+      
+      // Check for common wine-related patterns
+      const hasWinePatterns = /\d{4}|%|ml|cl|doc|aoc|igt|vdp|reserva|gran|cru|château|domaine|bodega|cantina|weingut|vignoble|vineyard/i.test(text);
+      const hasReasonableText = words.some(w => w.length >= 4);
+      
+      if (!hasReasonableText && !hasWinePatterns) {
+        console.log(`[OCR Validation] Failed: no reasonable words or wine patterns in "${text.substring(0, 50)}..."`);
+        return false;
+      }
+      
+      console.log(`[OCR Validation] Passed: ${words.length} valid words, patterns=${hasWinePatterns}`);
+      return true;
+    }
 
-    if ((!ocrText || ocrText.length < 5) && ocrImageHash) {
+    // Step 1: OCR - Always prefer Gemini OCR for accuracy
+    let ocrText = "";
+    let ocrSource: "client" | "server_cache" | "gemini" | "unknown" = "unknown";
+    
+    // Check if client OCR is valid (quality check)
+    const clientOcrValid = isValidOcrText(ocrTextFromClient);
+    
+    if (clientOcrValid) {
+      ocrText = ocrTextFromClient!;
+      ocrSource = "client";
+      console.log(`[${new Date().toISOString()}] Using validated client OCR (length: ${ocrText.length})`);
+    } else if (ocrTextFromClient) {
+      console.log(`[${new Date().toISOString()}] Client OCR rejected (invalid): "${ocrTextFromClient.substring(0, 100)}"`);
+    }
+    
+    // Try server cache if no valid client OCR
+    if (!ocrText && ocrImageHash) {
       try {
         const cached = await getOcrFromServerCache(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, ocrImageHash);
-        if (cached && cached.length >= 5) {
-          ocrText = cached;
+        if (isValidOcrText(cached)) {
+          ocrText = cached!;
           ocrSource = "server_cache";
-          console.log(`[${new Date().toISOString()}] Server OCR cache hit (length: ${cached.length}).`);
+          console.log(`[${new Date().toISOString()}] Server OCR cache hit (length: ${cached!.length})`);
         }
       } catch (error) {
         console.warn("[wine-vision] Server OCR cache lookup failed", error);
       }
     }
 
-    if (!ocrText || ocrText.length < 5) {
+    // Always run Gemini OCR if we don't have valid text yet
+    if (!ocrText) {
       const ocrStart = Date.now();
-      console.log(`[${new Date().toISOString()}] Starting OCR via Gemini...`);
+      console.log(`[${new Date().toISOString()}] Starting Gemini OCR (client OCR was invalid/missing)...`);
 
       const ocrPrompt = `
 Du är en expert på att läsa text från vinetiketter. Din uppgift är att extrahera ALL synlig text från bilden.
 
+STEG 1: Beskriv först vad du ser på etiketten (form, färger, layout).
+STEG 2: Läs sedan ALL text, även konstnärlig/stiliserad text.
+
 VIKTIGT för svåra etiketter:
 - Läs text i ALLA riktningar (horisontell, vertikal, bågar, cirklar)
-- Läs konstnärliga/stiliserade typsnitt
-- Läs text med låg kontrast
-- Läs text på flera språk (ungerska, italienska, franska, etc.)
+- Läs konstnärliga/stiliserade typsnitt - dessa är ofta VINNAMNET
+- Läs text med låg kontrast mot bakgrunden
+- Läs text på flera språk (ungerska, italienska, franska, spanska, tyska, etc.)
 - Läs präglad eller upphöjd text
 - Läs text på flaskans hals, botten och sidor
+- Om text är svårläst, gör ditt bästa försök!
 
 FOKUSERA på:
-1. Vinnamn (ofta störst)
-2. Producent/vingård
+1. Vinnamn (ofta störst/mest framträdande - KAN vara konstnärligt skrivet)
+2. Producent/vingård (ofta mindre text)
 3. Region/land
-4. Årgång (4-siffrig årtal)
+4. Årgång (4-siffrig årtal som 2019, 2020, 2021)
 5. Druva/sort
 6. Alkoholhalt (XX% eller XX,X%)
 7. Volym (ml, cl, L)
-8. Klassificering (DOC, DOCG, AOC, etc.)
+8. Klassificering (DOC, DOCG, AOC, VDP, IGT, etc.)
 
-Returnera ENDAST ren text, separerad med mellanslag. Ingen formatering, inga kommentarer.
+Returnera ENDAST ren text, separerad med mellanslag. Ingen formatering, inga kommentarer, ingen beskrivning.
       `.trim();
 
       try {
@@ -1640,10 +1687,10 @@ Returnera ENDAST ren text, separerad med mellanslag. Ingen formatering, inga kom
         });
         const ocrTime = Date.now() - ocrStart;
         ocrSource = "gemini";
-        console.log(`[${new Date().toISOString()}] OCR success (${ocrTime}ms), text length: ${ocrText.length}`);
+        console.log(`[${new Date().toISOString()}] Gemini OCR success (${ocrTime}ms), text: "${ocrText.substring(0, 200)}..."`);
       } catch (error) {
         const ocrTime = Date.now() - ocrStart;
-        console.error(`[${new Date().toISOString()}] OCR error (${ocrTime}ms):`, error);
+        console.error(`[${new Date().toISOString()}] Gemini OCR error (${ocrTime}ms):`, error);
         return new Response(
           JSON.stringify({ ok: false, error: "OCR misslyckades" }),
           { status: 500, headers: { ...cors, "content-type": "application/json" } }
@@ -1658,7 +1705,7 @@ Returnera ENDAST ren text, separerad med mellanslag. Ingen formatering, inga kom
       );
     }
 
-    console.log(`[${new Date().toISOString()}] OCR source: ${ocrSource}`);
+    console.log(`[${new Date().toISOString()}] OCR source: ${ocrSource}, final text length: ${ocrText.length}`);
 
     // Check cache (memory first, then Supabase)
     const cacheKey = getCacheKey(ocrText);
