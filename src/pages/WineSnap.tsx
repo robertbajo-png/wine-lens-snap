@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
 import { useIsPremium } from "@/hooks/useUserSettings";
 import { computeLabelHash, type WineAnalysisResult } from "@/lib/wineCache";
@@ -57,6 +57,7 @@ const readFileAsDataUrl = (file: File) =>
 const WineSnap = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { isPremium, isLoading: isPremiumLoading } = useIsPremium();
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
@@ -619,6 +620,19 @@ const WineSnap = () => {
       }, 0);
     }
   };
+
+  // Listen for navigation state to trigger new scan (when scan button is clicked while already on /scan)
+  const lastTriggerRef = useRef<number | null>(null);
+  useEffect(() => {
+    const state = location.state as { triggerNewScan?: number } | null;
+    if (state?.triggerNewScan && state.triggerNewScan !== lastTriggerRef.current) {
+      lastTriggerRef.current = state.triggerNewScan;
+      // Clear the state to prevent re-triggering on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+      // Reset and open camera
+      handleReset({ reopenPicker: true, useCamera: true });
+    }
+  }, [location.state, location.pathname, navigate]);
 
   const handleRetryScan = () => {
     if (isProcessing) return;
