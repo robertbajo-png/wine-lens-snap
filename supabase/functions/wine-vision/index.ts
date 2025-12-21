@@ -29,7 +29,7 @@ import {
 
 const CFG = {
   PPLX_TIMEOUT_MS: 15000,
-  GEMINI_TIMEOUT_MS: 45000,
+  GEMINI_TIMEOUT_MS: 30000,
   FAST_TIMEOUT_MS: 15000,
   MAX_WEB_URLS: 3,
   PPLX_MODEL: "sonar",
@@ -300,10 +300,17 @@ ${schemaJSON}
 async function runGeminiFast(ocrText: string, imageUrl?: string): Promise<WebJson> {
   if (!LOVABLE_API_KEY || !imageUrl) return null;
 
-  console.log(`[${new Date().toISOString()}] Gemini Vision fallback: analyzing label image directly...`);
+  console.log(`[${new Date().toISOString()}] Gemini Vision: analyzing label image (using gemini-2.5-flash)...`);
+  console.log(`[${new Date().toISOString()}] Image size: ${Math.round(imageUrl.length / 1024)}KB`);
 
   const prompt = `
 Du är en EXPERT på att läsa vinetiketter och flaskbottnar. Analysera HELA bilden noggrant.
+
+## FÖRSTA STEG: BESKRIV VAD DU SER
+Innan du analyserar, beskriv kort:
+1. Vad för typ av etikett är det? (klassisk, modern, konstnärlig, minimalistisk)
+2. Vilka textelement ser du? (stora titlar, små detaljer, logotyper)
+3. Finns det något som är svårläst? (låg kontrast, ovanligt typsnitt)
 
 ## KRITISKT: SVÅRA ETIKETTER
 Många etiketter är svårlästa på grund av:
@@ -320,6 +327,7 @@ Många etiketter är svårlästa på grund av:
 - Sök HELA etiketten - namn kan vara var som helst
 - Titta på konstnärliga/stiliserade texter - de är ofta vinnamnet
 - Kombinera text från flera ställen om nödvändigt
+- OM DU SER KONSTNÄRLIG TEXT - försök tolka den bokstav för bokstav
 
 ### 2. PRODUCENT/VINGÅRD
 - Ofta under eller över vinnamnet
@@ -347,12 +355,13 @@ Många etiketter är svårlästa på grund av:
 
 ${ocrText ? `
 ## OCR-LEDTRÅD (kan vara felaktig, verifiera mot bilden):
-"${ocrText.slice(0, 300)}"
+"${ocrText.slice(0, 400)}"
 ` : '## Ingen OCR tillgänglig - läs direkt från bilden'}
 
 ## RETURNERA JSON (ENDAST giltigt JSON, inga backticks):
 {
-  "vin": "vinets fullständiga namn",
+  "beskriv_etiketten": "kort beskrivning av vad du ser på bilden",
+  "vin": "vinets fullständiga namn - GISSA hellre än att skriva -",
   "producent": "producentens/vingårdens namn",
   "druvor": "druvsort(er)",
   "land_region": "Land, Region",
@@ -369,18 +378,22 @@ ${ocrText ? `
 
 ## KRITISKT:
 - Om du ser NÅGON text som kan vara ett vinnamn - använd det!
-- Gissa hellre än att returnera "-" för vinnamn/producent/region
-- Om etiketten visar en specifik stil (konstnärlig bild, modern design) - beskriv vad du ser
+- GISSA hellre än att returnera "-" för vinnamn/producent/region
+- Om etiketten är konstnärlig, beskriv VAD DU SER i beskriv_etiketten
 - ALDRIG returnera alla fält som "-" - ge ditt bästa försök!
   `.trim();
 
   try {
-    // Try Gemini first
+    // Try with Gemini 2.5 Flash first (faster and better at vision)
+    const flashStart = Date.now();
     const result = await aiClient.gemini(prompt, {
+      model: "google/gemini-2.5-flash",
       imageUrl,
       timeoutMs: CFG.GEMINI_TIMEOUT_MS,
+      maxTokens: 2500,
       json: true,
     }) as Record<string, unknown>;
+    const flashMs = Date.now() - flashStart;
 
     const normalized = normalizeSearchResult(result);
     
@@ -389,17 +402,67 @@ ${ocrText ? `
     
     if (hasUsefulData) {
       normalized.fallback_mode = false;
-      normalized.källor = ["gemini-vision"];
-      console.log(`[${new Date().toISOString()}] Gemini Vision success:`, JSON.stringify(normalized, null, 2));
+      normalized.källor = ["gemini-2.5-flash"];
+      console.log(`[${new Date().toISOString()}] Gemini 2.5 Flash success (${flashMs}ms):`, JSON.stringify(normalized, null, 2));
       return normalized;
     }
     
-    // Gemini returned empty data - no point retrying same model
-    console.log(`[${new Date().toISOString()}] Gemini Vision returned empty data`);
+    // Gemini 2.5 Flash returned empty - try Gemini 3 Pro as fallback
+    console.log(`[${new Date().toISOString()}] Gemini 2.5 Flash returned empty (${flashMs}ms), trying Gemini 3 Pro fallback...`);
+    
+    const proStart = Date.now();
+    const proResult = await aiClient.gemini(prompt, {
+      model: "google/gemini-3-pro-preview",
+      imageUrl,
+      timeoutMs: CFG.GEMINI_TIMEOUT_MS,
+      maxTokens: 2500,
+      json: true,
+    }) as Record<string, unknown>;
+    const proMs = Date.now() - proStart;
+    
+    const proNormalized = normalizeSearchResult(proResult);
+    const proHasData = !isBlank(proNormalized.vin) || !isBlank(proNormalized.producent) || !isBlank(proNormalized.land_region);
+    
+    if (proHasData) {
+      proNormalized.fallback_mode = false;
+      proNormalized.källor = ["gemini-3-pro"];
+      console.log(`[${new Date().toISOString()}] Gemini 3 Pro success (${proMs}ms):`, JSON.stringify(proNormalized, null, 2));
+      return proNormalized;
+    }
+    
+    console.log(`[${new Date().toISOString()}] Both Gemini models returned empty data`);
     return null;
     
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Gemini Vision error:`, error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[${new Date().toISOString()}] Gemini Vision error: ${errMsg}`);
+    
+    // If it's a timeout, try Gemini 3 Pro as it might be more reliable
+    if (errMsg.includes("timeout") || errMsg === "gemini_timeout") {
+      console.log(`[${new Date().toISOString()}] Gemini 2.5 Flash timed out, trying Gemini 3 Pro...`);
+      try {
+        const proStart = Date.now();
+        const proResult = await aiClient.gemini(prompt, {
+          model: "google/gemini-3-pro-preview",
+          imageUrl,
+          timeoutMs: CFG.GEMINI_TIMEOUT_MS + 15000, // Extra time for Pro
+          maxTokens: 2500,
+          json: true,
+        }) as Record<string, unknown>;
+        const proMs = Date.now() - proStart;
+        
+        const proNormalized = normalizeSearchResult(proResult);
+        if (!isBlank(proNormalized.vin) || !isBlank(proNormalized.producent)) {
+          proNormalized.fallback_mode = false;
+          proNormalized.källor = ["gemini-3-pro"];
+          console.log(`[${new Date().toISOString()}] Gemini 3 Pro fallback success (${proMs}ms)`);
+          return proNormalized;
+        }
+      } catch (proError) {
+        console.error(`[${new Date().toISOString()}] Gemini 3 Pro fallback also failed:`, proError);
+      }
+    }
+    
     return null;
   }
 }
