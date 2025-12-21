@@ -15,6 +15,24 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "page-for-you": ["./src/pages/ForYou.tsx"],
+          "page-explore": ["./src/pages/Explore.tsx"],
+          "page-scan": ["./src/pages/WineSnap.tsx"],
+          "page-following": ["./src/pages/Following.tsx"],
+          "page-history": ["./src/pages/History.tsx"],
+          "page-me": ["./src/pages/Me.tsx"],
+          "page-premium": ["./src/pages/PremiumCheckoutSession.tsx"],
+          "page-auth": ["./src/pages/Login.tsx", "./src/pages/LoginCallback.tsx"],
+          "page-static": ["./src/pages/About.tsx", "./src/pages/NotFound.tsx"],
+          "page-dev": ["./src/pages/dev/Events.tsx"],
+        },
+      },
+    },
+  },
   test: {
     environment: "node",
   },

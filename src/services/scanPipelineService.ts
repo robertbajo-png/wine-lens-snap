@@ -15,6 +15,7 @@ import {
   type PipelineResult,
 } from "@/lib/imagePipelineCore";
 import { computeLabelHash } from "@/lib/wineCache";
+import { trackEvent } from "@/lib/telemetry";
 
 export const ANALYSIS_TIMEOUT_MS = 60000; // 60s to match edge function Gemini timeout
 
@@ -252,11 +253,16 @@ export const runFullScanPipeline = async ({
   const cachedEntry = getCachedAnalysisEntry(cacheLookupKey);
   if (cachedEntry) {
     const cachedResult = normalizeAnalysisSchema(cachedEntry.result) ?? cachedEntry.result;
+    const cachedRawOcrValue = !noTextFound && ocrText ? ocrText : null;
+    trackEvent("analysis_cache_hit", {
+      hasOcr: Boolean(cachedRawOcrValue),
+      saved: cachedEntry.saved,
+    });
     return {
       result: cachedResult as WineAnalysisResult,
       cacheKey,
       cacheLookupKey,
-      rawOcrValue: !noTextFound && ocrText ? ocrText : null,
+      rawOcrValue: cachedRawOcrValue,
       noTextFound,
       analysisMode: (cachedResult as WineAnalysisResult).mode === "label_only" ? "label_only" : "full",
       fromCache: true,
@@ -381,6 +387,12 @@ export const runFullScanPipeline = async ({
   const labelHashMeta = typeof data?._meta?.label_hash === "string" ? data._meta.label_hash : undefined;
   const rawOcrValue = !noTextFound && ocrText ? ocrText : null;
   const labelHash = labelHashMeta ?? computeLabelHash(rawOcrValue ?? cacheLookupKey);
+  if (analysisMode === "label_only" && resolvedNote === "label_only_fallback") {
+    trackEvent("analysis_label_only_fallback", {
+      hasOcr: Boolean(rawOcrValue),
+      note: resolvedNote,
+    });
+  }
 
   setCachedAnalysis(cacheLookupKey, normalizedResult as WineAnalysisResult, {
     imageData: processedImage,

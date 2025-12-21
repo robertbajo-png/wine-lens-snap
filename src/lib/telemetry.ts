@@ -19,7 +19,14 @@ export type TelemetryEventName =
   | "explore_scan_opened"
   | "explore_new_scan_cta_clicked"
   | "explore_scans_retry_requested"
-  | "explore_login_prompt_clicked";
+  | "explore_login_prompt_clicked"
+  | "analysis_cache_hit"
+  | "analysis_label_only_fallback"
+  | "sync_attempt"
+  | "sync_completed"
+  | "sync_failed"
+  | "sync_offline_skip"
+  | "sync_backoff_scheduled";
 
 export type TelemetryPayload = Record<string, unknown> | undefined;
 
