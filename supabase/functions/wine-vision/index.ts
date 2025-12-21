@@ -394,70 +394,89 @@ ${ocrText ? `
       return normalized;
     }
     
-    // If Gemini returned empty data, try GPT-5 as fallback
-    console.log(`[${new Date().toISOString()}] Gemini Vision returned empty data, trying GPT-5 fallback...`);
-    return await runGpt5Fallback(ocrText, imageUrl);
+    // If Gemini returned empty data, try Gemini 3 Pro as fallback
+    console.log(`[${new Date().toISOString()}] Gemini Vision returned empty data, trying Gemini 3 Pro fallback...`);
+    return await runGemini3ProFallback(ocrText, imageUrl);
     
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Gemini Vision error:`, error);
     
-    // Try GPT-5 as fallback on error
-    console.log(`[${new Date().toISOString()}] Trying GPT-5 fallback after Gemini error...`);
-    return await runGpt5Fallback(ocrText, imageUrl);
+    // Try Gemini 3 Pro as fallback on error
+    console.log(`[${new Date().toISOString()}] Trying Gemini 3 Pro fallback after Gemini error...`);
+    return await runGemini3ProFallback(ocrText, imageUrl);
   }
 }
 
-async function runGpt5Fallback(ocrText: string, imageUrl?: string): Promise<WebJson> {
+async function runGemini3ProFallback(ocrText: string, imageUrl?: string): Promise<WebJson> {
   if (!LOVABLE_API_KEY || !imageUrl) return null;
 
   const prompt = `
-You are an expert wine label reader. Analyze this wine bottle label image carefully.
+Du är en EXPERT på att läsa vinetiketter, även de svåraste konstnärliga etiketterna.
 
-IMPORTANT: Many labels are difficult to read due to:
-- Artistic/decorative fonts
-- Curved or vertical text
-- Low contrast
-- Multiple languages
+## DIN UPPGIFT
+Analysera denna bild av en vinflaska/etikett och extrahera ALL synlig information.
 
-Your task: Extract as much information as possible from the label.
+## VANLIGA UTMANINGAR (som du MÅSTE hantera):
+- Stiliserade/konstnärliga typsnitt som är svårlästa
+- Text i bågar, cirklar, vertikalt eller diagonalt
+- Låg kontrast mellan text och bakgrund
+- Handskrivna eller kalligrafiska stilar
+- Delvis skymd eller suddig text
+- Blandning av flera språk
 
-${ocrText ? `OCR hint (may be inaccurate): "${ocrText.slice(0, 300)}"` : 'No OCR available - read directly from image'}
+## EXTRAHERA (leta ÖVERALLT på etiketten):
+1. VINNAMN - ofta den största/mest framträdande texten
+2. PRODUCENT/VINGÅRD - kan innehålla "Winery", "Estate", "Château", "Domaine", etc.
+3. REGION - geografiska namn, landsnamn, klassificeringar (DOC, AOC, etc.)
+4. DRUVA - sortnamn, ibland med procentandel
+5. ÅRGÅNG - 4-siffrigt årtal
+6. ALKOHOL - t.ex. "13.5% vol"
+7. VOLYM - t.ex. "750ml"
 
-Return ONLY valid JSON (no markdown, no backticks):
+${ocrText ? `
+## OCR-LEDTRÅD (kan vara felaktig):
+"${ocrText.slice(0, 400)}"
+` : '## Ingen OCR - läs direkt från bilden'}
+
+## RETURNERA ENDAST GILTIG JSON (ingen markdown):
 {
-  "vin": "wine name",
-  "producent": "producer/winery name",
-  "druvor": "grape variety",
-  "land_region": "Country, Region",
-  "årgång": "vintage year or -",
-  "alkoholhalt": "alcohol % or -",
-  "volym": "volume or -",
-  "klassificering": "classification or -",
-  "karaktär": "character description or -",
-  "smak": "taste notes or -",
-  "servering": "serving temp or -",
-  "passar_till": ["food1", "food2", "food3"],
+  "vin": "vinets namn",
+  "producent": "producentens namn",
+  "druvor": "druvsort(er)",
+  "land_region": "Land, Region",
+  "årgång": "YYYY eller -",
+  "alkoholhalt": "t.ex. 13.5% vol eller -",
+  "volym": "t.ex. 750ml eller -",
+  "klassificering": "DOC/DOCG/AOC eller -",
+  "karaktär": "kort beskrivning eller -",
+  "smak": "smaknyanser eller -",
+  "servering": "serveringstemperatur eller -",
+  "passar_till": ["mat1", "mat2", "mat3"],
   "källor": []
 }
 
-CRITICAL: Never return all fields as "-". Make your best attempt based on what you can see!
+## KRITISKT:
+- GE DITT BÄSTA FÖRSÖK - returnera ALDRIG alla fält som "-"
+- Om du ser NÅGOT som kan vara ett vinnamn, använd det!
+- Beskriv vad du ser om du är osäker
   `.trim();
 
   try {
-    const result = await aiClient.gpt5(prompt, {
+    const result = await aiClient.gemini(prompt, {
+      model: "google/gemini-3-pro-preview",
       imageUrl,
       json: true,
-      timeoutMs: 45000,
+      timeoutMs: 60000,
     }) as Record<string, unknown>;
 
     const normalized = normalizeSearchResult(result);
     normalized.fallback_mode = false;
-    normalized.källor = ["gpt5-vision"];
+    normalized.källor = ["gemini-3-pro-vision"];
     
-    console.log(`[${new Date().toISOString()}] GPT-5 Vision success:`, JSON.stringify(normalized, null, 2));
+    console.log(`[${new Date().toISOString()}] Gemini 3 Pro Vision success:`, JSON.stringify(normalized, null, 2));
     return normalized;
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] GPT-5 Vision error:`, error);
+    console.error(`[${new Date().toISOString()}] Gemini 3 Pro Vision error:`, error);
     return null;
   }
 }
@@ -1637,38 +1656,40 @@ Returnera ENDAST ren text, separerad med mellanslag. Ingen formatering, inga kom
         ocrSource = "gemini";
         console.log(`[${new Date().toISOString()}] OCR success (${ocrTime}ms), text length: ${ocrText.length}`);
         
-        // If OCR returned very little, try GPT-5 as backup
+        // If OCR returned very little, try Gemini 3 Pro as backup
         if (ocrText.length < 20) {
-          console.log(`[${new Date().toISOString()}] OCR text too short, trying GPT-5 backup...`);
+          console.log(`[${new Date().toISOString()}] OCR text too short, trying Gemini 3 Pro backup...`);
           try {
-            const gpt5OcrText = await aiClient.gpt5(ocrPrompt, {
+            const gemini3OcrText = await aiClient.gemini(ocrPrompt, {
+              model: "google/gemini-3-pro-preview",
               imageUrl: imageBase64,
-              timeoutMs: 45000,
+              timeoutMs: 60000,
             });
-            if (gpt5OcrText.length > ocrText.length) {
-              ocrText = gpt5OcrText;
-              ocrSource = "gemini";  // Keep as gemini for logging consistency
-              console.log(`[${new Date().toISOString()}] GPT-5 OCR backup success, text length: ${ocrText.length}`);
+            if (gemini3OcrText.length > ocrText.length) {
+              ocrText = gemini3OcrText;
+              ocrSource = "gemini";
+              console.log(`[${new Date().toISOString()}] Gemini 3 Pro OCR backup success, text length: ${ocrText.length}`);
             }
-          } catch (gpt5Error) {
-            console.warn(`[${new Date().toISOString()}] GPT-5 OCR backup failed:`, gpt5Error);
+          } catch (gemini3Error) {
+            console.warn(`[${new Date().toISOString()}] Gemini 3 Pro OCR backup failed:`, gemini3Error);
           }
         }
       } catch (error) {
         const ocrTime = Date.now() - ocrStart;
         console.error(`[${new Date().toISOString()}] OCR error (${ocrTime}ms):`, error);
         
-        // Try GPT-5 as fallback
-        console.log(`[${new Date().toISOString()}] Trying GPT-5 OCR fallback after Gemini error...`);
+        // Try Gemini 3 Pro as fallback
+        console.log(`[${new Date().toISOString()}] Trying Gemini 3 Pro OCR fallback after Gemini error...`);
         try {
-          ocrText = await aiClient.gpt5(ocrPrompt, {
+          ocrText = await aiClient.gemini(ocrPrompt, {
+            model: "google/gemini-3-pro-preview",
             imageUrl: imageBase64,
-            timeoutMs: 45000,
+            timeoutMs: 60000,
           });
           ocrSource = "gemini";
-          console.log(`[${new Date().toISOString()}] GPT-5 OCR fallback success, text length: ${ocrText.length}`);
-        } catch (gpt5Error) {
-          console.error(`[${new Date().toISOString()}] GPT-5 OCR fallback also failed:`, gpt5Error);
+          console.log(`[${new Date().toISOString()}] Gemini 3 Pro OCR fallback success, text length: ${ocrText.length}`);
+        } catch (gemini3Error) {
+          console.error(`[${new Date().toISOString()}] Gemini 3 Pro OCR fallback also failed:`, gemini3Error);
           return new Response(
             JSON.stringify({ ok: false, error: "OCR misslyckades" }),
             { status: 500, headers: { ...cors, "content-type": "application/json" } }
