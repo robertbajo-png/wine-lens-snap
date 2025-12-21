@@ -166,17 +166,25 @@ function weightSource(url: string | undefined | null): number {
   if (
     lower.includes("wine-searcher.com") ||
     lower.includes("wine.com") ||
-    lower.includes("totalwine.com")
+    lower.includes("totalwine.com") ||
+    lower.includes("klwines.com") ||
+    lower.includes("winebid.com")
   )
     return 3;
   if (
     lower.includes("decanter.com") ||
     lower.includes("winemag.com") ||
     lower.includes("jancisrobinson.com") ||
-    lower.includes("falstaff.com")
+    lower.includes("falstaff.com") ||
+    lower.includes("robertparker.com") ||
+    lower.includes("winespectator.com")
   )
     return 2;
-  if (lower.includes("vivino.com") || lower.includes("cellartracker.com")) return 1;
+  if (
+    lower.includes("vivino.com") || 
+    lower.includes("cellartracker.com") ||
+    lower.includes("wine-folly.com")
+  ) return 1;
   return 0;
 }
 
@@ -233,16 +241,38 @@ async function runPerplexity(ocrText: string): Promise<WebJson> {
   "karaktär": "", "smak": "", "servering": "", "passar_till": [], "källor": []
 }`.trim();
   const systemPrompt =
-    "Du är en extraktor som MÅSTE returnera ENBART ett giltigt, minifierat JSON-objekt enligt schema. Ingen markdown, inga backticks, ingen kommentar före eller efter. Dubbelcitat på alla nycklar/strängar. KRITISKT: ALL text i ditt svar MÅSTE vara på SVENSKA. Översätt alla beskrivningar till svenska.";
+    "Du är en vinexpert och extraktor. Din uppgift är att HITTA information om vinet på webben och returnera den som JSON. KRITISKT: ALL text i svaret MÅSTE vara på SVENSKA.";
 
+  // Extract key terms for better search
+  const cleanedOcr = ocrText.replace(/\s+/g, " ").trim();
+  const words = cleanedOcr.split(/\s+/).filter(w => w.length >= 3);
+  const searchTerms = words.slice(0, 5).join(" ");
+  
   const pplxPrompt = `
-VIN-LEDTRÅD (OCR):
-"${ocrText.slice(0, 300)}"
+UPPDRAG: Sök på webben efter information om detta vin och returnera strukturerad data.
 
-Sök i denna prioritering med site:-filter:
+VIN-LEDTRÅD (OCR från etikett):
+"${cleanedOcr.slice(0, 400)}"
+
+SÖKSTRATEGI för svåra/minimalistiska etiketter:
+1. Om OCR-texten är kort (bara ett namn eller ord) - sök efter det tillsammans med "wine"
+2. Kombinera alla läsbara ord: "${searchTerms}" + wine
+3. Sök även med varianter: "${searchTerms}" winery OR estate OR vineyard
+
+PRIORITERADE KÄLLOR (sök i denna ordning):
 ${queries.slice(0, 8).map((q, i) => `${i + 1}) ${q}`).join("\n")}
 
-Normalisera sökningen (ta bort diakritiska tecken; "Egri" ≈ "Eger").
+EXTRA SÖKNING för minimalistiska etiketter:
+- "${searchTerms} wine vivino"
+- "${searchTerms} wine cellartracker"
+- "${searchTerms} winery california OR oregon OR washington" (amerikanska viner)
+- "${searchTerms} wine producer"
+
+INSTRUKTIONER:
+- Normalisera sökningen (ta bort diakritiska tecken)
+- Om vinet hittas - fyll i alla fält du kan hitta
+- Om det är ett amerikanskt vin - sök på wine-searcher.com och vivino.com
+- Översätt ALLA beskrivningar till SVENSKA
 
 Returnera ENBART ett JSON-objekt exakt enligt detta schema (saknas uppgift → "-"):
 ${schemaJSON}
@@ -1383,21 +1413,29 @@ function buildSearchVariants(ocr: string) {
   const alias = noAcc.replace(/\bEgri\b/gi, "Eger").replace(/\bPinc(e|é)szete?\b/gi, "Winery");
   const base = [raw, noAcc, alias].filter((v, i, a) => v && a.indexOf(v) === i);
 
+  // Add "wine" suffix for short OCR texts (minimalist labels)
+  const withWine = base.map(t => t.length < 30 ? `${t} wine` : t);
+  const allTerms = [...base, ...withWine].filter((v, i, a) => a.indexOf(v) === i);
+
   const monopol = ["systembolaget.se", "vinmonopolet.no", "alko.fi", "saq.com", "lcbo.com"];
-  const retailers = ["wine-searcher.com", "wine.com", "totalwine.com", "waitrose.com", "tesco.com", "majestic.co.uk"];
-  const proMags = ["decanter.com", "winemag.com", "jancisrobinson.com", "falstaff.com"];
+  const retailers = ["wine-searcher.com", "wine.com", "totalwine.com", "waitrose.com", "tesco.com", "majestic.co.uk", "klwines.com"];
+  const proMags = ["decanter.com", "winemag.com", "jancisrobinson.com", "falstaff.com", "robertparker.com", "winespectator.com"];
   const community = ["vivino.com", "cellartracker.com"];
+  const usWineries = ["wine.com", "klwines.com", "totalwine.com"];
 
   const withSite = (terms: string[], doms: string[]) => terms.flatMap(t => doms.map(d => `site:${d} ${t}`));
 
   return [
-    ...withSite(base, ["systembolaget.se"]),
-    ...base.map(t => `${t} site:.it OR site:.fr OR site:.es OR site:.hu`),
-    ...withSite(base, monopol.filter(d => d !== "systembolaget.se")),
-    ...withSite(base, retailers),
-    ...withSite(base, proMags),
-    ...withSite(base, community),
-  ].slice(0, 12);
+    ...withSite(allTerms, ["systembolaget.se"]),
+    ...allTerms.map(t => `${t} site:.it OR site:.fr OR site:.es OR site:.hu`),
+    ...withSite(allTerms, monopol.filter(d => d !== "systembolaget.se")),
+    ...withSite(allTerms, retailers),
+    ...withSite(allTerms, proMags),
+    ...withSite(allTerms, community),
+    // Add US-specific searches for American wines
+    ...allTerms.map(t => `${t} california OR oregon wine`),
+    ...withSite(allTerms, usWineries),
+  ].slice(0, 15);
 }
 
 function sanitize(data: WineSummary): WineSummary {
