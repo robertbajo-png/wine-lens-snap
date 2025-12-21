@@ -1593,33 +1593,43 @@ Deno.serve(async (req) => {
 
     let analysisKey = "";
 
-    // OCR Quality Validation Function
+    // OCR Quality Validation Function - STRICT VERSION
     function isValidOcrText(text: string | null | undefined): boolean {
       if (!text || text.length < 10) return false;
       
-      // Count "real" words (3+ letters, mostly alphabetic)
+      // Check for garbage characters ratio - if too many weird symbols, reject
+      const garbageChars = (text.match(/[|;{}\[\]<>@#$%&*_=+\\^~`]/g) || []).length;
+      const totalChars = text.length;
+      if (garbageChars / totalChars > 0.1) {
+        console.log(`[OCR Validation] Failed: too many garbage chars (${garbageChars}/${totalChars} = ${(garbageChars/totalChars*100).toFixed(1)}%)`);
+        return false;
+      }
+      
+      // Check for broken text patterns (newlines with single chars, repeated symbols)
+      const brokenPatterns = /(\n.{1,2}\n)|(\n-\s)|(\s-\s\n)|([\|;]{2,})/g;
+      if (brokenPatterns.test(text)) {
+        console.log(`[OCR Validation] Failed: broken text patterns detected`);
+        return false;
+      }
+      
+      // Count "real" words (3+ letters, MOSTLY alphabetic - at least 70%)
       const words = text.split(/\s+/).filter(w => {
         if (w.length < 3) return false;
         const letterCount = (w.match(/[a-zA-ZåäöÅÄÖéèêëàáâãæçñüúùûîïíìôóòõøœßđğışžćčšśźżłńţţ]/gi) || []).length;
-        return letterCount >= w.length * 0.5; // At least 50% letters
+        return letterCount >= w.length * 0.7; // At least 70% letters (stricter)
       });
       
-      // Need at least 2 valid words
-      if (words.length < 2) {
-        console.log(`[OCR Validation] Failed: only ${words.length} valid words found in "${text.substring(0, 50)}..."`);
+      // Need at least 2 valid words with 4+ letters each
+      const substantialWords = words.filter(w => w.length >= 4);
+      if (substantialWords.length < 2) {
+        console.log(`[OCR Validation] Failed: only ${substantialWords.length} substantial words (need 2+) in "${text.substring(0, 80)}..."`);
         return false;
       }
       
       // Check for common wine-related patterns
       const hasWinePatterns = /\d{4}|%|ml|cl|doc|aoc|igt|vdp|reserva|gran|cru|château|domaine|bodega|cantina|weingut|vignoble|vineyard/i.test(text);
-      const hasReasonableText = words.some(w => w.length >= 4);
       
-      if (!hasReasonableText && !hasWinePatterns) {
-        console.log(`[OCR Validation] Failed: no reasonable words or wine patterns in "${text.substring(0, 50)}..."`);
-        return false;
-      }
-      
-      console.log(`[OCR Validation] Passed: ${words.length} valid words, patterns=${hasWinePatterns}`);
+      console.log(`[OCR Validation] Passed: ${substantialWords.length} valid words, patterns=${hasWinePatterns}`);
       return true;
     }
 
