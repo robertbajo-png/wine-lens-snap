@@ -219,7 +219,7 @@ const WineSnap = () => {
         uiLang,
         supabaseUrl,
         supabaseAnonKey,
-        allowFullAnalysis: isPremium || isPremiumLoading,
+        allowFullAnalysis: true, // TODO: revert to isPremium || isPremiumLoading when premium gating is ready
       });
 
       const {
