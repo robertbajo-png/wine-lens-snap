@@ -257,11 +257,20 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
     }
 
     if (json) {
+      const cleaned = rawContent.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
       try {
-        const cleaned = rawContent.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
         return parseJsonObject(cleaned);
       } catch {
-        throw new Error("Gemini did not return valid JSON");
+        // Attempt JSON repair with Gemini
+        console.log("[aiClient.gemini] JSON parse failed, attempting forceJson repair...");
+        console.log("[aiClient.gemini] Raw content (first 500 chars):", cleaned.substring(0, 500));
+        const schemaHint = "WineSummary schema with vin, producent, druvor, land_region, argang, alkohol, volym, farg, smakprofil, servering, mat_kombination, beskrivning, evidence";
+        try {
+          return await forceJson(cleaned, schemaHint, lovableApiKey);
+        } catch (repairError) {
+          console.error("[aiClient.gemini] forceJson repair also failed:", repairError);
+          throw new Error("Gemini did not return valid JSON");
+        }
       }
     }
 
