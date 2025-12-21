@@ -65,7 +65,8 @@ const BottomNav = () => {
         return;
       }
 
-      if (location.pathname === targetPath) {
+      // For scan tab, always allow action even if already on /scan (to start new scan)
+      if (location.pathname === targetPath && tab.key !== "scan") {
         return;
       }
 
@@ -75,7 +76,13 @@ const BottomNav = () => {
         from: activeKey ?? undefined,
         targetPath,
       });
-      navigate(targetPath);
+      
+      // For scan tab when already on /scan, pass state to trigger new scan
+      if (tab.key === "scan" && location.pathname === targetPath) {
+        navigate(targetPath, { state: { triggerNewScan: Date.now() } });
+      } else {
+        navigate(targetPath);
+      }
     },
     [activeKey, loading, location.pathname, navigate, stateMap, triggerHaptic, user],
   );
