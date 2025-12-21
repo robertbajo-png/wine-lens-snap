@@ -55,8 +55,8 @@ export type RunFullScanPipelineParams = {
   allowFullAnalysis?: boolean;
 };
 
-const MAX_FILE_SIDE = 2048;
-const JPEG_QUALITY = 0.9;
+const MAX_FILE_SIDE = 2560;  // Larger image = more details for OCR
+const JPEG_QUALITY = 0.92;  // Higher quality for better text recognition
 const OCR_MIN_LENGTH = 10;
 
 let workerRef: Worker | null = null;
@@ -208,8 +208,8 @@ export const runFullScanPipeline = async ({
     preprocess: {
       maxSide: MAX_FILE_SIDE,
       quality: JPEG_QUALITY,
-      grayscale: true,
-      contrast: 1.12,
+      grayscale: false,  // Keep color for better OCR accuracy
+      contrast: 1.0,     // No contrast adjustment - preserve original details
     },
   };
 

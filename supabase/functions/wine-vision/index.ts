@@ -1653,18 +1653,32 @@ Deno.serve(async (req) => {
       console.log(`[${new Date().toISOString()}] Starting Gemini OCR (client OCR was invalid/missing)...`);
 
       const ocrPrompt = `
-Läs ALL synlig text från denna vinetikett. Returnera ENDAST den rena texten, inget annat.
+Läs noggrant ALL synlig text från denna vinetikett. Du MÅSTE returnera varje ord du kan läsa.
 
-VIKTIGT:
-- Läs text i ALLA riktningar (horisontell, vertikal, bågar, cirklar)
-- Läs konstnärliga/stiliserade typsnitt - dessa är ofta VINNAMNET
-- Läs text med låg kontrast mot bakgrunden
-- Om etiketten är minimalistisk med bara ETT ord - returnera det ordet
-- Gör ditt bästa försök även om texten är svårläst
+STEG 1 - SYSTEMATISK SKANNING:
+Skanna hela bilden systematiskt - uppifrån och ner, vänster till höger.
+Leta i ALLA områden: toppen, mitten, botten, sidorna, etikettkanter, kapsylområdet.
 
-FOKUSERA på: vinnamn, producent, region, årgång, druva, alkoholhalt.
+STEG 2 - LETA EFTER ALLA TEXTTYPER:
+- Stor dekorativ text (ofta vinnamnet)
+- Liten text (ofta teknisk info som alkohol, volym)
+- Text med låg kontrast mot bakgrunden
+- Stiliserade/konstnärliga typsnitt
+- Text i bågar, cirklar, eller vertikalt
+- Text på guldfolie eller präglad text
 
-Returnera ENDAST ren text separerad med mellanslag. Ingen beskrivning, inga kommentarer.
+STEG 3 - SPECIFIKA FÄLT ATT LETA EFTER:
+- Vinnamn/producentnamn (ofta störst, kan vara konstnärligt)
+- Region/land (ex: Bordeaux, Rioja, Toscana, France, Italy)
+- Årgång (4 siffror, ex: 2019, 2021, 2022)
+- Alkoholhalt (ex: "14%", "13,5% vol", "12.5% alc")
+- Druva (ex: Chardonnay, Merlot, Cabernet Sauvignon)
+- Klassificering (ex: AOC, DOC, DOCG, Grand Cru, Reserva)
+- Volym (ex: "750 ml", "75 cl", "1.5L")
+
+RETURNERA:
+All läsbar text separerad med mellanslag. Inkludera även text du är osäker på - gör ditt bästa försök.
+Ingen beskrivning, inga kommentarer, bara ren text.
       `.trim();
 
       try {
@@ -1675,6 +1689,48 @@ Returnera ENDAST ren text separerad med mellanslag. Ingen beskrivning, inga komm
         const ocrTime = Date.now() - ocrStart;
         ocrSource = "gemini";
         console.log(`[${new Date().toISOString()}] Gemini OCR success (${ocrTime}ms), text: "${ocrText.substring(0, 200)}..."`);
+        
+        // Retry with more detailed prompt if OCR result is too short (< 20 chars)
+        const trimmedOcrResult = ocrText.trim();
+        if (trimmedOcrResult.length < 20) {
+          console.log(`[${new Date().toISOString()}] OCR result too short (${trimmedOcrResult.length} chars), retrying with detailed prompt...`);
+          
+          const retryPrompt = `
+VIKTIGT: Första OCR-försöket gav bara: "${trimmedOcrResult}"
+Detta är troligen bara en del av texten. Titta MYCKET noga och hitta MER text.
+
+SPECIFIKA PLATSER ATT KONTROLLERA:
+1. NEDRE DELEN av etiketten (alkohol, volym, land brukar stå där)
+2. ÖVRE KANTEN (klassificering, region)
+3. BAKGRUNDEN (text kan vara subtil eller vattenmärkt)
+4. RUNT KANTERNA (ofta teknisk info)
+5. PÅ HALSEN/KAPSYLEN om synlig
+
+Returnera ALL text du kan hitta, inklusive:
+- Det du redan hittade: "${trimmedOcrResult}"
+- PLUS all ytterligare text
+
+Om du verkligen inte kan hitta mer text, returnera bara: "${trimmedOcrResult}"
+          `.trim();
+          
+          try {
+            const retryResult = await aiClient.gemini(retryPrompt, {
+              imageUrl: imageBase64,
+              timeoutMs: CFG.GEMINI_TIMEOUT_MS,
+            });
+            const retryTime = Date.now() - ocrStart;
+            
+            // Use retry result only if it's longer than original
+            if (retryResult.trim().length > trimmedOcrResult.length) {
+              ocrText = retryResult;
+              console.log(`[${new Date().toISOString()}] OCR retry success (${retryTime}ms), improved text: "${retryResult.substring(0, 200)}..."`);
+            } else {
+              console.log(`[${new Date().toISOString()}] OCR retry did not improve result, keeping original`);
+            }
+          } catch (retryError) {
+            console.warn(`[${new Date().toISOString()}] OCR retry failed, keeping original result:`, retryError);
+          }
+        }
       } catch (error) {
         const ocrTime = Date.now() - ocrStart;
         console.error(`[${new Date().toISOString()}] Gemini OCR error (${ocrTime}ms):`, error);
