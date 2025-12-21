@@ -273,83 +273,79 @@ async function runGeminiFast(ocrText: string, imageUrl?: string): Promise<WebJso
   console.log(`[${new Date().toISOString()}] Gemini Vision fallback: analyzing label image directly...`);
 
   const prompt = `
-Du är en EXPERT på att läsa vinetiketter och flaskbottnar. Din VIKTIGASTE uppgift är att hitta ALKOHOLHALT och VOLYM.
+Du är en EXPERT på att läsa vinetiketter och flaskbottnar. Analysera HELA bilden noggrant.
 
-## STEG 1: SÖKSTRATEGI FÖR ALKOHOL & VOLYM
+## KRITISKT: SVÅRA ETIKETTER
+Många etiketter är svårlästa på grund av:
+- Konstnärlig/artistisk design med ovanliga typsnitt
+- Text i bågar, cirklar eller vertikalt
+- Låg kontrast (vit text på ljus bakgrund, etc.)
+- Handskriven eller kalligrafisk stil
+- Delvis skymda eller suddiga områden
+- Flera språk blandade (ungerska, italienska, franska, etc.)
 
-### ALKOHOLHALT - KRITISKT FÄLT!
-Skanna bilden systematiskt i denna ordning:
-1. **FLASKANS NEDRE DEL** - Ofta liten text nära botten
-2. **BAKSIDESTEXT** - Om synlig, ofta detaljerad info här
-3. **UNDER HUVUDETIKETTEN** - Liten text i sidfoten
-4. **RUNT KORKEN/HALSEN** - Ibland på halsband
+## SÖKSTRATEGI (gå igenom i ordning):
 
-Leta efter EXAKT dessa mönster:
-- "XX%" eller "XX,X%" eller "XX.X%"
-- "XX% vol" eller "XX,X% vol"  
-- "alc XX%" eller "alc. XX%"
-- "alcohol XX%" eller "alcool XX%"
-- Vanliga värden: 11%, 12%, 12.5%, 13%, 13.5%, 14%, 14.5%, 15%
+### 1. VINNAMN (ofta störst/mest framträdande)
+- Sök HELA etiketten - namn kan vara var som helst
+- Titta på konstnärliga/stiliserade texter - de är ofta vinnamnet
+- Kombinera text från flera ställen om nödvändigt
 
-### VOLYM - KRITISKT FÄLT!
-Skanna i denna ordning:
-1. **LÄNGST NER PÅ FLASKAN** - Ofta präglat i glaset eller på etikett
-2. **BREDVID ALKOHOLHALTEN** - Dessa står ofta tillsammans
-3. **BAKSIDAN** - Om synlig
+### 2. PRODUCENT/VINGÅRD
+- Ofta under eller över vinnamnet
+- Kan inkludera ord som: "Winery", "Château", "Domaine", "Bodega", "Cantina", "Pincészet", "Estate"
+- Kan också vara en persons namn eller familjens namn
 
-Leta efter EXAKT dessa mönster:
-- "750ml" eller "750 ml" eller "75cl" eller "75 cl"
-- "0.75L" eller "0,75L" eller "0.75l"
-- "375ml" (halvflaska), "1L" eller "1.5L" (magnum)
-- e750ml (e = europeisk märkning)
+### 3. REGION/URSPRUNG (VIKTIGT!)
+- Sök efter geografiska namn: Tokaj, Eger, Bordeaux, Rioja, Toscana, etc.
+- Landsnamn: Hungary, Italia, France, España, etc.
+- Klassificeringar: DOC, DOCG, AOC, DO, PDO, etc.
 
-## STEG 2: RAPPORTERA VAD DU SER
+### 4. DRUVA/SORTER
+- Vanliga: Furmint, Kékfrankos, Olaszrizling, Cabernet, Merlot, Chardonnay
+- Kan stå med procentandel: "100% Furmint"
+- Ibland på flera språk
 
-Innan du svarar, beskriv MENTALT för dig själv:
-- "I nedre delen ser jag texten..."
-- "Alkoholhalten verkar vara..."
-- "Volymen hittar jag som..."
+### 5. ÅRGÅNG
+- 4-siffrig årtal: 2018, 2019, 2020, 2021, 2022, 2023
+- Kan vara liten text eller präglad
 
-## STEG 3: ÖVRIG INFORMATION
+### 6. ALKOHOL & VOLYM (leta NOGA!)
+- ALKOHOL: "13%", "12.5% vol", "alc. 14%"
+- VOLYM: "750ml", "75cl", "0.75L"
+- Ofta längst ner eller på baksidan
 
-${ocrText ? `OCR-text (kan vara felaktig, verifiera mot bilden): ${ocrText.slice(0, 200)}` : "Ingen OCR tillgänglig - läs direkt från bilden"}
+${ocrText ? `
+## OCR-LEDTRÅD (kan vara felaktig, verifiera mot bilden):
+"${ocrText.slice(0, 300)}"
+` : '## Ingen OCR tillgänglig - läs direkt från bilden'}
 
-Leta också efter:
-- **VINNAMN**: Största/mest framträdande texten
-- **PRODUCENT**: Ofta under eller över vinnamnet
-- **ÅRGÅNG**: 4-siffrig årtal (2018-2024)
-- **REGION**: Geografiskt ursprung
-- **DRUVOR**: Cabernet, Merlot, Chardonnay, etc.
-- **KLASSIFICERING**: DOC, DOCG, AOC, Reserva, etc.
-
-## RETURFORMAT
-
-Returnera ENDAST giltigt JSON (ingen markdown, inga backticks):
-
+## RETURNERA JSON (ENDAST giltigt JSON, inga backticks):
 {
-  "vin": "vinets namn",
-  "producent": "producentnamn",
+  "vin": "vinets fullständiga namn",
+  "producent": "producentens/vingårdens namn",
   "druvor": "druvsort(er)",
   "land_region": "Land, Region",
   "årgång": "YYYY eller -",
-  "alkoholhalt": "EXAKT som på flaskan (t.ex. '13.5% vol') - ALDRIG '-' om du ser ett %",
-  "volym": "EXAKT som på flaskan (t.ex. '750ml') - ALDRIG '-' om du ser ml/cl/L",
-  "klassificering": "kvalitetsmärkning eller -",
-  "karaktär": "kort beskrivning baserad på druva/region",
-  "smak": "typiska smaknyanser",
-  "servering": "temperatur (t.ex. '16-18°C')",
+  "alkoholhalt": "t.ex. '13.5% vol' eller -",
+  "volym": "t.ex. '750ml' eller -",
+  "klassificering": "DOC/DOCG/AOC etc eller -",
+  "karaktär": "kort beskrivning eller -",
+  "smak": "smaknyanser eller -",
+  "servering": "temperatur eller -",
   "passar_till": ["mat1", "mat2", "mat3"],
   "källor": []
 }
 
-## KRITISKT VIKTIGT:
-- Om du ser NÅGON procentsats på bilden → det är troligen alkoholhalt
-- Om du ser "ml", "cl", eller "L" med siffror → det är volym
-- Sätt ALDRIG "-" för alkohol/volym om du kan se eller gissa från bilden
-- Om etiketten är delvis skymd men du ser t.ex. "13" och "%" på olika ställen → kombinera till "13%"
+## KRITISKT:
+- Om du ser NÅGON text som kan vara ett vinnamn - använd det!
+- Gissa hellre än att returnera "-" för vinnamn/producent/region
+- Om etiketten visar en specifik stil (konstnärlig bild, modern design) - beskriv vad du ser
+- ALDRIG returnera alla fält som "-" - ge ditt bästa försök!
   `.trim();
 
   try {
+    // Try Gemini first
     const result = await aiClient.gemini(prompt, {
       imageUrl,
       timeoutMs: CFG.GEMINI_TIMEOUT_MS,
@@ -357,13 +353,81 @@ Returnera ENDAST giltigt JSON (ingen markdown, inga backticks):
     }) as Record<string, unknown>;
 
     const normalized = normalizeSearchResult(result);
-    normalized.fallback_mode = false;
-    normalized.källor = ["gemini-vision"];
-
-    console.log(`[${new Date().toISOString()}] Gemini Vision success:`, JSON.stringify(normalized, null, 2));
-    return normalized;
+    
+    // Check if Gemini returned useful data
+    const hasUsefulData = !isBlank(normalized.vin) || !isBlank(normalized.producent) || !isBlank(normalized.land_region);
+    
+    if (hasUsefulData) {
+      normalized.fallback_mode = false;
+      normalized.källor = ["gemini-vision"];
+      console.log(`[${new Date().toISOString()}] Gemini Vision success:`, JSON.stringify(normalized, null, 2));
+      return normalized;
+    }
+    
+    // If Gemini returned empty data, try GPT-5 as fallback
+    console.log(`[${new Date().toISOString()}] Gemini Vision returned empty data, trying GPT-5 fallback...`);
+    return await runGpt5Fallback(ocrText, imageUrl);
+    
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Gemini Vision error:`, error);
+    
+    // Try GPT-5 as fallback on error
+    console.log(`[${new Date().toISOString()}] Trying GPT-5 fallback after Gemini error...`);
+    return await runGpt5Fallback(ocrText, imageUrl);
+  }
+}
+
+async function runGpt5Fallback(ocrText: string, imageUrl?: string): Promise<WebJson> {
+  if (!LOVABLE_API_KEY || !imageUrl) return null;
+
+  const prompt = `
+You are an expert wine label reader. Analyze this wine bottle label image carefully.
+
+IMPORTANT: Many labels are difficult to read due to:
+- Artistic/decorative fonts
+- Curved or vertical text
+- Low contrast
+- Multiple languages
+
+Your task: Extract as much information as possible from the label.
+
+${ocrText ? `OCR hint (may be inaccurate): "${ocrText.slice(0, 300)}"` : 'No OCR available - read directly from image'}
+
+Return ONLY valid JSON (no markdown, no backticks):
+{
+  "vin": "wine name",
+  "producent": "producer/winery name",
+  "druvor": "grape variety",
+  "land_region": "Country, Region",
+  "årgång": "vintage year or -",
+  "alkoholhalt": "alcohol % or -",
+  "volym": "volume or -",
+  "klassificering": "classification or -",
+  "karaktär": "character description or -",
+  "smak": "taste notes or -",
+  "servering": "serving temp or -",
+  "passar_till": ["food1", "food2", "food3"],
+  "källor": []
+}
+
+CRITICAL: Never return all fields as "-". Make your best attempt based on what you can see!
+  `.trim();
+
+  try {
+    const result = await aiClient.gpt5(prompt, {
+      imageUrl,
+      json: true,
+      timeoutMs: 45000,
+    }) as Record<string, unknown>;
+
+    const normalized = normalizeSearchResult(result);
+    normalized.fallback_mode = false;
+    normalized.källor = ["gpt5-vision"];
+    
+    console.log(`[${new Date().toISOString()}] GPT-5 Vision success:`, JSON.stringify(normalized, null, 2));
+    return normalized;
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] GPT-5 Vision error:`, error);
     return null;
   }
 }
@@ -1502,21 +1566,76 @@ Deno.serve(async (req) => {
       const ocrStart = Date.now();
       console.log(`[${new Date().toISOString()}] Starting OCR via Gemini...`);
 
+      const ocrPrompt = `
+Du är en expert på att läsa text från vinetiketter. Din uppgift är att extrahera ALL synlig text från bilden.
+
+VIKTIGT för svåra etiketter:
+- Läs text i ALLA riktningar (horisontell, vertikal, bågar, cirklar)
+- Läs konstnärliga/stiliserade typsnitt
+- Läs text med låg kontrast
+- Läs text på flera språk (ungerska, italienska, franska, etc.)
+- Läs präglad eller upphöjd text
+- Läs text på flaskans hals, botten och sidor
+
+FOKUSERA på:
+1. Vinnamn (ofta störst)
+2. Producent/vingård
+3. Region/land
+4. Årgång (4-siffrig årtal)
+5. Druva/sort
+6. Alkoholhalt (XX% eller XX,X%)
+7. Volym (ml, cl, L)
+8. Klassificering (DOC, DOCG, AOC, etc.)
+
+Returnera ENDAST ren text, separerad med mellanslag. Ingen formatering, inga kommentarer.
+      `.trim();
+
       try {
-        ocrText = await aiClient.gemini("Läs exakt all text på vinflasketiketten och returnera endast ren text.", {
+        ocrText = await aiClient.gemini(ocrPrompt, {
           imageUrl: imageBase64,
           timeoutMs: CFG.GEMINI_TIMEOUT_MS,
         });
         const ocrTime = Date.now() - ocrStart;
         ocrSource = "gemini";
         console.log(`[${new Date().toISOString()}] OCR success (${ocrTime}ms), text length: ${ocrText.length}`);
+        
+        // If OCR returned very little, try GPT-5 as backup
+        if (ocrText.length < 20) {
+          console.log(`[${new Date().toISOString()}] OCR text too short, trying GPT-5 backup...`);
+          try {
+            const gpt5OcrText = await aiClient.gpt5(ocrPrompt, {
+              imageUrl: imageBase64,
+              timeoutMs: 45000,
+            });
+            if (gpt5OcrText.length > ocrText.length) {
+              ocrText = gpt5OcrText;
+              ocrSource = "gemini";  // Keep as gemini for logging consistency
+              console.log(`[${new Date().toISOString()}] GPT-5 OCR backup success, text length: ${ocrText.length}`);
+            }
+          } catch (gpt5Error) {
+            console.warn(`[${new Date().toISOString()}] GPT-5 OCR backup failed:`, gpt5Error);
+          }
+        }
       } catch (error) {
         const ocrTime = Date.now() - ocrStart;
         console.error(`[${new Date().toISOString()}] OCR error (${ocrTime}ms):`, error);
-        return new Response(
-          JSON.stringify({ ok: false, error: "OCR misslyckades" }),
-          { status: 500, headers: { ...cors, "content-type": "application/json" } }
-        );
+        
+        // Try GPT-5 as fallback
+        console.log(`[${new Date().toISOString()}] Trying GPT-5 OCR fallback after Gemini error...`);
+        try {
+          ocrText = await aiClient.gpt5(ocrPrompt, {
+            imageUrl: imageBase64,
+            timeoutMs: 45000,
+          });
+          ocrSource = "gemini";
+          console.log(`[${new Date().toISOString()}] GPT-5 OCR fallback success, text length: ${ocrText.length}`);
+        } catch (gpt5Error) {
+          console.error(`[${new Date().toISOString()}] GPT-5 OCR fallback also failed:`, gpt5Error);
+          return new Response(
+            JSON.stringify({ ok: false, error: "OCR misslyckades" }),
+            { status: 500, headers: { ...cors, "content-type": "application/json" } }
+          );
+        }
       }
     }
 
