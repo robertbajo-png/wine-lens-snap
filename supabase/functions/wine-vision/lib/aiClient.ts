@@ -186,13 +186,19 @@ async function gemini(prompt: string, options?: GeminiTextOptions): Promise<stri
 async function gemini(prompt: string, options: GeminiJsonOptions): Promise<Record<string, unknown>>;
 async function gemini(prompt: string, options: GeminiOptions = {}): Promise<string | Record<string, unknown>> {
   const {
-    model = "google/gemini-3-pro-preview",
+    model = "google/gemini-2.5-flash",
     json = false,
     temperature = 0.1,
-    maxTokens = 1200,
+    maxTokens = 2500,
     imageUrl,
-    timeoutMs = 20000,
+    timeoutMs = 30000,
   } = options;
+
+  // Log image size for debugging
+  if (imageUrl) {
+    const imgSize = imageUrl.length;
+    console.log(`[aiClient.gemini] Image size: ${Math.round(imgSize / 1024)}KB, model: ${model}`);
+  }
 
   const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
   if (!lovableApiKey) {
@@ -263,7 +269,7 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
       } catch {
         // Attempt JSON repair with Gemini
         console.log("[aiClient.gemini] JSON parse failed, attempting forceJson repair...");
-        console.log("[aiClient.gemini] Raw content (first 500 chars):", cleaned.substring(0, 500));
+        console.log("[aiClient.gemini] Raw content (full):", cleaned);
         const schemaHint = "WineSummary schema with vin, producent, druvor, land_region, argang, alkohol, volym, farg, smakprofil, servering, mat_kombination, beskrivning, evidence";
         try {
           return await forceJson(cleaned, schemaHint, lovableApiKey);
