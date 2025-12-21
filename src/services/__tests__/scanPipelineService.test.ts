@@ -116,7 +116,7 @@ describe("runFullScanPipeline", () => {
       källa: "cache",
       meters: { sötma: 1, fyllighet: 2, fruktighet: 3, fruktsyra: 4 },
       evidence: { etiketttext: "etikett", webbträffar: [] },
-      källstatus: { source: "cache", evidence_links: [] },
+      källstatus: { source: "heuristic", evidence_links: [] },
       mode: "label_only",
       detekterat_språk: "sv",
       originaltext: "cached text",
