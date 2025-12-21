@@ -52,6 +52,10 @@ export const useUserSettings = () => {
 };
 
 export const useIsPremium = () => {
-  const { isPremium, premiumSince, isLoading } = useUserSettings();
-  return { isPremium, premiumSince, isLoading } as const;
+  // TODO: Revert to actual premium check when ready
+  // const { isPremium, premiumSince, isLoading } = useUserSettings();
+  // return { isPremium, premiumSince, isLoading } as const;
+  
+  // Temporarily bypass premium - all users get premium features
+  return { isPremium: true, premiumSince: null, isLoading: false } as const;
 };
