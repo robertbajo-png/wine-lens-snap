@@ -289,12 +289,22 @@ function createStoredPayload(data: {
   };
 }
 
+/**
+ * Get cached analysis only if it contains full web analysis (not just label-only).
+ * Returns null for label_only results to force a fresh full analysis.
+ */
 export function getCachedAnalysis(ocrText: string): WineAnalysisResult | null {
   if (typeof window === 'undefined') return null;
   try {
     const key = getCacheKey(ocrText);
     const cached = parseStoredValue(key, localStorage.getItem(key));
     if (cached) {
+      // Only return cached result if it's a full analysis (label+web)
+      // Skip cache for label_only results to allow re-analysis with full web search
+      if (cached.result.mode === 'label_only') {
+        console.log('[wineCache] Skipping label_only cached result, forcing fresh analysis');
+        return null;
+      }
       return cached.result;
     }
   } catch (error) {
