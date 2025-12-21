@@ -17,7 +17,7 @@ import {
 import { computeLabelHash } from "@/lib/wineCache";
 import { trackEvent } from "@/lib/telemetry";
 
-export const ANALYSIS_TIMEOUT_MS = 60000; // 60s to match edge function Gemini timeout
+export const ANALYSIS_TIMEOUT_MS = 120000; // 120s - edge function can take 60-90s with Perplexity + Gemini
 
 export type ProgressKey = "prep" | "ocr" | "analysis" | "done" | "error" | null;
 export type ScanStatus = "idle" | "processing" | "success" | "error";
