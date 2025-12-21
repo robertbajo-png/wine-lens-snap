@@ -24,12 +24,37 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// TEMPORARY: Mock user/session to bypass login requirement
+const MOCK_USER_ID = "00000000-0000-0000-0000-000000000000";
+const mockUser: User = {
+  id: MOCK_USER_ID,
+  aud: "authenticated",
+  role: "authenticated",
+  email: "mock@winesnap.app",
+  email_confirmed_at: new Date().toISOString(),
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  app_metadata: { provider: "email" },
+  user_metadata: {},
+};
+const mockSession: Session = {
+  access_token: "mock-access-token",
+  refresh_token: "mock-refresh-token",
+  expires_in: 3600,
+  expires_at: Math.floor(Date.now() / 1000) + 3600,
+  token_type: "bearer",
+  user: mockUser,
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  // TEMPORARY: Always return mock session (bypass login)
+  const [session, setSession] = useState<Session | null>(mockSession);
+  const [loading, setLoading] = useState(false);
 
   useSyncScans(session?.user ?? null);
 
+  // TEMPORARY: Original auth logic commented out - restore when re-enabling login
+  /*
   useEffect(() => {
     let ignore = false;
 
@@ -69,6 +94,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       ignore = true;
       subscription.unsubscribe();
     };
+  }, []);
+  */
+
+  useEffect(() => {
+    setAuthContextUserId(MOCK_USER_ID);
   }, []);
 
   const signInWithEmail = useCallback(async (email: string) => {
