@@ -438,7 +438,6 @@ const Following = () => {
                       Använd listan nedan för att hitta profiler du vill följa. Nya inlägg dyker upp här direkt.
                     </p>
                     <Button
-                      variant="outline"
                       className="rounded-full"
                       onClick={() =>
                         document.getElementById("recommended-creators")?.scrollIntoView({ behavior: "smooth" })
@@ -600,7 +599,7 @@ const Following = () => {
                       <p className="text-sm text-theme-secondary/80">
                         Vi fyller på med fler tips. Under tiden kan du gå till Utforska och hitta etiketter att bevaka.
                       </p>
-                      <Button variant="outline" className="rounded-full" onClick={() => navigate("/explore")}>
+                      <Button className="rounded-full" onClick={() => navigate("/explore")}>
                         Gå till Utforska
                       </Button>
                     </CardContent>
