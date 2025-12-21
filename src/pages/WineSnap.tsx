@@ -113,9 +113,16 @@ const WineSnap = () => {
   const ensureScanPromiseRef = useRef<Promise<string> | null>(null);
 
   const openFilePicker = (useCamera: boolean) => {
+    console.log('[openFilePicker] Called, useCamera:', useCamera);
     cameraOpenedRef.current = true;
     cameraModeRef.current = useCamera;
-    document.getElementById("wineImageUpload")?.click();
+    const input = document.getElementById("wineImageUpload") as HTMLInputElement | null;
+    console.log('[openFilePicker] Input element found:', !!input);
+    if (input) {
+      input.value = ''; // Reset to allow same file re-selection
+      input.click();
+      console.log('[openFilePicker] Click triggered');
+    }
   };
 
   useEffect(() => {
@@ -557,8 +564,19 @@ const WineSnap = () => {
   };
 
   const handleTakePhoto = () => {
+    console.log('[handleTakePhoto] Called - opening file picker directly in user gesture');
     shouldAutoRetakeRef.current = false;
-    handleReset({ reopenPicker: true, useCamera: true });
+    // CRITICAL: Open file picker FIRST, directly in user gesture, before any async reset
+    // This is required for iOS Safari and other mobile browsers that block programmatic clicks
+    cameraOpenedRef.current = true;
+    cameraModeRef.current = true;
+    const input = document.getElementById("wineImageUpload") as HTMLInputElement | null;
+    if (input) {
+      input.value = '';
+      input.click();
+    }
+    // Then reset state (won't affect already-opened picker)
+    handleReset({ reopenPicker: false, useCamera: true });
   };
 
   const ensureRemoteScan = useCallback(async (): Promise<string> => {
@@ -615,9 +633,11 @@ const WineSnap = () => {
     currentImageRef.current = null;
 
     if (options?.reopenPicker) {
-      setTimeout(() => {
+      // Use requestAnimationFrame instead of setTimeout - slightly better for user gesture chain
+      // But note: for best results, call openFilePicker directly in the click handler
+      requestAnimationFrame(() => {
         openFilePicker(options.useCamera ?? true);
-      }, 0);
+      });
     }
   };
 
