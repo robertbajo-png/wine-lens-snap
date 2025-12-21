@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const { t } = useTranslation();
 
   const redirectTo = params.get("redirectTo");
 
@@ -28,8 +30,8 @@ const Login = () => {
     event.preventDefault();
     if (!email) {
       toast({
-        title: "Ange en e-postadress",
-        description: "Vi behöver din e-post för att kunna skicka en magisk länk.",
+        title: t("login.enterEmail"),
+        description: t("login.needEmail"),
         variant: "destructive",
       });
       return;
@@ -45,14 +47,14 @@ const Login = () => {
       }
       setEmailSent(true);
       toast({
-        title: "Kolla din inkorg",
-        description: "Vi har skickat en magisk länk som loggar in dig.",
+        title: t("login.checkInbox"),
+        description: t("login.magicLinkSent"),
       });
     } catch (error) {
       console.error("Magic link sign-in failed", error);
       toast({
-        title: "Kunde inte skicka länk",
-        description: "Kontrollera e-postadressen och försök igen.",
+        title: t("login.couldNotSendLink"),
+        description: t("login.checkEmailRetry"),
         variant: "destructive",
       });
     } finally {
@@ -66,8 +68,8 @@ const Login = () => {
     } catch (error) {
       console.error("Google sign-in failed", error);
       toast({
-        title: "Kunde inte logga in med Google",
-        description: "Försök igen senare.",
+        title: t("login.couldNotGoogle"),
+        description: t("login.tryAgainLater"),
         variant: "destructive",
       });
     }
@@ -77,49 +79,49 @@ const Login = () => {
     <div className="flex min-h-screen flex-col items-center justify-center bg-theme-canvas px-4 py-12 text-theme-primary">
       <Card className="w-full max-w-md border-theme-card/60 bg-theme-elevated/80 backdrop-blur">
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-2xl font-semibold">Logga in i WineSnap</CardTitle>
+          <CardTitle className="text-2xl font-semibold">{t("login.title")}</CardTitle>
           <CardDescription className="text-theme-secondary">
-            Använd en magisk länk eller logga in med Google för att fortsätta.
+            {t("login.subtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <form className="space-y-4" onSubmit={handleEmailSubmit}>
             <div className="space-y-2 text-left">
               <Label htmlFor="email" className="text-theme-primary">
-                E-postadress
+                {t("login.emailLabel")}
               </Label>
               <Input
                 id="email"
                 type="email"
                 required
-                placeholder="alex@example.com"
+                placeholder={t("login.emailPlaceholder")}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 className="border-theme-card bg-theme-surface text-theme-primary"
               />
             </div>
             <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? "Skickar..." : "Skicka magisk länk"}
+              {submitting ? t("login.sending") : t("login.sendMagicLink")}
             </Button>
             {emailSent ? (
               <p className="text-sm text-theme-secondary">
-                Länken är på väg till {email}. Öppna den på samma enhet.
+                {t("login.linkOnTheWay", { email })}
               </p>
             ) : null}
           </form>
 
           <div className="flex items-center gap-2 text-sm text-theme-secondary">
             <span className="h-px flex-1 bg-theme-card/60" />
-            <span>eller</span>
+            <span>{t("login.or")}</span>
             <span className="h-px flex-1 bg-theme-card/60" />
           </div>
 
           <Button type="button" variant="outline" className="w-full" onClick={handleGoogleSignIn}>
-            Logga in med Google
+            {t("login.googleSignIn")}
           </Button>
 
           <p className="text-center text-sm text-theme-secondary">
-            Vill du utforska utan konto? <Link to="/scan" className="underline">Skanna nu</Link>.
+            {t("login.exploreWithoutAccount")} <Link to="/scan" className="underline">{t("login.scanNow")}</Link>.
           </p>
         </CardContent>
       </Card>
