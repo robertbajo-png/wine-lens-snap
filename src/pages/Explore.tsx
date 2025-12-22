@@ -25,8 +25,7 @@ import { logEvent } from "@/lib/logger";
 import { withTimeoutFallback } from "@/lib/fallback";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useIsPremium } from "@/hooks/useUserSettings";
-
-const SEARCH_PLACEHOLDER = "Sök bland etiketter, producenter eller anteckningar";
+import { useTranslation } from "@/hooks/useTranslation";
 const TREND_LIMIT = 3;
 const STYLE_LIMIT = 4;
 const MAX_SCANS_FETCH = 120;
@@ -885,6 +884,7 @@ const Explore = () => {
   const { user } = useAuth();
   const { isPremium, isLoading: isPremiumLoading } = useIsPremium();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { t } = useTranslation();
   const sessionIdRef = useRef<string>();
   const exploreOpenedRef = useRef(false);
 
@@ -1257,23 +1257,22 @@ const Explore = () => {
         <div className="flex flex-col gap-3 text-center">
           <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
             <Compass className="h-4 w-4 text-theme-primary" aria-hidden="true" />
-            Utforska
+            {t("explore.badge")}
           </span>
-          <h1 className="text-3xl font-semibold text-theme-primary sm:text-4xl">Snart öppnar vinbiblioteket</h1>
+          <h1 className="text-3xl font-semibold text-theme-primary sm:text-4xl">{t("explore.title")}</h1>
           <p className="mx-auto max-w-2xl text-sm text-theme-secondary/80 sm:text-base">
-            Vi förbereder ett flöde med trender, stilar och filter så att du snabbt hittar flaskor som matchar din smak.
-            Upplevelsen är statisk idag men kopplad till riktiga skanningar där det finns data.
+            {t("explore.subtitle")}
           </p>
         </div>
 
         <div className="flex flex-col gap-6 rounded-3xl border border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface-alt)/0.8)] p-8 shadow-theme-card backdrop-blur">
           <label className="flex flex-col gap-2 text-left">
-            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-theme-secondary/60">Sök i vinarkivet</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.28em] text-theme-secondary/60">{t("explore.searchLabel")}</span>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-theme-secondary/50" aria-hidden="true" />
               <Input
                 type="search"
-                placeholder={SEARCH_PLACEHOLDER}
+                placeholder={t("explore.searchPlaceholder")}
                 value={paramsFilters.label ?? ""}
                 onChange={(event) => handleSearchFilterChange("label", event.target.value)}
                 className="h-12 rounded-full border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface)/0.2)] pl-10 text-theme-secondary placeholder:text-theme-secondary/50"
