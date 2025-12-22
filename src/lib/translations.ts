@@ -148,6 +148,23 @@ export const translations = {
     "forYou.comingSoon": "Kommer snart",
     "forYou.scanWineBottle": "Fota vinflaska",
 
+    // Explore
+    "explore.badge": "Utforska",
+    "explore.title": "Snart öppnar vinbiblioteket",
+    "explore.subtitle": "Vi förbereder ett flöde med trender, stilar och filter så att du snabbt hittar flaskor som matchar din smak. Upplevelsen är statisk idag men kopplad till riktiga skanningar där det finns data.",
+    "explore.searchLabel": "Sök i vinarkivet",
+    "explore.searchPlaceholder": "Sök bland etiketter, producenter eller anteckningar",
+
+    // Following
+    "following.badge": "Följer",
+    "following.title": "Kuraterade skapare & listor",
+    "following.subtitle": "Följ redaktionens favoriter för att se butikslistor, livesändningar och nördiga rekommendationer så fort funktionen rullas ut.",
+    "following.newPosts": "{count} nya inlägg",
+    "following.creators": "{count} skapare",
+    "following.youFollow": "{count} följer du",
+    "following.totalFollowers": "{count} följare totalt",
+    "following.loginToFollow": "Logga in för att följa",
+
     // Common
     "common.goBack": "Gå tillbaka",
     "common.loading": "Laddar...",
@@ -298,6 +315,23 @@ export const translations = {
     "forYou.subtitle": "We're building something magical here. Soon you'll find tailored wine recommendations based on your analyses.",
     "forYou.comingSoon": "Coming soon",
     "forYou.scanWineBottle": "Scan wine bottle",
+
+    // Explore
+    "explore.badge": "Explore",
+    "explore.title": "Wine library opening soon",
+    "explore.subtitle": "We're preparing a feed with trends, styles and filters so you can quickly find bottles that match your taste. The experience is static today but connected to real scans where data exists.",
+    "explore.searchLabel": "Search the wine archive",
+    "explore.searchPlaceholder": "Search labels, producers or notes",
+
+    // Following
+    "following.badge": "Following",
+    "following.title": "Curated creators & lists",
+    "following.subtitle": "Follow the editor's favorites to see store lists, live streams and nerdy recommendations as soon as the feature rolls out.",
+    "following.newPosts": "{count} new posts",
+    "following.creators": "{count} creators",
+    "following.youFollow": "{count} you follow",
+    "following.totalFollowers": "{count} followers total",
+    "following.loginToFollow": "Log in to follow",
 
     // Common
     "common.goBack": "Go back",

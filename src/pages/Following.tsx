@@ -37,8 +37,8 @@ import {
 import { creatorsQueryKey, feedQueryKey, feedMetaQueryKey, followingQueryKey } from "@/lib/followingQueries";
 import { useFollowingFeedNotifications } from "@/hooks/useFollowingFeedNotifications";
 import { logEvent } from "@/lib/logger";
-
-const numberFormatter = new Intl.NumberFormat("sv-SE");
+import { useTranslation } from "@/hooks/useTranslation";
+import { useSettings } from "@/settings/SettingsContext";
 
 type ToggleFollowVariables = {
   creatorId: string;
@@ -136,6 +136,9 @@ const Following = () => {
   const [selectedPost, setSelectedPost] = useState<CreatorFeedPost | null>(null);
   const { newPostsCount, isFetched: notificationsReady, markAsOpened } = useFollowingFeedNotifications();
   const hasMarkedRef = useRef(false);
+  const { t, locale } = useTranslation();
+  const { lang } = useSettings();
+  const numberFormatter = useMemo(() => new Intl.NumberFormat(locale === "en" ? "en-US" : "sv-SE"), [locale]);
 
   const {
     data: creators,
@@ -354,7 +357,7 @@ const Following = () => {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
               <Users2 className="h-4 w-4 text-theme-primary" aria-hidden="true" />
-              Följer
+              {t("following.badge")}
             </span>
             {showNewPostsBadge && newPostsBadgeLabel ? (
               <span
@@ -362,25 +365,25 @@ const Following = () => {
                 aria-live="polite"
               >
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
-                {newPostsBadgeLabel} nya inlägg
+                {t("following.newPosts", { count: newPostsBadgeLabel })}
               </span>
             ) : null}
           </div>
-          <h1 className="text-3xl font-semibold text-theme-primary sm:text-4xl">Kuraterade skapare & listor</h1>
+          <h1 className="text-3xl font-semibold text-theme-primary sm:text-4xl">{t("following.title")}</h1>
           <p className="max-w-2xl text-sm text-theme-secondary/80 sm:text-base">
-            Följ redaktionens favoriter för att se butikslistor, livesändningar och nördiga rekommendationer så fort funktionen rullas ut.
+            {t("following.subtitle")}
           </p>
           <div className="flex flex-wrap justify-center gap-3 text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/70">
             <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.1)] px-3 py-1">
               <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
-              {curatedCount} skapare
+              {t("following.creators", { count: curatedCount })}
             </span>
             <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.1)] px-3 py-1">
               <Users2 className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
-              {followingSet.size} följer du
+              {t("following.youFollow", { count: followingSet.size })}
             </span>
             <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.1)] px-3 py-1">
-              {numberFormatter.format(totalFollowers)} följare totalt
+              {t("following.totalFollowers", { count: numberFormatter.format(totalFollowers) })}
             </span>
           </div>
           {!user && !authLoading ? (
@@ -390,7 +393,7 @@ const Following = () => {
               onClick={() => navigate(`/login?redirectTo=${encodeURIComponent("/following")}`)}
             >
               <LogIn className="h-4 w-4" aria-hidden="true" />
-              Logga in för att följa
+              {t("following.loginToFollow")}
             </Button>
           ) : null}
         </div>
