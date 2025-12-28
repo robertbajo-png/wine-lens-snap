@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Sparkles, Camera, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/auth/AuthProvider";
+import { logEvent } from "@/lib/logger";
 import { getForYouCards, type ForYouCard } from "@/services/forYouService";
 import { getSavedAnalyses, WINE_CACHE_UPDATED_EVENT, type CachedWineAnalysisEntry } from "@/lib/wineCache";
 
@@ -25,6 +26,7 @@ const ForYou = () => {
   const [history, setHistory] = useState<CachedWineAnalysisEntry[]>([]);
   const [cards, setCards] = useState<ForYouCard[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
+  const hasLoggedOpen = useRef(false);
 
   useEffect(() => {
     setHistory(getSavedAnalyses());
@@ -37,6 +39,13 @@ const ForYou = () => {
     return () => {
       window.removeEventListener(WINE_CACHE_UPDATED_EVENT, handleUpdate);
     };
+  }, []);
+
+  useEffect(() => {
+    if (hasLoggedOpen.current) return;
+
+    hasLoggedOpen.current = true;
+    void logEvent("for_you_opened");
   }, []);
 
   useEffect(() => {
@@ -60,6 +69,10 @@ const ForYou = () => {
       ignore = true;
     };
   }, [user?.id]);
+
+  const handleCardClick = useCallback((card: ForYouCard) => {
+    void logEvent("for_you_card_clicked", { cardId: card.id, type: card.type });
+  }, []);
 
   const recentEntries = useMemo(() => history.slice(0, 4), [history]);
 
@@ -188,6 +201,7 @@ const ForYou = () => {
                   <div
                     key={card.id}
                     className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-theme-elevated/70 p-5 shadow-inner shadow-black/20"
+                    onClick={() => handleCardClick(card)}
                   >
                     <div className="flex items-center gap-2">
                       <span className="rounded-full bg-theme-accent/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-theme-primary">
