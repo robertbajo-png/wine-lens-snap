@@ -879,6 +879,7 @@ const WineSnap = () => {
         : `Behöver fler källor (${verifiedEvidenceCount}/${WEB_EVIDENCE_THRESHOLD})`
       : "Baserad på etikett, druva och region"
     : "Baserad på etikettanalys";
+  const sourceType: "label" | "web" = isWebSource ? "web" : "label";
 
   // --- spara historik (lokalt + supabase) när resultat finns ---
   useEffect(() => {
@@ -975,6 +976,7 @@ const WineSnap = () => {
           pairings={pairings}
           sourceLabel={sourceLabel}
           sourceDescription={sourceDescription}
+          sourceType={sourceType}
           showVerifiedMeters={showVerifiedMeters}
           metersAreEstimated={metersAreEstimated}
           showDetailedSections={showDetailedSections}

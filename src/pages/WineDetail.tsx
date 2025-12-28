@@ -98,6 +98,7 @@ const WineDetail = () => {
     sources: results.sources,
   });
   const ocrText = entry.ocrText ?? results.evidence?.etiketttext ?? results.originaltext;
+  const sourceType: "label" | "web" = results.källstatus?.source === "web" ? "web" : "label";
 
   return (
     <div className="relative min-h-screen pb-24">
@@ -123,6 +124,8 @@ const WineDetail = () => {
           ar={results.årgång}
           producent={results.producent}
           typ={results.typ}
+          evidenceItems={evidenceHits}
+          sourceType={sourceType}
         />
 
         {/* Wine Lists Panel - only for logged in users */}
@@ -151,6 +154,8 @@ const WineDetail = () => {
           volym={results.volym}
           sockerhalt={results.sockerhalt}
           syra={results.syra}
+          evidenceItems={evidenceHits}
+          sourceType={sourceType}
         />
 
         {/* Character */}
