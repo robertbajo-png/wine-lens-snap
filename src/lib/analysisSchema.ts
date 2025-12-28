@@ -138,7 +138,7 @@ export const parseAnalysisJson = (
   const parsed = analysisSchema.safeParse(analysis);
 
   if (parsed.success) {
-    return parsed.data;
+    return parsed.data as Partial<WineAnalysisResult>;
   }
 
   const issues = parsed.error.issues.slice(0, 5).map((issue) => {

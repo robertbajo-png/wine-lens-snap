@@ -38,12 +38,11 @@ const DevFeedbackPage = () => {
 
     setLoading(true);
     const { data, error } = await supabase
-      .from("analysis_feedback")
+      .from("analysis_feedback" as "scans")
       .select("id, created_at, is_correct, comment, label_hash, scan_id")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(100)
-      .returns<FeedbackRecord[]>();
+      .limit(100) as unknown as { data: FeedbackRecord[] | null; error: { message: string } | null };
 
     if (error) {
       setError(error.message);

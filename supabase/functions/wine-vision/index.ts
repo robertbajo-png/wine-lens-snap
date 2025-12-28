@@ -1433,8 +1433,8 @@ function fillMissingFields(
     confidence?: Record<string, number>;
     [key: string]: unknown;
   };
-  const evidenceLinks = finalData.evidence.webbträffar;
-  const hasVerifiedWeb = evidenceLinks.length > 0;
+  const webEvidenceLinks = finalData.evidence.webbträffar;
+  const hasVerifiedWeb = webEvidenceLinks.length > 0;
   const sourceStatus: SourceStatus = {
     source: hasVerifiedWeb ? "web" : "heuristic",
     evidence_links: dedupedEvidence,

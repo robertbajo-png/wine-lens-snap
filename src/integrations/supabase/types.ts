@@ -14,51 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      analysis_feedback: {
-        Row: {
-          comment: string | null
-          created_at: string
-          id: string
-          is_correct: boolean
-          label_hash: string
-          scan_id: string
-          user_id: string
-        }
-        Insert: {
-          comment?: string | null
-          created_at?: string
-          id?: string
-          is_correct: boolean
-          label_hash: string
-          scan_id: string
-          user_id?: string
-        }
-        Update: {
-          comment?: string | null
-          created_at?: string
-          id?: string
-          is_correct?: boolean
-          label_hash?: string
-          scan_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "analysis_feedback_scan_id_fkey"
-            columns: ["scan_id"]
-            isOneToOne: false
-            referencedRelation: "scans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "analysis_feedback_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       client_logs: {
         Row: {
           action: string
