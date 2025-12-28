@@ -17,6 +17,7 @@ const LoginCallback = lazy(() => import("@/pages/LoginCallback"));
 const Me = lazy(() => import("@/pages/Me"));
 const PremiumCheckoutSession = lazy(() => import("@/pages/PremiumCheckoutSession"));
 const DevEventsPage = lazy(() => import("@/pages/dev/Events"));
+const DevFeedbackPage = lazy(() => import("@/pages/dev/Feedback"));
 const WineDetail = lazy(() => import("@/pages/WineDetail"));
 
 const LoadingScreen = () => (
@@ -147,7 +148,10 @@ export const router = createBrowserRouter([
     ? [
         {
           element: <ProtectedRoute />,
-          children: [{ path: "/dev/events", element: withSuspense(<DevEventsPage />) }],
+          children: [
+            { path: "/dev/events", element: withSuspense(<DevEventsPage />) },
+            { path: "/dev/feedback", element: withSuspense(<DevFeedbackPage />) },
+          ],
         },
       ]
     : []),
