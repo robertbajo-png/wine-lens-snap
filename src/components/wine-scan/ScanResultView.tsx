@@ -18,9 +18,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BookmarkPlus, Download, ImageUp, Loader2, Lock, RefreshCcw, Trash2 } from "lucide-react";
 import type { BadgeProps } from "@/components/ui/badge";
-import type { WineAnalysisResult } from "@/lib/wineCache";
-import { ReactNode } from "react";
+import { computeLabelHash, type WineAnalysisResult } from "@/lib/wineCache";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { FREE_SCAN_LIMIT_PER_DAY } from "@/lib/premiumAccess";
+import { BuySection } from "@/components/wine-scan/BuySection";
+import { getOffersByLabelHash, type WineOffer } from "@/services/marketplaceService";
+import { logEvent } from "@/lib/logger";
 
 interface ScanResultViewProps {
   results: WineAnalysisResult;
@@ -128,6 +131,59 @@ export const ScanResultView = ({
   freeScansRemaining,
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
+  const [offers, setOffers] = useState<WineOffer[]>([]);
+
+  const labelHash = useMemo(
+    () => computeLabelHash(ocrText ?? results.originaltext ?? results.vin ?? null),
+    [ocrText, results.originaltext, results.vin],
+  );
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchOffers = async () => {
+      if (!labelHash) {
+        setOffers([]);
+        return;
+      }
+
+      try {
+        const fetchedOffers = await getOffersByLabelHash(labelHash);
+        if (!isCancelled) {
+          setOffers(fetchedOffers);
+        }
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn("Kunde inte hämta marketplace-erbjudanden", error);
+        }
+        if (!isCancelled) {
+          setOffers([]);
+        }
+      }
+    };
+
+    void fetchOffers();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [labelHash]);
+
+  const visibleOffers = useMemo(
+    () => offers.filter((offer) => Boolean(offer.url)).slice(0, 3),
+    [offers],
+  );
+
+  const handleOfferClick = (offer: WineOffer) => {
+    if (!offer.url) return;
+
+    window.open(offer.url, "_blank", "noopener,noreferrer");
+    void logEvent("offer_clicked", {
+      labelHash,
+      merchant: offer.merchant,
+      url: offer.url,
+    });
+  };
 
   return (
     <>
@@ -390,6 +446,10 @@ export const ScanResultView = ({
                     </Button>
                   </CardContent>
                 </Card>
+              )}
+
+              {visibleOffers.length > 0 && (
+                <BuySection offers={visibleOffers} onOfferClick={handleOfferClick} />
               )}
 
               <section className="rounded-2xl border border-border bg-card p-4">
