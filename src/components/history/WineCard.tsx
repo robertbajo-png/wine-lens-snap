@@ -78,12 +78,12 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
           <div className="absolute bottom-2 left-2 rounded-full border border-white/10 bg-black/60 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-theme-primary">
             {formatRelativeTime(entry.timestamp)}
           </div>
-          {entry.syncReady && (
+          {entry.syncReady && !entry.remoteId && (
             <Badge
               variant="outline"
-              className="absolute right-2 top-2 rounded-full border-[#B095FF]/60 bg-[#B095FF]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#E4DCFF]"
+              className="absolute right-2 top-2 rounded-full border-amber-500/60 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-100"
             >
-              Synkas vid inloggning
+              Ej synkad
             </Badge>
           )}
         </div>
