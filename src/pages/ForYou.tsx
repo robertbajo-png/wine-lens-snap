@@ -102,7 +102,7 @@ const ForYou = () => {
               <Button
                 variant="outline"
                 className="gap-2 rounded-full border-theme-card bg-theme-elevated px-5 py-2 text-sm font-semibold text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
-                onClick={() => navigate("/history")}
+                onClick={() => navigate("/me/wines")}
               >
                 {t("forYou.viewHistory")}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -121,7 +121,7 @@ const ForYou = () => {
               <Button
                 variant="ghost"
                 className="gap-2 rounded-full px-3 py-2 text-theme-primary hover:bg-[hsl(var(--color-surface)/0.6)]"
-                onClick={() => navigate("/history")}
+                onClick={() => navigate("/me/wines")}
               >
                 {t("forYou.viewHistory")}
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
