@@ -17,6 +17,7 @@ const LoginCallback = lazy(() => import("@/pages/LoginCallback"));
 const Me = lazy(() => import("@/pages/Me"));
 const PremiumCheckoutSession = lazy(() => import("@/pages/PremiumCheckoutSession"));
 const DevEventsPage = lazy(() => import("@/pages/dev/Events"));
+const WineDetail = lazy(() => import("@/pages/WineDetail"));
 
 const LoadingScreen = () => (
   <div className="flex min-h-[50vh] items-center justify-center text-theme-secondary">
@@ -129,6 +130,7 @@ export const router = createBrowserRouter([
       { path: "explore", element: withSuspense(<Explore />) },
       { path: "scan", element: withSuspense(<WineSnap />) },
       { path: "following", element: withSuspense(<Following />) },
+      { path: "wine/:scanId", element: withSuspense(<WineDetail />) },
       {
         element: <ProtectedRoute />,
         children: [

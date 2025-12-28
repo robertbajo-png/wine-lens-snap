@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ExternalLink, Share2, Trash2 } from "lucide-react";
 import {
   Card,
@@ -6,10 +6,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import WineCardSBFull from "@/components/WineCardSBFull";
 import type { CachedWineAnalysisEntry } from "@/lib/wineCache";
 
 interface WineCardProps {
@@ -45,7 +43,7 @@ export const WineCardSkeleton = () => (
 );
 
 const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: WineCardProps) => {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const navigate = useNavigate();
 
   const classificationTags = [
     { label: "Färg", value: entry.result.färgtyp },
@@ -59,6 +57,10 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
   const displaySubtitle = [entry.result.land_region, entry.result.årgång ? `Årgång ${entry.result.årgång}` : null]
     .filter(Boolean)
     .join(" • ");
+
+  const handleOpenDetails = () => {
+    navigate(`/wine/${entry.key}`);
+  };
 
   return (
     <Card className="border border-theme-card bg-theme-elevated shadow-2xl shadow-purple-900/20 transition hover:-translate-y-[2px] hover:shadow-purple-900/40 backdrop-blur">
@@ -128,24 +130,14 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
           <Separator className="border-theme-card" />
 
           <div className="flex flex-wrap gap-2">
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <Button
-                type="button"
-                onClick={() => setDialogOpen(true)}
-                className="gap-2 rounded-full bg-theme-elevated px-4 py-2 text-sm font-semibold text-theme-primary shadow-sm transition hover:bg-[hsl(var(--surface-elevated)/0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B095FF] focus-visible:ring-offset-2 focus-visible:ring-offset-theme-elevated"
-              >
-                <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                Öppna
-              </Button>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>{displayTitle}</DialogTitle>
-                </DialogHeader>
-                <div className="max-h-[70vh] overflow-y-auto">
-                  <WineCardSBFull data={entry.result} />
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button
+              type="button"
+              onClick={handleOpenDetails}
+              className="gap-2 rounded-full bg-theme-elevated px-4 py-2 text-sm font-semibold text-theme-primary shadow-sm transition hover:bg-[hsl(var(--surface-elevated)/0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B095FF] focus-visible:ring-offset-2 focus-visible:ring-offset-theme-elevated"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              Öppna
+            </Button>
 
             <Button
               type="button"
