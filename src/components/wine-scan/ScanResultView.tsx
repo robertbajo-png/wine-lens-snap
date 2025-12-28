@@ -24,6 +24,7 @@ import { FREE_SCAN_LIMIT_PER_DAY } from "@/lib/premiumAccess";
 import { BuySection } from "@/components/wine-scan/BuySection";
 import { getOffersByLabelHash, type WineOffer } from "@/services/marketplaceService";
 import { logEvent } from "@/lib/logger";
+import { isMarketplaceEnabled } from "@/lib/features";
 
 interface ScanResultViewProps {
   results: WineAnalysisResult;
@@ -132,6 +133,7 @@ export const ScanResultView = ({
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
   const [offers, setOffers] = useState<WineOffer[]>([]);
+  const marketplaceEnabled = isMarketplaceEnabled();
 
   const labelHash = useMemo(
     () => computeLabelHash(ocrText ?? results.originaltext ?? results.vin ?? null),
@@ -142,6 +144,11 @@ export const ScanResultView = ({
     let isCancelled = false;
 
     const fetchOffers = async () => {
+      if (!marketplaceEnabled) {
+        setOffers([]);
+        return;
+      }
+
       if (!labelHash) {
         setOffers([]);
         return;
@@ -167,7 +174,7 @@ export const ScanResultView = ({
     return () => {
       isCancelled = true;
     };
-  }, [labelHash]);
+  }, [labelHash, marketplaceEnabled]);
 
   const visibleOffers = useMemo(
     () => offers.filter((offer) => Boolean(offer.url)).slice(0, 3),
@@ -184,6 +191,17 @@ export const ScanResultView = ({
       url: offer.url,
     });
   };
+
+  useEffect(() => {
+    if (!marketplaceEnabled) return;
+    if (!labelHash) return;
+    if (visibleOffers.length === 0) return;
+
+    void logEvent("offer_section_shown", {
+      labelHash,
+      offersCount: visibleOffers.length,
+    });
+  }, [labelHash, marketplaceEnabled, visibleOffers.length]);
 
   return (
     <>
@@ -448,7 +466,7 @@ export const ScanResultView = ({
                 </Card>
               )}
 
-              {visibleOffers.length > 0 && (
+              {marketplaceEnabled && visibleOffers.length > 0 && (
                 <BuySection offers={visibleOffers} onOfferClick={handleOfferClick} />
               )}
 
