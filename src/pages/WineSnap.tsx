@@ -25,6 +25,7 @@ import type { PipelineSource, ProgressKey, ScanStatus } from "@/services/scanPip
 import { ScanResultView } from "@/components/wine-scan/ScanResultView";
 import { ScanEmptyState } from "@/components/wine-scan/ScanEmptyState";
 import { FREE_SCAN_LIMIT_PER_DAY, getFreeScanUsage, incrementFreeScanUsage } from "@/lib/premiumAccess";
+import { normalizeEvidenceItems } from "@/lib/evidence";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -856,11 +857,15 @@ const WineSnap = () => {
     hasNumeric(results.meters.fruktighet) &&
     hasNumeric(results.meters.fruktsyra);
   const sourceStatus = results?.källstatus;
-  const evidenceFallback = results?.evidence?.webbträffar ?? [];
-  const evidenceLinks = Array.isArray(sourceStatus?.evidence_links) && sourceStatus?.evidence_links.length
-    ? (sourceStatus?.evidence_links as string[])
-    : evidenceFallback;
-  const verifiedEvidenceCount = evidenceLinks.filter((url) => typeof url === "string" && HTTP_LINK_REGEX.test(url)).length;
+  const evidenceItems = results
+    ? normalizeEvidenceItems({
+      evidence: results.evidence,
+      sourceStatus: results.källstatus,
+      ocrText: results.originaltext ?? results.vin ?? null,
+      sources: results.sources,
+    })
+    : [];
+  const verifiedEvidenceCount = evidenceItems.filter((item) => item.type === "web" && item.url && HTTP_LINK_REGEX.test(item.url)).length;
   const isWebSource = sourceStatus?.source === "web";
   const metersFromTrustedSource = results?._meta?.meters_source === "web";
   // Always show meters if they exist - mark as estimated if not from trusted source
@@ -977,11 +982,7 @@ const WineSnap = () => {
           onUpgrade={() => navigate("/me")}
           freeScansRemaining={freeScansRemaining}
           ocrText={ocrText}
-          evidenceLinks={
-            sourceStatus?.evidence_links?.length
-              ? sourceStatus.evidence_links
-              : results.evidence?.webbträffar
-          }
+          evidenceLinks={evidenceItems}
           detectedLanguage={results.detekterat_språk}
         />
       </>

@@ -1,3 +1,4 @@
+import { normalizeEvidenceItems } from "./evidence";
 import type { WineAnalysisResult } from "./wineCache";
 
 export type AnalysisMode = "label_only" | "label+web";
@@ -50,7 +51,20 @@ export function normalizeAnalysisJson<T extends Partial<WineAnalysisResult> | nu
   const confidenceValue = typeof analysis.confidence === "number" ? analysis.confidence : DEFAULT_ANALYSIS_CONFIDENCE;
   const confidence = Math.min(1, Math.max(0, confidenceValue));
 
-  const sources = normalizeStringArray(analysis.sources ?? (analysis as WineAnalysisResult).evidence?.webbträffar);
+  const evidenceItems = normalizeEvidenceItems({
+    evidence: (analysis as WineAnalysisResult).evidence,
+    sourceStatus: (analysis as WineAnalysisResult).källstatus,
+    ocrText: (analysis as WineAnalysisResult).originaltext,
+    sources: (analysis as WineAnalysisResult).sources,
+  });
+
+  const sources = Array.from(
+    new Set(
+      evidenceItems
+        .filter((item) => item.type === "web" && typeof item.url === "string")
+        .map((item) => item.url as string),
+    ),
+  );
   const summary = typeof analysis.summary === "string"
     ? analysis.summary
     : typeof (analysis as WineAnalysisResult).karaktär === "string" && (analysis as WineAnalysisResult).karaktär.length > 0
@@ -74,6 +88,21 @@ export function normalizeAnalysisJson<T extends Partial<WineAnalysisResult> | nu
 
   const warnings = normalizeStringArray(analysis.warnings);
 
+  const evidence = {
+    etiketttext: typeof (analysis as WineAnalysisResult).evidence?.etiketttext === "string"
+      ? (analysis as WineAnalysisResult).evidence?.etiketttext ?? ""
+      : typeof (analysis as WineAnalysisResult).originaltext === "string"
+        ? (analysis as WineAnalysisResult).originaltext
+        : "",
+    webbträffar: sources,
+    items: evidenceItems,
+  };
+
+  const källstatus = {
+    source: evidenceItems.some((item) => item.type === "web" && item.url) ? "web" : "heuristic",
+    evidence_links: evidenceItems,
+  } as WineAnalysisResult["källstatus"];
+
   return {
     ...analysis,
     mode,
@@ -84,5 +113,7 @@ export function normalizeAnalysisJson<T extends Partial<WineAnalysisResult> | nu
     style,
     food_pairings,
     warnings,
+    evidence,
+    källstatus,
   } as T & AnalysisJsonFields;
 }

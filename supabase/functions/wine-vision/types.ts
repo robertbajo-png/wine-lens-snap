@@ -8,6 +8,17 @@ export interface WineMeters {
 export interface WineEvidence {
   etiketttext: string;
   webbträffar: string[];
+  items?: EvidenceItem[];
+}
+
+export type EvidenceItemType = "label" | "web" | "heuristic";
+
+export interface EvidenceItem {
+  field: string;
+  type: EvidenceItemType;
+  title?: string;
+  url?: string;
+  snippet?: string;
 }
 
 export interface WineSummary {
@@ -30,7 +41,7 @@ export interface WineSummary {
   evidence: WineEvidence;
   källstatus?: {
     source: "web" | "heuristic";
-    evidence_links: string[];
+    evidence_links: EvidenceItem[];
   };
   [key: string]: unknown;
 }
@@ -105,4 +116,3 @@ export interface TasteAIResponse {
   };
   summary: string; // praktiskt alias till tasteProfile-beskrivning
 }
-
