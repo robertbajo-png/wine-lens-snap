@@ -69,6 +69,7 @@ interface ScanResultViewProps {
   pairings: string[];
   sourceLabel: string;
   sourceDescription: string;
+  sourceType: "label" | "web";
   showVerifiedMeters: boolean;
   metersAreEstimated: boolean;
   showDetailedSections: boolean;
@@ -122,6 +123,7 @@ export const ScanResultView = ({
   pairings,
   sourceLabel,
   sourceDescription,
+  sourceType,
   showVerifiedMeters,
   metersAreEstimated,
   showDetailedSections,
@@ -411,6 +413,8 @@ export const ScanResultView = ({
                 producent={results.producent}
                 land_region={results.land_region}
                 typ={results.typ}
+                evidenceItems={evidenceLinks}
+                sourceType={sourceType}
               />
 
               <ScanStatusBanner
@@ -509,6 +513,8 @@ export const ScanResultView = ({
                 volym={results.volym}
                 sockerhalt={results.sockerhalt}
                 syra={results.syra}
+                evidenceItems={evidenceLinks}
+                sourceType={sourceType}
               />
 
               <div className="grid gap-4 sm:grid-cols-2">

@@ -1,5 +1,7 @@
 import React from "react";
 import { Wine, MapPin, Building2 } from "lucide-react";
+import { FieldEvidenceTooltip } from "@/components/result/FieldEvidenceTooltip";
+import type { EvidenceItem } from "@/lib/wineCache";
 
 interface Props {
   vin?: string;
@@ -7,14 +9,17 @@ interface Props {
   producent?: string;
   land_region?: string;
   typ?: string;
+  evidenceItems?: EvidenceItem[] | null;
+  sourceType?: "label" | "web";
 }
 
-export default function ResultHeader({ vin, ar, producent, land_region, typ }: Props) {
+export default function ResultHeader({ vin, ar, producent, land_region, typ, evidenceItems, sourceType }: Props) {
   const hasVin = vin && vin !== "–";
   const hasYear = ar && ar !== "–";
   const hasProducent = producent && producent !== "–";
   const hasRegion = land_region && land_region !== "–";
   const hasTyp = typ && typ !== "–";
+  const fallbackSource = sourceType ?? "label";
 
   return (
     <header className="space-y-3">
@@ -42,17 +47,29 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ }: P
             <div className="flex items-center gap-1.5">
               <MapPin className="h-4 w-4 text-primary" />
               <span>{land_region}</span>
+              <FieldEvidenceTooltip
+                field="land_region"
+                label="Region"
+                evidence={evidenceItems}
+                fallbackSource={fallbackSource}
+              />
             </div>
           )}
         </div>
       )}
 
       {hasTyp && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
             <Wine className="h-3.5 w-3.5" />
             {typ}
           </span>
+          <FieldEvidenceTooltip
+            field="typ"
+            label="Stil"
+            evidence={evidenceItems}
+            fallbackSource={fallbackSource}
+          />
         </div>
       )}
     </header>
