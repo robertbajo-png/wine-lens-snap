@@ -29,6 +29,7 @@ import {
 import HistorySummary from "@/components/history/HistorySummary";
 import WineCard, { WineCardSkeleton } from "@/components/history/WineCard";
 import { useAuth } from "@/auth/AuthProvider";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { ArrowLeft, Camera, Eraser, Wand2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { AmbientBackground } from "@/components/AmbientBackground";
@@ -83,6 +84,7 @@ const History = () => {
   const { user } = useAuth();
   const refreshTimeoutRef = useRef<number | null>(null);
   const openLoggedRef = useRef(false);
+  const { isOffline } = useNetworkStatus();
 
   const loadEntries = useCallback(() => {
     setEntries(getSavedAnalyses());
@@ -303,6 +305,14 @@ const History = () => {
       <AmbientBackground />
 
       <div className="relative z-10 mx-auto flex max-w-6xl flex-col gap-8 px-4 pb-20 pt-12 sm:px-6 lg:px-8">
+        {isOffline && (
+          <Banner
+            type="warning"
+            title="Offline – sparar lokalt"
+            text="Vi synkar dina skanningar nästa gång du är online."
+          />
+        )}
+
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Button
