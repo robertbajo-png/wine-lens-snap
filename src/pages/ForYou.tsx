@@ -203,26 +203,21 @@ const ForYou = () => {
                     className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-theme-elevated/70 p-5 shadow-inner shadow-black/20"
                     onClick={() => handleCardClick(card)}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-theme-accent/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-theme-primary">
-                        {card.basis === "grape" ? t("forYou.ruleGrape") : t("forYou.ruleRegion")}
-                      </span>
-                      <span className="text-sm text-theme-secondary/80">{card.matchValue}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {card.grape && (
+                        <span className="rounded-full bg-theme-accent/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-theme-primary">
+                          {card.grape}
+                        </span>
+                      )}
+                      {card.region && (
+                        <span className="rounded-full bg-purple-500/20 px-3 py-1 text-xs font-semibold text-theme-secondary">
+                          {card.region}
+                        </span>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-sm uppercase tracking-[0.25em] text-theme-secondary/70">
-                        {t("forYou.suggestionHeading")}
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {card.suggestions.map((suggestion) => (
-                          <span
-                            key={suggestion}
-                            className="rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-sm font-semibold text-theme-primary"
-                          >
-                            {suggestion}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="space-y-1">
+                      <p className="text-lg font-semibold text-theme-primary">{card.name}</p>
+                      <p className="text-sm text-theme-secondary/80">{card.reason}</p>
                     </div>
                   </div>
                 ))}

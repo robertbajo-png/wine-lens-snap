@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.wine-vision]
 verify_jwt = false
+
+[functions.wine-suggestions]
+verify_jwt = false
