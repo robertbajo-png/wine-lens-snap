@@ -20,7 +20,7 @@ const createMockDb = () => {
 
   return {
     objectStoreNames: { contains: () => true },
-    transaction: (_storeName: string, _mode: IDBTransactionMode) => {
+    transaction: (_storeName: string, _mode?: string) => {
       const buildCreatedAtCursor = () =>
         Array.from(store.values()).sort((a, b) => b.created_at.localeCompare(a.created_at));
 
@@ -33,32 +33,32 @@ const createMockDb = () => {
           index: (name: string) => {
             if (name === "created_at") {
               return {
-                openCursor: async (_query?: IDBValidKey | IDBKeyRange | null, direction?: IDBCursorDirection) => {
+                openCursor: async (_query?: unknown, direction?: string) => {
                   const items = buildCreatedAtCursor();
                   const ordered = direction === "prev" ? items : [...items].reverse();
                   return createCursor(ordered, 0);
                 },
-              } as IDBIndex;
+              };
             }
 
             if (name === "synced") {
               return {
-                getAll: async (range?: IDBKeyRange | null) => {
-                  const target = (range as { lower?: boolean } | undefined)?.lower;
+                getAll: async (range?: { lower?: boolean }) => {
+                  const target = range?.lower;
                   return Array.from(store.values()).filter((item) =>
                     typeof target === "boolean" ? item.synced === target : true,
                   );
                 },
-              } as IDBIndex;
+              };
             }
 
             throw new Error(`Unknown index ${name}`);
           },
         },
         done: Promise.resolve(),
-      } satisfies IDBTransaction;
+      };
     },
-  } satisfies IDBDatabase;
+  };
 };
 
 const mockOpenDb = vi.hoisted(() => vi.fn());
@@ -66,7 +66,7 @@ const mockUpgradeDb = {
   objectStoreNames: { contains: () => true },
   transaction: { objectStore: () => ({ indexNames: { contains: () => true }, createIndex: vi.fn() }) },
   createObjectStore: () => ({ indexNames: { contains: () => true }, createIndex: vi.fn() }),
-} as unknown as IDBDatabase;
+};
 
 vi.mock("idb", () => ({
   openDB: mockOpenDb,
@@ -76,13 +76,13 @@ describe("scanLocalStore", () => {
   beforeEach(() => {
     const mockDbInstance = createMockDb();
 
-    mockOpenDb.mockImplementation(async (_name: string, _version: number, options?: IDBOpenDBOptions) => {
+    mockOpenDb.mockImplementation(async (_name: string, _version: number, options?: { upgrade?: (db: unknown) => void }) => {
       options?.upgrade?.(mockUpgradeDb);
-      return mockDbInstance as unknown as IDBDatabase;
+      return mockDbInstance;
     });
 
-    vi.stubGlobal("indexedDB", {} as IDBFactory);
-    vi.stubGlobal("IDBKeyRange", { only: (value: unknown) => ({ lower: value }) } as IDBKeyRangeConstructor);
+    vi.stubGlobal("indexedDB", {});
+    vi.stubGlobal("IDBKeyRange", { only: (value: unknown) => ({ lower: value }) });
   });
 
   afterEach(() => {

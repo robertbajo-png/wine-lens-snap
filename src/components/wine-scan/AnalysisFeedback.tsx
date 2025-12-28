@@ -47,7 +47,7 @@ export const AnalysisFeedback = ({
         comment: optionalComment ? optionalComment : null,
       } as const;
 
-      const { error } = await supabase.from("analysis_feedback").insert(payload);
+      const { error } = await supabase.from("analysis_feedback" as "scans").insert(payload as never);
       if (error) {
         throw error;
       }
