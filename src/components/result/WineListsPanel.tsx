@@ -21,6 +21,7 @@ import {
   removeScanFromList,
   type WineListSummary,
 } from "@/services/wineLists";
+import { useAuth } from "@/auth/AuthProvider";
 import { Check, ListChecks, ListPlus, Loader2, Plus } from "lucide-react";
 
 const RECOMMENDED_NAMES = ["Favoriter", "Köp igen", "Gästlista"];
@@ -35,6 +36,7 @@ const emptySummary: WineListSummary[] = [];
 
 export const WineListsPanel = ({ scanId, ensureScanId, isPersistingScan }: WineListsPanelProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [lists, setLists] = useState<WineListSummary[]>(emptySummary);
   const [memberships, setMemberships] = useState<Set<string>>(new Set());
   const [loadingLists, setLoadingLists] = useState(false);
@@ -148,7 +150,7 @@ export const WineListsPanel = ({ scanId, ensureScanId, isPersistingScan }: WineL
 
       setCreatingList(true);
       try {
-        const created = await createWineList(newListName);
+        const created = await createWineList(newListName, user?.id ?? "");
         setDialogOpen(false);
         setNewListName("");
         await refreshLists();

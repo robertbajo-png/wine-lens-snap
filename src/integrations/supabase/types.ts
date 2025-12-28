@@ -364,39 +364,6 @@ export type Database = {
         }
         Relationships: []
       }
-      marketplace_offers: {
-        Row: {
-          country: string | null
-          created_at: string | null
-          currency: string | null
-          id: string
-          label_hash: string | null
-          merchant: string | null
-          price: number | null
-          url: string | null
-        }
-        Insert: {
-          country?: string | null
-          created_at?: string | null
-          currency?: string | null
-          id?: string
-          label_hash?: string | null
-          merchant?: string | null
-          price?: number | null
-          url?: string | null
-        }
-        Update: {
-          country?: string | null
-          created_at?: string | null
-          currency?: string | null
-          id?: string
-          label_hash?: string | null
-          merchant?: string | null
-          price?: number | null
-          url?: string | null
-        }
-        Relationships: []
-      }
       user_feed_state: {
         Row: {
           last_seen_at: string

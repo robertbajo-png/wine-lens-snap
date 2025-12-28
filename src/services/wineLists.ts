@@ -83,7 +83,7 @@ export const fetchMembershipForScan = async (scanId: string): Promise<string[]> 
     .filter((id): id is string => typeof id === "string");
 };
 
-export const createWineList = async (name: string): Promise<Tables<"lists">> => {
+export const createWineList = async (name: string, userId: string): Promise<Tables<"lists">> => {
   const trimmed = name.trim();
   if (trimmed.length === 0) {
     throw new Error("Ange ett namn på listan.");
@@ -93,14 +93,13 @@ export const createWineList = async (name: string): Promise<Tables<"lists">> => 
     throw new Error("Listnamnet får högst vara 80 tecken.");
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  if (!userId) {
     throw new Error("Du måste vara inloggad för att skapa en lista.");
   }
 
   const { data, error } = await supabase
     .from("lists")
-    .insert({ name: trimmed, user_id: user.id })
+    .insert({ name: trimmed, user_id: userId })
     .select()
     .single();
 
