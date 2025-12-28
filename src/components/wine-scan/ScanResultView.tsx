@@ -8,6 +8,7 @@ import EvidenceAccordion from "@/components/result/EvidenceAccordion";
 import KeyFacts from "@/components/result/KeyFacts";
 import Pairings from "@/components/result/Pairings";
 import ServingCard from "@/components/result/ServingCard";
+import AnalysisFeedback from "@/components/wine-scan/AnalysisFeedback";
 import { ScanStatusBanner } from "@/components/wine-scan/ScanStatusBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -465,6 +466,13 @@ export const ScanResultView = ({
                   </CardContent>
                 </Card>
               )}
+
+              <AnalysisFeedback
+                scanId={remoteScanId}
+                ensureScanId={ensureRemoteScan}
+                labelHash={labelHash}
+                isLoggedIn={isLoggedIn}
+              />
 
               {marketplaceEnabled && visibleOffers.length > 0 && (
                 <BuySection offers={visibleOffers} onOfferClick={handleOfferClick} />
