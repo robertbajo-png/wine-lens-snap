@@ -21,6 +21,7 @@ export type TelemetryEventName =
   | "explore_scans_retry_requested"
   | "explore_login_prompt_clicked"
   | "analysis_cache_hit"
+  | "analysis_parse_failed"
   | "analysis_label_only_fallback"
   | "sync_attempt"
   | "sync_completed"
