@@ -4,10 +4,6 @@ import ResultHeader from "@/components/result/ResultHeader";
 import { WineListsPanel } from "@/components/result/WineListsPanel";
 import ActionBar from "@/components/result/ActionBar";
 import ClampTextCard from "@/components/result/ClampTextCard";
-import EvidenceAccordion from "@/components/result/EvidenceAccordion";
-import KeyFacts from "@/components/result/KeyFacts";
-import Pairings from "@/components/result/Pairings";
-import ServingCard from "@/components/result/ServingCard";
 import AnalysisFeedback from "@/components/wine-scan/AnalysisFeedback";
 import { ScanStatusBanner } from "@/components/wine-scan/ScanStatusBanner";
 import { Badge } from "@/components/ui/badge";
@@ -20,12 +16,23 @@ import { Label } from "@/components/ui/label";
 import { BookmarkPlus, Download, ImageUp, Loader2, Lock, RefreshCcw, Trash2 } from "lucide-react";
 import type { BadgeProps } from "@/components/ui/badge";
 import { computeLabelHash, type EvidenceItem, type WineAnalysisResult } from "@/lib/wineCache";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { FREE_SCAN_LIMIT_PER_DAY } from "@/lib/premiumAccess";
 import { BuySection } from "@/components/wine-scan/BuySection";
 import { getOffersByLabelHash, type WineOffer } from "@/services/marketplaceService";
 import { logEvent } from "@/lib/logger";
 import { isMarketplaceEnabled } from "@/lib/features";
+
+const KeyFacts = lazy(() => import("@/components/result/KeyFacts"));
+const EvidenceAccordion = lazy(() => import("@/components/result/EvidenceAccordion"));
+const Pairings = lazy(() => import("@/components/result/Pairings"));
+const ServingCard = lazy(() => import("@/components/result/ServingCard"));
+
+const LazySectionFallback = ({ className = "" }: { className?: string }) => (
+  <div
+    className={`w-full min-h-[120px] rounded-2xl border border-theme-card bg-theme-elevated/60 animate-pulse ${className}`}
+  />
+);
 
 interface ScanResultViewProps {
   results: WineAnalysisResult;
@@ -505,58 +512,66 @@ export const ScanResultView = ({
                 )}
               </section>
 
-              <KeyFacts
-                druvor={results.druvor}
-                fargtyp={results.färgtyp}
-                klassificering={results.klassificering}
-                alkoholhalt={results.alkoholhalt}
-                volym={results.volym}
-                sockerhalt={results.sockerhalt}
-                syra={results.syra}
-                evidenceItems={evidenceLinks}
-                sourceType={sourceType}
-              />
+              <Suspense fallback={<LazySectionFallback className="min-h-[180px]" />}>
+                <KeyFacts
+                  druvor={results.druvor}
+                  fargtyp={results.färgtyp}
+                  klassificering={results.klassificering}
+                  alkoholhalt={results.alkoholhalt}
+                  volym={results.volym}
+                  sockerhalt={results.sockerhalt}
+                  syra={results.syra}
+                  evidenceItems={evidenceLinks}
+                  sourceType={sourceType}
+                />
+              </Suspense>
 
               <div className="grid gap-4 sm:grid-cols-2">
-              <ClampTextCard title="Karaktär" text={results.karaktär} />
-              <ClampTextCard title="Smak" text={results.smak} />
-            </div>
+                <ClampTextCard title="Karaktär" text={results.karaktär} />
+                <ClampTextCard title="Smak" text={results.smak} />
+              </div>
 
-            {isPremium ? (
-              <>
-                <Pairings items={pairings} />
+              {isPremium ? (
+                <>
+                  <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
+                    <Pairings items={pairings} />
+                  </Suspense>
 
-                <ServingCard servering={results.servering} />
+                  <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
+                    <ServingCard servering={results.servering} />
+                  </Suspense>
 
-                <EvidenceAccordion
-                  ocr={ocrText}
-                  hits={evidenceLinks}
-                  primary={results.källa}
-                />
-              </>
-            ) : (
-              <Card className="border-theme-card/70 bg-theme-elevated/70">
-                <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-3 text-sm text-theme-secondary">
-                    <Lock className="mt-1 h-4 w-4 text-theme-primary" aria-hidden="true" />
-                    <div className="space-y-1">
-                      <p className="font-semibold text-theme-primary">Djupare analys är låst</p>
-                      <p>
-                        Matrekommendationer, serveringstips och källor ingår i premium. Uppgradera för att se
-                        helheten.
-                      </p>
+                  <Suspense fallback={<LazySectionFallback className="min-h-[160px]" />}>
+                    <EvidenceAccordion
+                      ocr={ocrText}
+                      hits={evidenceLinks}
+                      primary={results.källa}
+                    />
+                  </Suspense>
+                </>
+              ) : (
+                <Card className="border-theme-card/70 bg-theme-elevated/70">
+                  <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3 text-sm text-theme-secondary">
+                      <Lock className="mt-1 h-4 w-4 text-theme-primary" aria-hidden="true" />
+                      <div className="space-y-1">
+                        <p className="font-semibold text-theme-primary">Djupare analys är låst</p>
+                        <p>
+                          Matrekommendationer, serveringstips och källor ingår i premium. Uppgradera för att se
+                          helheten.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="rounded-full border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
-                    onClick={onUpgrade}
-                  >
-                    Lås upp Premium
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+                    <Button
+                      variant="outline"
+                      className="rounded-full border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
+                      onClick={onUpgrade}
+                    >
+                      Lås upp Premium
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
 
             {detectedLanguage && (
               <p className="text-xs text-theme-secondary opacity-80">Upptäckt språk: {detectedLanguage.toUpperCase()}</p>

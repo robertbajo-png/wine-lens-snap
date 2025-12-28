@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,14 +6,21 @@ import { getCachedAnalysisEntryByKey, type CachedWineAnalysisEntry } from "@/lib
 import { AmbientBackground } from "@/components/AmbientBackground";
 import ResultHeader from "@/components/result/ResultHeader";
 import MetersRow from "@/components/result/MetersRow";
-import KeyFacts from "@/components/result/KeyFacts";
 import ClampTextCard from "@/components/result/ClampTextCard";
-import Pairings from "@/components/result/Pairings";
-import ServingCard from "@/components/result/ServingCard";
-import EvidenceAccordion from "@/components/result/EvidenceAccordion";
 import { WineListsPanel } from "@/components/result/WineListsPanel";
 import { useAuth } from "@/auth/AuthProvider";
 import { normalizeEvidenceItems } from "@/lib/evidence";
+
+const KeyFacts = lazy(() => import("@/components/result/KeyFacts"));
+const Pairings = lazy(() => import("@/components/result/Pairings"));
+const ServingCard = lazy(() => import("@/components/result/ServingCard"));
+const EvidenceAccordion = lazy(() => import("@/components/result/EvidenceAccordion"));
+
+const LazySectionFallback = ({ className = "" }: { className?: string }) => (
+  <div
+    className={`w-full min-h-[120px] rounded-2xl border border-theme-card bg-theme-elevated/60 animate-pulse ${className}`}
+  />
+);
 
 const WineDetail = () => {
   const { scanId } = useParams<{ scanId: string }>();
@@ -146,17 +153,19 @@ const WineDetail = () => {
         )}
 
         {/* Key Facts */}
-        <KeyFacts
-          druvor={results.druvor}
-          fargtyp={results.färgtyp}
-          klassificering={results.klassificering}
-          alkoholhalt={results.alkoholhalt}
-          volym={results.volym}
-          sockerhalt={results.sockerhalt}
-          syra={results.syra}
-          evidenceItems={evidenceHits}
-          sourceType={sourceType}
-        />
+        <Suspense fallback={<LazySectionFallback className="min-h-[180px]" />}>
+          <KeyFacts
+            druvor={results.druvor}
+            fargtyp={results.färgtyp}
+            klassificering={results.klassificering}
+            alkoholhalt={results.alkoholhalt}
+            volym={results.volym}
+            sockerhalt={results.sockerhalt}
+            syra={results.syra}
+            evidenceItems={evidenceHits}
+            sourceType={sourceType}
+          />
+        </Suspense>
 
         {/* Character */}
         {results.karaktär && (
@@ -169,13 +178,23 @@ const WineDetail = () => {
         )}
 
         {/* Pairings */}
-        {pairings.length > 0 && <Pairings items={pairings} />}
+        {pairings.length > 0 && (
+          <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
+            <Pairings items={pairings} />
+          </Suspense>
+        )}
 
         {/* Serving */}
-        {results.servering && <ServingCard servering={results.servering} />}
+        {results.servering && (
+          <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
+            <ServingCard servering={results.servering} />
+          </Suspense>
+        )}
 
         {/* Evidence */}
-        <EvidenceAccordion ocr={ocrText} hits={evidenceHits} primary={results.källa} />
+        <Suspense fallback={<LazySectionFallback className="min-h-[160px]" />}>
+          <EvidenceAccordion ocr={ocrText} hits={evidenceHits} primary={results.källa} />
+        </Suspense>
 
         {/* Image preview */}
         {entry.imageData && (
