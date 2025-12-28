@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BookmarkPlus, Download, ImageUp, Loader2, Lock, RefreshCcw, Trash2 } from "lucide-react";
 import type { BadgeProps } from "@/components/ui/badge";
-import { computeLabelHash, type WineAnalysisResult } from "@/lib/wineCache";
+import { computeLabelHash, type EvidenceItem, type WineAnalysisResult } from "@/lib/wineCache";
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { FREE_SCAN_LIMIT_PER_DAY } from "@/lib/premiumAccess";
 import { BuySection } from "@/components/wine-scan/BuySection";
@@ -73,7 +73,7 @@ interface ScanResultViewProps {
   metersAreEstimated: boolean;
   showDetailedSections: boolean;
   ocrText?: string | null;
-  evidenceLinks?: string[] | null;
+  evidenceLinks?: EvidenceItem[] | null;
   detectedLanguage?: string;
   isPremium: boolean;
   onUpgrade: () => void;

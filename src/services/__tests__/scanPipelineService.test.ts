@@ -115,9 +115,12 @@ describe("runFullScanPipeline", () => {
       syra: "Medel",
       källa: "cache",
       meters: { sötma: 1, fyllighet: 2, fruktighet: 3, fruktsyra: 4 },
-      evidence: { etiketttext: "etikett", webbträffar: [] },
-      källstatus: { source: "heuristic", evidence_links: [] },
-      mode: "label_only",
+      evidence: { etiketttext: "etikett", webbträffar: ["https://cached.example"] },
+      källstatus: {
+        source: "web",
+        evidence_links: [{ field: "sources", type: "web", url: "https://cached.example", title: "https://cached.example" }],
+      },
+      mode: "label+web",
       detekterat_språk: "sv",
       originaltext: "cached text",
     };
@@ -133,7 +136,7 @@ describe("runFullScanPipeline", () => {
 
     expect(result.fromCache).toBe(true);
     expect(result.savedFromCache).toBe(true);
-    expect(result.analysisMode).toBe("label_only");
+    expect(result.analysisMode).toBe("full");
     expect(fetchMock).not.toHaveBeenCalled();
     expect(telemetryMocks.trackEventMock).toHaveBeenCalledWith(
       "analysis_cache_hit",

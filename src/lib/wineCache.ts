@@ -4,6 +4,16 @@ const CACHE_KEY_PREFIX = 'wine_analysis_';
 const DEMO_CACHE_PREFIX = `${CACHE_KEY_PREFIX}demo_`;
 const CACHE_UPDATED_EVENT = 'wine-cache:update';
 
+export type EvidenceItemType = 'label' | 'web' | 'heuristic';
+
+export interface EvidenceItem {
+  field: string;
+  type: EvidenceItemType;
+  title?: string;
+  url?: string;
+  snippet?: string;
+}
+
 interface StoredWineAnalysisV1 {
   version: 1;
   timestamp: string;
@@ -155,10 +165,11 @@ export interface WineAnalysisResult {
   evidence?: {
     etiketttext: string;
     webbträffar: string[];
+    items?: EvidenceItem[];
   };
   källstatus?: {
     source: "web" | "heuristic";
-    evidence_links: string[];
+    evidence_links: EvidenceItem[];
   };
   mode?: "label_only" | "label+web";
   confidence?: number;

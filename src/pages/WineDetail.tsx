@@ -13,6 +13,7 @@ import ServingCard from "@/components/result/ServingCard";
 import EvidenceAccordion from "@/components/result/EvidenceAccordion";
 import { WineListsPanel } from "@/components/result/WineListsPanel";
 import { useAuth } from "@/auth/AuthProvider";
+import { normalizeEvidenceItems } from "@/lib/evidence";
 
 const WineDetail = () => {
   const { scanId } = useParams<{ scanId: string }>();
@@ -90,7 +91,12 @@ const WineDetail = () => {
 
   const results = entry.result;
   const pairings = results.passar_till ?? results.food_pairings ?? [];
-  const evidenceHits = results.källstatus?.evidence_links ?? results.evidence?.webbträffar ?? [];
+  const evidenceHits = normalizeEvidenceItems({
+    evidence: results.evidence,
+    sourceStatus: results.källstatus,
+    ocrText: entry.ocrText ?? results.originaltext ?? results.vin ?? null,
+    sources: results.sources,
+  });
   const ocrText = entry.ocrText ?? results.evidence?.etiketttext ?? results.originaltext;
 
   return (

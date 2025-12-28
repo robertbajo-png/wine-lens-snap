@@ -14,6 +14,7 @@ import {
   upsertOcrServerCache,
 } from "./db.ts";
 import type {
+  EvidenceItem,
   TasteAIResponse,
   WineAnalysisResult,
   WineSearchResult,
@@ -649,6 +650,19 @@ const ensureStringArray = (value: unknown): string[] =>
 
 const HTTP_URL_REGEX = /^https?:\/\//i;
 
+const clampText = (value?: string | null): string | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "-") return null;
+  return trimmed;
+};
+
+const sanitizeUrl = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return HTTP_URL_REGEX.test(trimmed) ? trimmed : null;
+};
+
 const sanitizeEvidenceLinks = (value: unknown): string[] =>
   ensureStringArray(value)
     .map((url) => url.trim())
@@ -681,7 +695,66 @@ function ensureEvidence(value: unknown): WineSummary["evidence"] {
   };
 }
 
-type SourceStatus = { source: "web" | "heuristic"; evidence_links: string[] };
+type SourceStatus = { source: "web" | "heuristic"; evidence_links: EvidenceItem[] };
+
+const toEvidenceItem = (value: unknown, field: string): EvidenceItem | null => {
+  if (!value) return null;
+
+  if (typeof value === "string") {
+    const url = sanitizeUrl(value);
+    if (url) {
+      return { field, type: "web", title: url, url };
+    }
+    const title = clampText(value);
+    if (!title) return null;
+    return { field, type: "heuristic", title };
+  }
+
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const url = sanitizeUrl(record.url);
+    const titleCandidate = typeof record.title === "string" ? record.title : typeof record.url === "string" ? record.url : null;
+    const title = clampText(titleCandidate);
+    const snippet = clampText(typeof record.snippet === "string" ? record.snippet : undefined);
+    const type = record.type === "web" || record.type === "label" || record.type === "heuristic"
+      ? record.type
+      : url
+        ? "web"
+        : "heuristic";
+
+    if (!url && !title && !snippet) {
+      return null;
+    }
+
+    return {
+      field,
+      type,
+      title: title ?? undefined,
+      url: url ?? undefined,
+      snippet: snippet ?? undefined,
+    };
+  }
+
+  return null;
+};
+
+const normalizeEvidenceItems = (value: unknown, field = "sources"): EvidenceItem[] => {
+  const items: EvidenceItem[] = [];
+  const dedupe = new Set<string>();
+
+  if (!Array.isArray(value)) return items;
+
+  for (const entry of value) {
+    const item = toEvidenceItem(entry, field);
+    if (!item) continue;
+    const key = `${item.type}|${item.field}|${item.url ?? item.title ?? item.snippet ?? ""}`;
+    if (dedupe.has(key)) continue;
+    dedupe.add(key);
+    items.push(item);
+  }
+
+  return items;
+};
 
 function ensureSourceStatus(value: unknown): SourceStatus {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -689,7 +762,7 @@ function ensureSourceStatus(value: unknown): SourceStatus {
   }
   const record = value as Record<string, unknown>;
   const source = record.source === "web" ? "web" : "heuristic";
-  return { source, evidence_links: sanitizeEvidenceLinks(record.evidence_links) };
+  return { source, evidence_links: normalizeEvidenceItems(record.evidence_links) };
 }
 
 type AnalysisMode = "label_only" | "label+web";
@@ -708,7 +781,26 @@ const parseGrapeList = (value: unknown): string[] => {
 };
 
 const normalizeAnalysisMetadata = (result: WineAnalysisResult): WineAnalysisResult => {
-  const sources = sanitizeEvidenceLinks(result.sources ?? result.evidence?.webbträffar ?? []);
+  const evidenceCandidates = [
+    ...normalizeEvidenceItems(result.källstatus?.evidence_links, "sources"),
+    ...normalizeEvidenceItems(result.evidence?.items, "sources"),
+    ...normalizeEvidenceItems(result.sources, "sources"),
+    ...normalizeEvidenceItems(result.evidence?.webbträffar, "sources"),
+  ];
+
+  const dedupedEvidence: EvidenceItem[] = [];
+  const seenEvidence = new Set<string>();
+  for (const item of evidenceCandidates) {
+    const key = `${item.type}|${item.field}|${item.url ?? item.title ?? item.snippet ?? ""}`;
+    if (seenEvidence.has(key)) continue;
+    seenEvidence.add(key);
+    dedupedEvidence.push(item);
+  }
+
+  const sources = dedupedEvidence
+    .filter((item) => item.type === "web" && item.url)
+    .map((item) => item.url as string)
+    .slice(0, CFG.MAX_WEB_URLS);
   const mode: AnalysisMode = sources.length > 0 ? "label+web" : "label_only";
   const confidenceBase = typeof result.confidence === "number" ? result.confidence : mode === "label+web" ? 0.7 : 0.4;
   const confidence = Math.min(1, Math.max(0, confidenceBase));
@@ -734,6 +826,15 @@ const normalizeAnalysisMetadata = (result: WineAnalysisResult): WineAnalysisResu
     style,
     food_pairings,
     warnings,
+    evidence: {
+      ...(result.evidence ?? {}),
+      webbträffar: sources,
+      items: dedupedEvidence.length > 0 ? dedupedEvidence : result.evidence?.items ?? [],
+    },
+    källstatus: {
+      source: sources.length > 0 ? "web" : "heuristic",
+      evidence_links: dedupedEvidence,
+    },
   };
 };
 
@@ -1283,8 +1384,44 @@ function fillMissingFields(
   const normalizedEvidence = {
     etiketttext: finalData.evidence.etiketttext || clamp(ocrText),
     webbträffar: sanitizeEvidenceLinks(finalData.evidence.webbträffar),
+    items: normalizeEvidenceItems(finalData.evidence.items ?? [], "sources"),
   };
-  finalData.evidence = normalizedEvidence;
+
+  const combinedEvidence = [
+    ...normalizedEvidence.items,
+    ...normalizeEvidenceItems(normalizedEvidence.webbträffar, "sources"),
+    ...normalizeEvidenceItems(finalData.sources, "sources"),
+    ...normalizeEvidenceItems(webData?.källor, "sources"),
+  ];
+
+  const dedupedEvidence: EvidenceItem[] = [];
+  const seenEvidence = new Set<string>();
+  for (const item of combinedEvidence) {
+    const key = `${item.type}|${item.field}|${item.url ?? item.title ?? item.snippet ?? ""}`;
+    if (seenEvidence.has(key)) continue;
+    seenEvidence.add(key);
+    dedupedEvidence.push(item);
+  }
+
+  if (dedupedEvidence.length === 0) {
+    dedupedEvidence.push({
+      field: "etiketttext",
+      type: "heuristic",
+      title: "Derived from label text",
+      snippet: normalizedEvidence.etiketttext ?? clamp(ocrText) ?? undefined,
+    });
+  }
+
+  const evidenceLinks = dedupedEvidence
+    .filter((item) => item.type === "web" && item.url)
+    .map((item) => item.url as string)
+    .slice(0, CFG.MAX_WEB_URLS);
+
+  finalData.evidence = {
+    ...normalizedEvidence,
+    webbträffar: evidenceLinks,
+    items: dedupedEvidence,
+  };
 
   const meterKeys: Array<keyof WineSummary["meters"]> = ["sötma", "fyllighet", "fruktighet", "fruktsyra"];
   const webMetersProvided =
@@ -1296,12 +1433,11 @@ function fillMissingFields(
     confidence?: Record<string, number>;
     [key: string]: unknown;
   };
-  const evidenceLinks = normalizedEvidence.webbträffar;
-  const webLinks = webData ? sanitizeEvidenceLinks(webData.källor) : [];
-  const hasVerifiedWeb = webLinks.length > 0 && evidenceLinks.length > 0;
+  const evidenceLinks = finalData.evidence.webbträffar;
+  const hasVerifiedWeb = evidenceLinks.length > 0;
   const sourceStatus: SourceStatus = {
     source: hasVerifiedWeb ? "web" : "heuristic",
-    evidence_links: evidenceLinks,
+    evidence_links: dedupedEvidence,
   };
   finalData.källstatus = sourceStatus;
 

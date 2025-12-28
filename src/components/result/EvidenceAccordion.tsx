@@ -1,16 +1,19 @@
 import React from "react";
-
-type WebHit = string | { url: string; källa?: string };
+import type { EvidenceItem } from "@/lib/wineCache";
 
 interface EvidenceAccordionProps {
   ocr?: string;
-  hits?: WebHit[];
+  hits?: EvidenceItem[];
   primary?: string;
 }
 
 export default function EvidenceAccordion({ ocr, hits, primary }: EvidenceAccordionProps) {
   const hasOcr = Boolean(ocr && ocr !== "–");
-  const validHits = Array.isArray(hits) ? (hits.filter(Boolean) as WebHit[]) : [];
+  const validHits = Array.isArray(hits)
+    ? (hits.filter((item): item is EvidenceItem => Boolean(item)) as EvidenceItem[])
+    : [];
+  const webSources = validHits.filter((item) => item.type === "web" && item.url);
+  const heuristics = validHits.filter((item) => item.type !== "web");
   const hasPrimary = Boolean(primary && primary !== "–");
   const [open, setOpen] = React.useState(false);
 
@@ -33,22 +36,34 @@ export default function EvidenceAccordion({ ocr, hits, primary }: EvidenceAccord
               Primär källa: <span className="underline">{primary}</span>
             </p>
           )}
-          {validHits.length > 0 && (
+          {webSources.length > 0 && (
             <div>
               <p className="text-sm font-semibold text-theme-primary">Webbkällor</p>
               <ul className="mt-2 list-disc pl-5 text-sm text-theme-secondary">
-                {validHits.slice(0, 5).map((hit, index) => {
-                  const url = typeof hit === "string" ? hit : hit.url;
-                  const label = typeof hit === "string" ? hit : hit.källa || hit.url;
-                  if (!url) return null;
+                {webSources.slice(0, 5).map((hit, index) => {
+                  if (!hit.url) return null;
+                  const label = hit.title ?? hit.url;
                   return (
-                    <li key={`${url}-${index}`}>
-                      <a className="underline hover:no-underline" href={url} target="_blank" rel="noreferrer">
+                    <li key={`${hit.url}-${index}`}>
+                      <a className="underline hover:no-underline" href={hit.url} target="_blank" rel="noreferrer">
                         {label}
                       </a>
                     </li>
                   );
                 })}
+              </ul>
+            </div>
+          )}
+          {heuristics.length > 0 && (
+            <div className="space-y-1 rounded-xl border border-theme-card/70 bg-theme-canvas/30 p-3">
+              <p className="text-sm font-semibold text-theme-primary">Härlett</p>
+              <ul className="space-y-2 text-sm text-theme-secondary">
+                {heuristics.slice(0, 5).map((hit, index) => (
+                  <li key={`${hit.field}-${index}`} className="space-y-1">
+                    {hit.title && <p className="font-medium text-theme-primary/90">{hit.title}</p>}
+                    {hit.snippet && <p className="whitespace-pre-wrap">{hit.snippet}</p>}
+                  </li>
+                ))}
               </ul>
             </div>
           )}
@@ -63,4 +78,3 @@ export default function EvidenceAccordion({ ocr, hits, primary }: EvidenceAccord
     </section>
   );
 }
-
