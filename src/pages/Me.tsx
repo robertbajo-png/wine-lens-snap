@@ -590,40 +590,7 @@ const Me = () => {
       </header>
 
       <div className="space-y-6">
-        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-theme-primary">{t("me.premiumTitle")}</CardTitle>
-              <CardDescription className="text-theme-secondary">
-                {t("me.premiumSubtitle")}
-              </CardDescription>
-            </div>
-            <PremiumBadge message={t("me.premiumComingSoon")} />
-          </CardHeader>
-          <CardContent className="space-y-4 text-sm text-theme-secondary">
-            <div className="flex items-start gap-3">
-              <PremiumBadge message={t("me.moreAnalysesDesc")} className="mt-0.5" />
-              <div>
-                <p className="font-semibold text-theme-primary">{t("me.moreAnalyses")}</p>
-                <p>{t("me.moreAnalysesDesc")}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <PremiumBadge message={t("me.deeperProfileDesc")} className="mt-0.5" />
-              <div>
-                <p className="font-semibold text-theme-primary">{t("me.deeperProfile")}</p>
-                <p>{t("me.deeperProfileDesc")}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <PremiumBadge message={t("me.savedListsDesc")} className="mt-0.5" />
-              <div>
-                <p className="font-semibold text-theme-primary">{t("me.savedLists")}</p>
-                <p>{t("me.savedListsDesc")}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Premium section temporarily hidden for RC */}
 
         <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
           <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

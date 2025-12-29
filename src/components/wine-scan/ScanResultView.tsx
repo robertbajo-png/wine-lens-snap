@@ -365,26 +365,7 @@ export const ScanResultView = ({
 
           {banner}
 
-          {!isPremium && (
-            <Card className="mb-4 border-theme-card/80 bg-theme-elevated/70 backdrop-blur">
-              <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1 text-sm text-theme-secondary">
-                  <p className="text-base font-semibold text-theme-primary">Premium låser upp djupanalys</p>
-                  <p>
-                    Gratisläget ger {FREE_SCAN_LIMIT_PER_DAY} analyser per dag och ett etikettläge. Du har
-                    {" "}
-                    {freeScansRemaining} kvar idag. Premium ger obegränsad skanning och alla detaljer.
-                  </p>
-                </div>
-                <Button
-                  className="self-start rounded-full bg-theme-accent px-5 text-theme-on-accent shadow-theme-card"
-                  onClick={onUpgrade}
-                >
-                  Bli premium
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          {/* Premium promo card temporarily hidden for RC */}
 
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <Badge variant={statusTone}>{statusLabel}</Badge>
@@ -493,7 +474,7 @@ export const ScanResultView = ({
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Smakprofil</h3>
-                    <PremiumBadge message="Premium ger en djupare smakprofil med fler nyanser och rekommendationer." />
+                    {/* PremiumBadge temporarily hidden for RC */}
                   </div>
                   <div className="flex flex-col items-end gap-1 text-right">
                     <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
