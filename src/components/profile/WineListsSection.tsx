@@ -118,7 +118,7 @@ export const WineListsSection = () => {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle className="text-theme-primary">Mina listor</CardTitle>
-            <PremiumBadge message="Sparade listor blir en del av Premium – lås upp obegränsade listor och synkade favoriter." />
+            {/* PremiumBadge temporarily hidden for RC */}
           </div>
           <CardDescription className="text-theme-secondary">
             Vi visar endast listor med sparade viner.
