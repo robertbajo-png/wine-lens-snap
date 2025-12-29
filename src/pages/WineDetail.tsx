@@ -10,9 +10,6 @@ import ClampTextCard from "@/components/result/ClampTextCard";
 import { WineListsPanel } from "@/components/result/WineListsPanel";
 import { useAuth } from "@/auth/AuthProvider";
 import { normalizeEvidenceItems } from "@/lib/evidence";
-import { BuySection } from "@/components/wine-scan/BuySection";
-import { getOffersByLabelHash, type WineOffer } from "@/services/marketplaceService";
-import { isMarketplaceEnabled } from "@/lib/features";
 
 const KeyFacts = lazy(() => import("@/components/result/KeyFacts"));
 const Pairings = lazy(() => import("@/components/result/Pairings"));
@@ -32,8 +29,6 @@ const WineDetail = () => {
   const [entry, setEntry] = useState<CachedWineAnalysisEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [offers, setOffers] = useState<WineOffer[]>([]);
-  const marketplaceEnabled = isMarketplaceEnabled();
 
   useEffect(() => {
     if (!scanId) {
@@ -55,18 +50,6 @@ const WineDetail = () => {
     setLoading(false);
   }, [scanId]);
 
-  // Fetch marketplace offers
-  useEffect(() => {
-    if (!entry?.labelHash || !marketplaceEnabled) return;
-    
-    getOffersByLabelHash(entry.labelHash).then(setOffers).catch(() => setOffers([]));
-  }, [entry?.labelHash, marketplaceEnabled]);
-
-  const handleOfferClick = (offer: WineOffer) => {
-    if (offer.url) {
-      window.open(offer.url, "_blank", "noopener,noreferrer");
-    }
-  };
 
   const handleBack = () => {
     navigate(-1);
@@ -170,10 +153,6 @@ const WineDetail = () => {
           />
         )}
 
-        {/* Marketplace offers */}
-        {marketplaceEnabled && offers.length > 0 && (
-          <BuySection offers={offers} onOfferClick={handleOfferClick} />
-        )}
 
         {/* Key Facts */}
         <Suspense fallback={<LazySectionFallback className="min-h-[180px]" />}>
