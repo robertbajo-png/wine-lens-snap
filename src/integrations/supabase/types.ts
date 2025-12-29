@@ -471,6 +471,42 @@ export type Database = {
         }
         Relationships: []
       }
+      wine_offers: {
+        Row: {
+          country: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          label_hash: string
+          merchant_name: string
+          price: number | null
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          label_hash: string
+          merchant_name: string
+          price?: number | null
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          label_hash?: string
+          merchant_name?: string
+          price?: number | null
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       winesnap_cache: {
         Row: {
           created_at: string | null
