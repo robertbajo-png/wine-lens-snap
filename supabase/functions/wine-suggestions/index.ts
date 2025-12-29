@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models";
-const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
+const GEMINI_MODEL = "gemini-2.0-flash";
 
 type TasteProfileEntry = {
   value: string;

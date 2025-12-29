@@ -88,11 +88,12 @@ function getGeminiModelName(model: string): string {
   // Remove "google/" prefix if present and map to API model names
   const cleanModel = model.replace("google/", "");
   
+  // Use stable model names that are always available
   const modelMap: Record<string, string> = {
-    "gemini-2.5-flash": "gemini-2.5-flash-preview-05-20",
-    "gemini-2.5-pro": "gemini-2.5-pro-preview-05-06",
-    "gemini-2.5-flash-lite": "gemini-2.5-flash-preview-05-20",
-    "gemini-3-pro-preview": "gemini-2.5-pro-preview-05-06",
+    "gemini-2.5-flash": "gemini-2.0-flash",
+    "gemini-2.5-pro": "gemini-1.5-pro",
+    "gemini-2.5-flash-lite": "gemini-2.0-flash",
+    "gemini-3-pro-preview": "gemini-1.5-pro",
   };
   
   return modelMap[cleanModel] || cleanModel;
