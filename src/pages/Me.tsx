@@ -541,19 +541,7 @@ const Me = () => {
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold text-theme-primary">{displayName}</h1>
             {email ? <p className="text-sm text-theme-secondary">{email}</p> : null}
-            <div className="flex flex-wrap items-center gap-2 text-sm text-theme-secondary">
-              <Badge
-                variant="outline"
-                className={`border-[hsl(var(--color-border))] px-3 py-1 text-xs ${
-                  isPremium
-                    ? "border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-400/70 dark:bg-amber-500/20 dark:text-amber-50"
-                    : "bg-theme-elevated text-theme-primary"
-                }`}
-              >
-                {isPremium ? t("me.premium") : t("me.free")}
-              </Badge>
-              <span className="text-theme-secondary">{premiumDescription}</span>
-            </div>
+            {/* Premium status temporarily hidden for RC */}
           </div>
         </div>
         <div className="flex flex-col items-stretch gap-3 sm:items-end">
