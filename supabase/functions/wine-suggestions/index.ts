@@ -5,6 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
+
 type TasteProfileEntry = {
   value: string;
   count: number;
@@ -39,9 +42,9 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
+    const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY");
+    if (!GOOGLE_API_KEY) {
+      console.error("GOOGLE_API_KEY is not configured");
       return new Response(
         JSON.stringify({ error: "AI service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -52,9 +55,17 @@ serve(async (req) => {
     const topRegions = tasteProfile.regions.slice(0, 5).map((r) => `${r.value} (${r.count}x)`).join(", ");
     const topStyles = tasteProfile.styles.slice(0, 3).map((s) => `${s.value} (${s.count}x)`).join(", ");
 
-    const systemPrompt = `Du är en vinexpert som ger personliga vinrekommendationer baserat på användarens smakprofil.
+    const prompt = `Du är en vinexpert som ger personliga vinrekommendationer baserat på användarens smakprofil.
 
-Svara ENDAST med giltig JSON i följande format utan markdown:
+Användarens smakprofil baserat på ${tasteProfile.totalScans} skannade viner:
+
+Favorit druvor: ${topGrapes || "Ingen tydlig favorit ännu"}
+Favorit regioner: ${topRegions || "Ingen tydlig favorit ännu"}
+Favorit stilar: ${topStyles || "Ingen tydlig favorit ännu"}
+
+Ge personliga vinförslag som utforskar något nytt men bygger på dessa preferenser.
+
+Svara ENDAST med giltig JSON i följande format:
 {
   "suggestions": [
     {
@@ -71,32 +82,26 @@ Ge 2-4 förslag som:
 2. Är konkreta och lätta att hitta (populära viner/regioner)
 3. Har korta, engagerande förklaringar på svenska`;
 
-    const userPrompt = `Användarens smakprofil baserat på ${tasteProfile.totalScans} skannade viner:
-
-Favorit druvor: ${topGrapes || "Ingen tydlig favorit ännu"}
-Favorit regioner: ${topRegions || "Ingen tydlig favorit ännu"}
-Favorit stilar: ${topStyles || "Ingen tydlig favorit ännu"}
-
-Ge personliga vinförslag som utforskar något nytt men bygger på dessa preferenser.`;
-
     console.log("Generating wine suggestions for profile:", {
       totalScans: tasteProfile.totalScans,
       topGrapes,
       topRegions,
     });
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const url = `${GEMINI_API}/${GEMINI_MODEL}:generateContent?key=${GOOGLE_API_KEY}`;
+
+    const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1000,
+          responseMimeType: "application/json",
+        },
       }),
     });
 
@@ -108,16 +113,16 @@ Ge personliga vinförslag som utforskar något nytt men bygger på dessa prefere
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      if (response.status === 402) {
-        console.error("Payment required");
+      if (response.status === 403) {
+        console.error("API key invalid or quota exceeded");
         return new Response(
-          JSON.stringify({ error: "AI-krediter slut" }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "API-nyckel ogiltig eller kvot överskriden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("Gemini API error:", response.status, errorText);
       return new Response(
         JSON.stringify({ error: "AI-tjänsten är inte tillgänglig just nu" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -125,7 +130,7 @@ Ge personliga vinförslag som utforskar något nytt men bygger på dessa prefere
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content ?? "";
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
     console.log("AI raw response:", content);
 
