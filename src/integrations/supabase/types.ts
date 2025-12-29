@@ -429,42 +429,6 @@ export type Database = {
         }
         Relationships: []
       }
-      wine_offers: {
-        Row: {
-          country: string | null
-          created_at: string | null
-          currency: string | null
-          id: string
-          label_hash: string
-          merchant_name: string
-          price: number | null
-          source: string
-          url: string
-        }
-        Insert: {
-          country?: string | null
-          created_at?: string | null
-          currency?: string | null
-          id?: string
-          label_hash: string
-          merchant_name: string
-          price?: number | null
-          source?: string
-          url: string
-        }
-        Update: {
-          country?: string | null
-          created_at?: string | null
-          currency?: string | null
-          id?: string
-          label_hash?: string
-          merchant_name?: string
-          price?: number | null
-          source?: string
-          url?: string
-        }
-        Relationships: []
-      }
       wine_index: {
         Row: {
           color: string | null
