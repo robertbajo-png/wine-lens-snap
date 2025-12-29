@@ -46,7 +46,7 @@ const mockSession: Session = {
   user: mockUser,
 };
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export function AuthProvider({ children }: { children: ReactNode }) {
   // TEMPORARY: Always return mock session (bypass login)
   const [session, setSession] = useState<Session | null>(mockSession);
   const [loading, setLoading] = useState(false);
