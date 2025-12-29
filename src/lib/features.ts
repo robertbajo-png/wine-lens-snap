@@ -25,4 +25,4 @@ export const getFeatureFlag = (flagName: string, defaultValue = false): boolean 
   return parseBoolean(envValue, defaultValue);
 };
 
-export const isMarketplaceEnabled = () => getFeatureFlag("VITE_FEATURE_MARKETPLACE", true);
+export const isMarketplaceEnabled = () => getFeatureFlag("VITE_FEATURE_MARKETPLACE", false);
