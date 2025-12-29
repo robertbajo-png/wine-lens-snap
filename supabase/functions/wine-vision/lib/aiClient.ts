@@ -1,4 +1,4 @@
-// AI Client Wrapper for Lovable AI Gateway & Perplexity
+// AI Client Wrapper for Google Gemini & Perplexity (Direct API)
 // Provides clean SDK-like interface while using fetch under the hood
 
 interface GeminiSharedOptions {
@@ -29,43 +29,40 @@ interface PerplexityOptions {
   schemaHint?: string;
 }
 
-type GeminiMessageRole = "system" | "user";
-
-interface GeminiTextContent {
-  type: "text";
-  text: string;
-}
-
-interface GeminiImageContent {
-  type: "image_url";
-  image_url: { url: string };
-}
-
-type GeminiContent = string | (GeminiTextContent | GeminiImageContent)[];
-
-interface GeminiMessage {
-  role: GeminiMessageRole;
-  content: GeminiContent;
-}
-
-interface GeminiRequestBody {
-  model: string;
-  temperature: number;
-  max_tokens: number;
-  messages: GeminiMessage[];
-  response_format?: { type: "json_object" };
-}
-
-interface LovableGatewayChoice {
-  message?: {
-    content?: string;
+// Google Gemini native types
+interface GeminiPart {
+  text?: string;
+  inlineData?: {
+    mimeType: string;
+    data: string;
   };
 }
 
-interface LovableGatewayResponse {
-  choices?: LovableGatewayChoice[];
+interface GeminiContent {
+  role: "user" | "model";
+  parts: GeminiPart[];
 }
 
+interface GeminiRequestBody {
+  contents: GeminiContent[];
+  generationConfig: {
+    temperature: number;
+    maxOutputTokens: number;
+    responseMimeType?: string;
+  };
+}
+
+interface GeminiCandidate {
+  content?: {
+    parts?: GeminiPart[];
+  };
+}
+
+interface GeminiResponse {
+  candidates?: GeminiCandidate[];
+}
+
+// Perplexity types
 type PerplexityMessageRole = "system" | "user";
 
 interface PerplexityMessage {
@@ -83,8 +80,23 @@ interface PerplexityResponse {
   choices?: PerplexityChoice[];
 }
 
-const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models";
 const PERPLEXITY_API = "https://api.perplexity.ai/chat/completions";
+
+// Model mapping - convert friendly names to Google API model names
+function getGeminiModelName(model: string): string {
+  // Remove "google/" prefix if present and map to API model names
+  const cleanModel = model.replace("google/", "");
+  
+  const modelMap: Record<string, string> = {
+    "gemini-2.5-flash": "gemini-2.5-flash-preview-05-20",
+    "gemini-2.5-pro": "gemini-2.5-pro-preview-05-06",
+    "gemini-2.5-flash-lite": "gemini-2.5-flash-preview-05-20",
+    "gemini-3-pro-preview": "gemini-2.5-pro-preview-05-06",
+  };
+  
+  return modelMap[cleanModel] || cleanModel;
+}
 
 async function fetchWithTimeout(
   url: string,
@@ -148,17 +160,21 @@ Text att reparera:
 <<<${raw}>>>
 `;
 
-  const response = await fetch(LOVABLE_GATEWAY, {
+  const modelName = getGeminiModelName("gemini-2.5-flash");
+  const url = `${GEMINI_API}/${modelName}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3-pro-preview",
-      messages: [{ role: "user", content: fixPrompt }],
-      response_format: { type: "json_object" },
-      temperature: 0.1,
+      contents: [{ role: "user", parts: [{ text: fixPrompt }] }],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 2500,
+        responseMimeType: "application/json",
+      },
     }),
   });
 
@@ -166,8 +182,8 @@ Text att reparera:
     throw new Error(`Gemini repair failed: HTTP ${response.status}`);
   }
 
-  const data = (await response.json()) as LovableGatewayResponse;
-  const content = data?.choices?.[0]?.message?.content;
+  const data = (await response.json()) as GeminiResponse;
+  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (!content) {
     throw new Error("Gemini repair returned empty content");
@@ -177,7 +193,7 @@ Text att reparera:
 }
 
 /**
- * Call Gemini via Lovable AI Gateway
+ * Call Gemini directly via Google Generative AI API
  * @example
  * const result = await gemini("Translate to Swedish", { json: true });
  * const ocr = await gemini("Read text", { imageUrl: base64Image });
@@ -186,7 +202,7 @@ async function gemini(prompt: string, options?: GeminiTextOptions): Promise<stri
 async function gemini(prompt: string, options: GeminiJsonOptions): Promise<Record<string, unknown>>;
 async function gemini(prompt: string, options: GeminiOptions = {}): Promise<string | Record<string, unknown>> {
   const {
-    model = "google/gemini-2.5-flash",
+    model = "gemini-2.5-flash",
     json = false,
     temperature = 0.1,
     maxTokens = 2500,
@@ -200,44 +216,58 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
     console.log(`[aiClient.gemini] Image size: ${Math.round(imgSize / 1024)}KB, model: ${model}`);
   }
 
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!lovableApiKey) {
-    throw new Error("LOVABLE_API_KEY not configured");
+  const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
+  if (!googleApiKey) {
+    throw new Error("GOOGLE_API_KEY not configured");
   }
 
-  const userContent: GeminiContent = imageUrl
-    ? [
-        {
-          type: "image_url",
-          image_url: {
-            url: imageUrl.startsWith("data:") ? imageUrl : `data:image/jpeg;base64,${imageUrl}`,
-          },
-        },
-        {
-          type: "text",
-          text: prompt,
-        },
-      ]
-    : prompt;
+  // Build parts array for Google's native format
+  const parts: GeminiPart[] = [];
+
+  if (imageUrl) {
+    // Extract base64 data and mime type
+    let base64Data = imageUrl;
+    let mimeType = "image/jpeg";
+
+    if (imageUrl.startsWith("data:")) {
+      const match = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (match) {
+        mimeType = match[1];
+        base64Data = match[2];
+      }
+    }
+
+    parts.push({
+      inlineData: {
+        mimeType,
+        data: base64Data,
+      },
+    });
+  }
+
+  parts.push({ text: prompt });
+
+  const modelName = getGeminiModelName(model);
+  const url = `${GEMINI_API}/${modelName}:generateContent?key=${googleApiKey}`;
 
   const body: GeminiRequestBody = {
-    model,
-    temperature,
-    max_tokens: maxTokens,
-    messages: [{ role: "user", content: userContent }],
+    contents: [{ role: "user", parts }],
+    generationConfig: {
+      temperature,
+      maxOutputTokens: maxTokens,
+    },
   };
 
   if (json) {
-    body.response_format = { type: "json_object" };
+    body.generationConfig.responseMimeType = "application/json";
   }
 
   try {
     const response = await fetchWithTimeout(
-      LOVABLE_GATEWAY,
+      url,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
@@ -250,13 +280,13 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
       console.error(`[aiClient.gemini] HTTP ${response.status}:`, errText);
 
       if (response.status === 429) throw new Error("rate_limit_exceeded");
-      if (response.status === 402) throw new Error("payment_required");
+      if (response.status === 403) throw new Error("api_key_invalid");
 
       throw new Error(`Gemini error: ${response.status}`);
     }
 
-    const data = (await response.json()) as LovableGatewayResponse;
-    const rawContent = data?.choices?.[0]?.message?.content;
+    const data = (await response.json()) as GeminiResponse;
+    const rawContent = data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (typeof rawContent !== "string") {
       throw new Error("Gemini response missing content");
@@ -272,7 +302,7 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
         console.log("[aiClient.gemini] Raw content (full):", cleaned);
         const schemaHint = "WineSummary schema with vin, producent, druvor, land_region, argang, alkohol, volym, farg, smakprofil, servering, mat_kombination, beskrivning, evidence";
         try {
-          return await forceJson(cleaned, schemaHint, lovableApiKey);
+          return await forceJson(cleaned, schemaHint, googleApiKey);
         } catch (repairError) {
           console.error("[aiClient.gemini] forceJson repair also failed:", repairError);
           throw new Error("Gemini did not return valid JSON");
@@ -310,7 +340,7 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
   } = options;
 
   const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+  const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
 
   if (!perplexityApiKey) {
     throw new Error("PERPLEXITY_API_KEY not configured");
@@ -367,9 +397,9 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
     const cleaned = rawContent.trim().replace(/^```json\s*|```$/g, "");
 
     // Use forceJson if schema hint is provided
-    if (schemaHint && lovableApiKey) {
+    if (schemaHint && googleApiKey) {
       console.log("Using forceJson for Perplexity response...");
-      return await forceJson(cleaned, schemaHint, lovableApiKey);
+      return await forceJson(cleaned, schemaHint, googleApiKey);
     }
 
     // Otherwise try direct parse
@@ -388,122 +418,10 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
   }
 }
 
-/**
- * Call GPT-5 via Lovable AI Gateway
- * @example
- * const result = await gpt5("Translate to Swedish", { json: true });
- * const ocr = await gpt5("Read text", { imageUrl: base64Image });
- */
-async function gpt5(prompt: string, options: { json?: false; model?: string; imageUrl?: string; timeoutMs?: number; maxCompletionTokens?: number }): Promise<string>;
-async function gpt5(prompt: string, options: { json: true; model?: string; imageUrl?: string; timeoutMs?: number; maxCompletionTokens?: number }): Promise<Record<string, unknown>>;
-async function gpt5(
-  prompt: string,
-  options: {
-    json?: boolean;
-    model?: string;
-    imageUrl?: string;
-    timeoutMs?: number;
-    maxCompletionTokens?: number;
-  } = {}
-): Promise<string | Record<string, unknown>> {
-  const {
-    model = "openai/gpt-5-mini",
-    json = false,
-    imageUrl,
-    timeoutMs = 60000,
-    maxCompletionTokens = 1500,
-  } = options;
-
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!lovableApiKey) {
-    throw new Error("LOVABLE_API_KEY not configured");
-  }
-
-  const userContent: GeminiContent = imageUrl
-    ? [
-        {
-          type: "image_url",
-          image_url: {
-            url: imageUrl.startsWith("data:") ? imageUrl : `data:image/jpeg;base64,${imageUrl}`,
-          },
-        },
-        {
-          type: "text",
-          text: prompt,
-        },
-      ]
-    : prompt;
-
-  const body: Record<string, unknown> = {
-    model,
-    max_completion_tokens: maxCompletionTokens,
-    messages: [{ role: "user", content: userContent }],
-  };
-
-  if (json) {
-    body.response_format = { type: "json_object" };
-  }
-
-  try {
-    const response = await fetchWithTimeout(
-      LOVABLE_GATEWAY,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      },
-      timeoutMs
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`[aiClient.gpt5] HTTP ${response.status}:`, errText);
-
-      if (response.status === 429) throw new Error("rate_limit_exceeded");
-      if (response.status === 402) throw new Error("payment_required");
-
-      throw new Error(`GPT-5 error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as LovableGatewayResponse;
-    const rawContent = data?.choices?.[0]?.message?.content;
-
-    if (typeof rawContent !== "string") {
-      throw new Error("GPT-5 response missing content");
-    }
-
-    if (json) {
-      console.log("[aiClient.gpt5] Raw JSON response:", rawContent.substring(0, 500));
-      
-      try {
-        const cleaned = rawContent.trim().replace(/^```json|```$/g, "").replace(/^```|```$/g, "");
-        return parseJsonObject(cleaned);
-      } catch (e) {
-        console.error("[aiClient.gpt5] JSON parse failed, attempting forceJson repair...");
-        const schemaHint = "WineSummary schema with vin, producent, druvor, land_region, etc.";
-        try {
-          return await forceJson(rawContent, schemaHint, lovableApiKey);
-        } catch (repairError) {
-          console.error("[aiClient.gpt5] forceJson repair also failed:", repairError);
-          throw new Error("GPT-5 did not return valid JSON");
-        }
-      }
-    }
-
-    return rawContent;
-  } catch (error) {
-    if (error instanceof Error && error.message === "request_timeout") {
-      throw new Error("gpt5_timeout");
-    }
-    throw error;
-  }
-}
-
+// Export the AI client
 export const aiClient = {
   gemini,
-  gpt5,
   perplexity,
 };
+
+export default aiClient;

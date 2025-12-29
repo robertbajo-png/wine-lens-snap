@@ -1,10 +1,10 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const LOVABLE_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const GEMINI_MODEL = "google/gemini-2.5-flash";
+const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
 
-const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
 
 interface WineHeuristics {
   druva?: string;
@@ -37,9 +37,9 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (!lovableApiKey) {
+  if (!googleApiKey) {
     return new Response(
-      JSON.stringify({ error: "Missing LOVABLE_API_KEY" }),
+      JSON.stringify({ error: "Missing GOOGLE_API_KEY" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -86,7 +86,7 @@ serve(async (req) => {
 
     const heuristics = quickHeuristics(ocrText);
 
-    const systemPrompt = `Du är en strikt vinexpert. Du får OCR-text från en vinetikett.
+    const prompt = `Du är en strikt vinexpert. Du får OCR-text från en vinetikett.
 
 Regler:
 - Använd ENDAST OCR-texten (inget gissande från färg/design).
@@ -109,9 +109,8 @@ JSON-schema:
 ${heuristics.preset ? `VIKTIGT: OCR-texten innehåller "${heuristics.druva}" från ${heuristics.region}. Använd denna information.` : ''}
 
 Språk: Svenska om lang='sv', engelska om lang='en'.
-Returnera ENDAST JSON utan markdown eller kommentarer.`;
 
-    const userPrompt = `OCR-text från vinetikett:
+OCR-text från vinetikett:
 """
 ${ocrText}
 """
@@ -122,27 +121,26 @@ ${JSON.stringify(heuristics, null, 2)}` : ''}
 Språk: ${lang}
 Returnera strikt JSON enligt schema.`;
 
-    const response = await fetch(LOVABLE_GATEWAY, {
+    const url = `${GEMINI_API}/${GEMINI_MODEL}:generateContent?key=${googleApiKey}`;
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: GEMINI_MODEL,
-        temperature: 0.2,
-        max_tokens: 1200,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ]
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.2,
+          maxOutputTokens: 1200,
+          responseMimeType: 'application/json',
+        },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
+      console.error('Gemini API error:', response.status, errorText);
 
       if (response.status === 429) {
         return new Response(
@@ -150,10 +148,10 @@ Returnera strikt JSON enligt schema.`;
           { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      if (response.status === 402) {
+      if (response.status === 403) {
         return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify({ error: 'API key invalid or quota exceeded.' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -164,10 +162,10 @@ Returnera strikt JSON enligt schema.`;
     }
 
     const data = await response.json();
-    const analysisText = data?.choices?.[0]?.message?.content ?? "";
+    const analysisText = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
     if (!analysisText) {
-      console.error('AI gateway returned empty content:', data);
+      console.error('Gemini returned empty content:', data);
       return new Response(
         JSON.stringify({ error: 'Gemini returned empty response' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
