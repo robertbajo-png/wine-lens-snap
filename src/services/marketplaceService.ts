@@ -73,21 +73,8 @@ export const getOffersByLabelHash = async (
       return offers.map(mapRow).sort(sortByPrice);
     }
 
-    const { data: fallbackData, error: fallbackError } = await supabase
-      .from("wine_offers")
-      .select(selectColumns)
-      .order("price", { ascending: true })
-      .limit(3);
-    if (fallbackError) {
-      console.error("Error fetching fallback offers:", fallbackError);
-      return [];
-    }
-
-    if (!fallbackData || fallbackData.length === 0) {
-      return [];
-    }
-
-    return fallbackData.map(mapRow).sort(sortByPrice);
+    // No fallback offers - only return exact matches for the wine
+    return [];
   } catch (err) {
     console.error("Exception in getOffersByLabelHash:", err);
     return [];

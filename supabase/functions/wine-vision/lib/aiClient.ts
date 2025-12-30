@@ -78,6 +78,12 @@ interface PerplexityChoice {
 
 interface PerplexityResponse {
   choices?: PerplexityChoice[];
+  citations?: string[];
+}
+
+export interface PerplexityResult {
+  data: Record<string, unknown>;
+  citations: string[];
 }
 
 const GEMINI_API = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -329,7 +335,7 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
  *   schemaHint: '{"vin": "", "producent": ""}'
  * });
  */
-async function perplexity(prompt: string, options: PerplexityOptions = {}): Promise<Record<string, unknown>> {
+async function perplexity(prompt: string, options: PerplexityOptions = {}): Promise<PerplexityResult> {
   const {
     model = "sonar",
     siteWhitelist = [],
@@ -387,8 +393,12 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
       throw new Error(`Perplexity error: ${response.status}`);
     }
 
-    const data = (await response.json()) as PerplexityResponse;
-    const rawContent = data?.choices?.[0]?.message?.content ?? "{}";
+    const responseData = (await response.json()) as PerplexityResponse;
+    const rawContent = responseData?.choices?.[0]?.message?.content ?? "{}";
+    // Extract citations from Perplexity response
+    const citations = responseData?.citations ?? [];
+
+    console.log(`[aiClient.perplexity] Got ${citations.length} citations:`, citations.slice(0, 3));
 
     if (typeof rawContent !== "string") {
       throw new Error("Perplexity response missing content");
@@ -397,20 +407,28 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
     // Clean markdown code blocks if present
     const cleaned = rawContent.trim().replace(/^```json\s*|```$/g, "");
 
+    let parsedData: Record<string, unknown>;
+
     // Use forceJson if schema hint is provided
     if (schemaHint && googleApiKey) {
       console.log("Using forceJson for Perplexity response...");
-      return await forceJson(cleaned, schemaHint, googleApiKey);
+      parsedData = await forceJson(cleaned, schemaHint, googleApiKey);
+    } else {
+      // Otherwise try direct parse
+      try {
+        parsedData = parseJsonObject(cleaned);
+      } catch (parseError) {
+        console.error("Perplexity JSON parse error:", parseError);
+        console.error("Raw content (first 500 chars):", cleaned.substring(0, 500));
+        throw new Error("Perplexity did not return valid JSON");
+      }
     }
 
-    // Otherwise try direct parse
-    try {
-      return parseJsonObject(cleaned);
-    } catch (parseError) {
-      console.error("Perplexity JSON parse error:", parseError);
-      console.error("Raw content (first 500 chars):", cleaned.substring(0, 500));
-      throw new Error("Perplexity did not return valid JSON");
-    }
+    // Return both parsed data and citations
+    return {
+      data: parsedData,
+      citations: citations.filter((url: string) => typeof url === "string" && url.startsWith("http")),
+    };
   } catch (error) {
     if (error instanceof Error && error.message === "request_timeout") {
       throw new Error("perplexity_timeout");
