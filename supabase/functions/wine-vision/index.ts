@@ -279,21 +279,30 @@ Returnera ENBART ett JSON-objekt exakt enligt detta schema (saknas uppgift → "
 ${schemaJSON}
   `.trim();
 
-  const perplexityResult = await aiClient.perplexity(pplxPrompt, {
+  const perplexityResponse = await aiClient.perplexity(pplxPrompt, {
     model: CFG.PPLX_MODEL,
     timeoutMs: CFG.PPLX_TIMEOUT_MS,
     systemPrompt,
     schemaHint: schemaJSON,
   });
 
-  const normalized = normalizeSearchResult(perplexityResult);
+  // Extract data and citations from the response
+  const perplexityData = perplexityResponse.data;
+  const perplexityCitations = perplexityResponse.citations;
+
+  const normalized = normalizeSearchResult(perplexityData);
   normalized.fallback_mode = false;
 
-  const sources = normalized.källor ?? [];
-  normalized.källor = Array.from(new Set(sources))
+  // Combine any existing sources with Perplexity citations
+  const existingSources = normalized.källor ?? [];
+  const allSources = [...existingSources, ...perplexityCitations];
+  
+  normalized.källor = Array.from(new Set(allSources))
     .filter((u) => u.startsWith("http"))
     .sort((a, b) => weightSource(b) - weightSource(a))
     .slice(0, CFG.MAX_WEB_URLS);
+
+  console.log(`[${new Date().toISOString()}] Perplexity citations added: ${normalized.källor.length} sources`);
 
   return normalized;
 }
