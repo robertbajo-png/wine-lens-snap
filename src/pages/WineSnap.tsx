@@ -139,6 +139,7 @@ const WineSnap = () => {
 
   const openFilePicker = (useCamera: boolean) => {
     // Prevent duplicate calls - if we already tried to open the file picker recently, abort
+    // But only for a very short time (100ms) to prevent true double-clicks while allowing retries
     if (filePickerPendingRef.current) {
       console.log('[openFilePicker] Already pending, skipping duplicate call');
       return;
@@ -147,10 +148,11 @@ const WineSnap = () => {
     console.log('[openFilePicker] Called, useCamera:', useCamera);
     filePickerPendingRef.current = true;
     
-    // Reset pending status after short delay (to allow new clicks later)
+    // Reset pending status after very short delay to prevent true double-clicks
+    // but allow quick retries if user cancelled
     setTimeout(() => {
       filePickerPendingRef.current = false;
-    }, 500);
+    }, 100);
     
     cameraOpenedRef.current = true;
     cameraModeRef.current = useCamera;
@@ -614,8 +616,25 @@ const WineSnap = () => {
   const handleTakePhoto = () => {
     console.log('[handleTakePhoto] Called - opening file picker directly in user gesture');
     shouldAutoRetakeRef.current = false;
-    // CRITICAL: Open file picker FIRST, directly in user gesture, before any async reset
-    // This is required for iOS Safari and other mobile browsers that block programmatic clicks
+    
+    // Reset state FIRST (but preserve camera flags for handleFileChange)
+    setPreviewImage(null);
+    resetScanState();
+    setBanner(null);
+    setIsSaved(false);
+    setIsSaving(false);
+    setIsRemoving(false);
+    setPersistingScan(false);
+    autoOpenedRef.current = false;
+    ensureScanPromiseRef.current = null;
+    if (autoRetakeTimerRef.current) {
+      window.clearTimeout(autoRetakeTimerRef.current);
+      autoRetakeTimerRef.current = null;
+    }
+    currentImageRef.current = null;
+    
+    // THEN open file picker SYNCHRONOUSLY in user gesture
+    // Set camera flags AFTER reset so they're not overwritten
     cameraOpenedRef.current = true;
     cameraModeRef.current = true;
     const input = document.getElementById("wineImageUpload") as HTMLInputElement | null;
@@ -623,8 +642,6 @@ const WineSnap = () => {
       input.value = '';
       input.click();
     }
-    // Then reset state (won't affect already-opened picker)
-    handleReset({ reopenPicker: false, useCamera: true });
   };
 
   const ensureRemoteScan = useCallback(async (): Promise<string> => {
