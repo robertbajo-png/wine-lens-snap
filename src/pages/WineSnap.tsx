@@ -44,10 +44,33 @@ type BannerState = {
 
 const readFileAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
+    if (!file || file.size === 0) {
+      reject(new Error("Filen är tom eller kunde inte hittas"));
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Kunde inte läsa filen"));
-    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const result = reader.result as string;
+      if (!result || result.length === 0) {
+        reject(new Error("Filen kunde inte läsas korrekt"));
+        return;
+      }
+      resolve(result);
+    };
+    reader.onerror = () => {
+      const errorMsg = reader.error?.message || "Okänt fel vid filläsning";
+      console.error('[readFileAsDataUrl] FileReader error:', reader.error);
+      reject(new Error(`Kunde inte läsa filen: ${errorMsg}`));
+    };
+    reader.onabort = () => {
+      reject(new Error("Filläsningen avbröts"));
+    };
+    try {
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('[readFileAsDataUrl] Exception:', err);
+      reject(new Error("Kunde inte starta filläsningen"));
+    }
   });
 
 /**
@@ -553,7 +576,15 @@ const WineSnap = () => {
       cameraModeRef.current = triggeredByCamera;
 
       try {
-        const [buffer, dataUrl] = await Promise.all([file.arrayBuffer(), readFileAsDataUrl(file)]);
+        console.log('[handleFileChange] Reading file:', file.name, 'size:', file.size, 'type:', file.type);
+        const [buffer, dataUrl] = await Promise.all([
+          file.arrayBuffer().catch(err => {
+            console.error('[handleFileChange] arrayBuffer error:', err);
+            throw new Error("Kunde inte läsa filens innehåll");
+          }),
+          readFileAsDataUrl(file)
+        ]);
+        console.log('[handleFileChange] File read successfully, dataUrl length:', dataUrl.length);
         const orientation = readExifOrientation(buffer) ?? 1;
         currentImageRef.current = { buffer, dataUrl, type: file.type || "image/jpeg", orientation };
         setPreviewImage(dataUrl);
