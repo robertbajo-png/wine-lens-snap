@@ -1,5 +1,7 @@
-const CACHE_NAME = 'winesnap-v2';
-const STATIC_CACHE = 'winesnap-static-v1';
+// Keep SW_VERSION in sync with service worker registration logic (src/main.tsx)
+const SW_VERSION = "v3";
+const CACHE_NAME = `winesnap-runtime-${SW_VERSION}`;
+const STATIC_CACHE = `winesnap-static-${SW_VERSION}`;
 const RUNTIME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Assets to cache immediately on install
@@ -19,7 +21,6 @@ self.addEventListener('install', (event) => {
         console.log('[Service Worker] Caching static assets');
         return cache.addAll(STATIC_ASSETS);
       })
-      .then(() => self.skipWaiting())
   );
 });
 
@@ -121,4 +122,10 @@ self.addEventListener('fetch', (event) => {
       });
     }
   })());
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    void self.skipWaiting();
+  }
 });
