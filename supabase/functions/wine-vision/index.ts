@@ -2312,11 +2312,31 @@ WEB_JSON:
     );
 
   } catch (error) {
+    // Log detailed error for server-side debugging
     console.error("Wine vision error:", error);
+    
+    // Return sanitized error messages to clients
+    // Only expose user-actionable errors, not internal implementation details
+    let userMessage = "Kunde inte analysera vinet. Försök igen.";
+    
+    if (error instanceof Error) {
+      const msg = error.message.toLowerCase();
+      // Allow specific user-actionable errors through
+      if (msg.includes("rate_limit") || msg.includes("rate limit")) {
+        userMessage = "För många förfrågningar. Vänta en stund och försök igen.";
+      } else if (msg.includes("payment") || msg.includes("credits")) {
+        userMessage = "Betalning krävs. Lägg till krediter för att fortsätta.";
+      } else if (msg.includes("timeout")) {
+        userMessage = "Analysen tog för lång tid. Försök igen.";
+      } else if (msg.includes("image") || msg.includes("bild")) {
+        userMessage = "Bilden kunde inte läsas. Försök med en annan bild.";
+      }
+    }
+    
     return new Response(
       JSON.stringify({ 
         ok: false, 
-        error: error instanceof Error ? error.message : "Unknown error" 
+        error: userMessage 
       }),
       { status: 500, headers: { ...cors, "content-type": "application/json" } }
     );
