@@ -1,5 +1,6 @@
-const CACHE_NAME = 'winesnap-v1';
+const CACHE_NAME = 'winesnap-v2';
 const STATIC_CACHE = 'winesnap-static-v1';
+const RUNTIME_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -39,55 +40,85 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - network first, fallback to cache
+const shouldCacheRuntime = (request) => {
+  const allowedDestinations = ['document', 'style', 'script', 'image'];
+  const url = new URL(request.url);
+  return (
+    url.origin === self.location.origin &&
+    allowedDestinations.includes(request.destination)
+  );
+};
+
+const getValidCachedResponse = async (request) => {
+  const cached = await caches.match(request);
+  if (!cached) return null;
+
+  const fetchedAt = cached.headers.get('X-SW-Fetched-At');
+  if (fetchedAt) {
+    const age = Date.now() - Number(fetchedAt);
+    if (Number.isFinite(age) && age > RUNTIME_TTL_MS) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.delete(request);
+      return null;
+    }
+  }
+
+  return cached;
+};
+
+const createTimestampedResponse = (response) => {
+  const headers = new Headers(response.headers);
+  headers.set('X-SW-Fetched-At', Date.now().toString());
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+};
+
+// Fetch event - network first with scoped runtime caching and offline fallbacks
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
+
+  if (request.method !== 'GET' || !request.url.startsWith('http')) {
     return;
   }
 
-  // Skip chrome-extension and other non-http(s) requests
-  if (!request.url.startsWith('http')) {
-    return;
-  }
+  const isRuntimeCacheable = shouldCacheRuntime(request);
 
-  event.respondWith(
-    fetch(request)
-      .then((response) => {
-        // Clone the response before caching
-        const responseToCache = response.clone();
-        
-        // Cache successful responses
-        if (response.status === 200) {
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
+  event.respondWith((async () => {
+    try {
+      const networkResponse = await fetch(request);
+
+      if (isRuntimeCacheable && networkResponse.status === 200) {
+        const cache = await caches.open(CACHE_NAME);
+        const timestampedResponse = createTimestampedResponse(networkResponse.clone());
+        cache.put(request, timestampedResponse);
+      }
+
+      return networkResponse;
+    } catch (error) {
+      if (isRuntimeCacheable) {
+        const cachedResponse = await getValidCachedResponse(request);
+        if (cachedResponse) {
+          return cachedResponse;
         }
-        
-        return response;
-      })
-      .catch(() => {
-        // If network fails, try cache
-        return caches.match(request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          
-          // If it's a navigation request and not in cache, return index.html
-          if (request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-          
-          return new Response('Offline - content not available', {
-            status: 503,
-            statusText: 'Service Unavailable',
-            headers: new Headers({
-              'Content-Type': 'text/plain'
-            })
-          });
-        });
-      })
-  );
+
+        if (request.mode === 'navigate') {
+          const fallback = await caches.match('/index.html');
+          if (fallback) return fallback;
+        }
+      }
+
+      return new Response('Offline - API response unavailable', {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: new Headers({
+          'Content-Type': 'text/plain',
+          'X-SW-Error': 'offline-api',
+        }),
+      });
+    }
+  })());
 });
