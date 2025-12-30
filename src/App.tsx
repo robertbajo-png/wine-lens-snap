@@ -28,7 +28,10 @@ const AppShell = () => {
       handleInitFailure(latestError);
     }
 
-    return subscribeToSupabaseInitFailure(handleInitFailure);
+    const unsubscribe = subscribeToSupabaseInitFailure(handleInitFailure);
+    return () => {
+      unsubscribe();
+    };
   }, [showError]);
 
   const queryClient = useMemo(

@@ -52,7 +52,8 @@ const createNoopQueryBuilder = <T>(error: Error) => {
   return new Proxy(chainable, {
     get(_target, prop) {
       if (prop === "then" || prop === "catch" || prop === "finally") {
-        return (result as never)[prop].bind(result);
+        const method = (result as unknown as Record<string, (...args: unknown[]) => unknown>)[prop as string];
+        return method.bind(result);
       }
 
       return (..._args: unknown[]) => createNoopQueryBuilder<T>(error);
@@ -94,7 +95,7 @@ export const createFallbackSupabaseClient = (
     },
   };
 
-  return client as SupabaseClient<Database>;
+  return client as unknown as SupabaseClient<Database>;
 };
 
 export type SupabaseInitResult = {
