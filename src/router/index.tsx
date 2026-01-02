@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthProvider";
 import BottomTabLayout from "@/layouts/BottomTabLayout";
+import { isPlayRC } from "@/lib/releaseChannel";
 
 const ForYou = lazy(() => import("@/pages/ForYou"));
 const Explore = lazy(() => import("@/pages/Explore"));
@@ -121,6 +122,8 @@ const StartRedirect = () => {
   return <Navigate to={target} replace />;
 };
 
+const followingRoutes = isPlayRC ? [] : [{ path: "following", element: withSuspense(<Following />) }];
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -130,7 +133,7 @@ export const router = createBrowserRouter([
       { path: "for-you", element: withSuspense(<ForYou />) },
       { path: "explore", element: withSuspense(<Explore />) },
       { path: "scan", element: withSuspense(<WineSnap />) },
-      { path: "following", element: withSuspense(<Following />) },
+      ...followingRoutes,
       { path: "wine/:scanId", element: withSuspense(<WineDetail />) },
       {
         element: <ProtectedRoute />,
