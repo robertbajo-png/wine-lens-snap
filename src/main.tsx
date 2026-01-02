@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
-import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ErrorBoundary } from "@/components/system/ErrorBoundary";
 import "./index.css";
 import "./styles/global.css";
 import { logEvent } from "./lib/logger";
