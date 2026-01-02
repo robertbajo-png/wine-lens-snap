@@ -165,8 +165,8 @@ export const translations = {
 
     // Explore
     "explore.badge": "Utforska",
-    "explore.title": "Snart öppnar vinbiblioteket",
-    "explore.subtitle": "Vi förbereder ett flöde med trender, stilar och filter så att du snabbt hittar flaskor som matchar din smak. Upplevelsen är statisk idag men kopplad till riktiga skanningar där det finns data.",
+    "explore.title": "Dina viner",
+    "explore.subtitle": "Baserat på dina skanningar och analyser. Mer precision när du skannar fler viner.",
     "explore.searchLabel": "Sök i vinarkivet",
     "explore.searchPlaceholder": "Sök bland etiketter, producenter eller anteckningar",
 
@@ -348,8 +348,8 @@ export const translations = {
 
     // Explore
     "explore.badge": "Explore",
-    "explore.title": "Wine library opening soon",
-    "explore.subtitle": "We're preparing a feed with trends, styles and filters so you can quickly find bottles that match your taste. The experience is static today but connected to real scans where data exists.",
+    "explore.title": "Your wines",
+    "explore.subtitle": "Based on your scans and analyses. More precision as you scan more wines.",
     "explore.searchLabel": "Search the wine archive",
     "explore.searchPlaceholder": "Search labels, producers or notes",
 
