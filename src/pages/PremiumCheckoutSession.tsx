@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/components/ui/use-toast";
 import { useIsPremium } from "@/hooks/useUserSettings";
 import { trackEvent } from "@/lib/telemetry";
+import { isPlayRC } from "@/lib/releaseChannel";
 import { completePremiumCheckout } from "@/services/premiumCheckout";
 
 const safeDecode = (value: string | null, fallback: string) => {
@@ -28,6 +29,16 @@ const PremiumCheckoutSession = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { isPremium } = useIsPremium();
+
+  useEffect(() => {
+    if (isPlayRC) {
+      navigate("/me", { replace: true });
+    }
+  }, [navigate]);
+
+  if (isPlayRC) {
+    return null;
+  }
 
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const sessionId = params.get("session_id");

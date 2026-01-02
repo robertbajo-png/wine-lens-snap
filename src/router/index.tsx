@@ -123,6 +123,7 @@ const StartRedirect = () => {
 };
 
 const followingRoutes = isPlayRC ? [] : [{ path: "following", element: withSuspense(<Following />) }];
+const premiumRoutes = isPlayRC ? [] : [{ path: "premium/checkout/session", element: withSuspense(<PremiumCheckoutSession />) }];
 
 export const router = createBrowserRouter([
   {
@@ -140,7 +141,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "me", element: withSuspense(<Me />) },
           { path: "me/wines", element: withSuspense(<History />) },
-          { path: "premium/checkout/session", element: withSuspense(<PremiumCheckoutSession />) },
+          ...premiumRoutes,
         ],
       },
     ],

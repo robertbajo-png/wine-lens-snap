@@ -27,7 +27,6 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
-import { PremiumBadge } from "@/components/PremiumBadge";
 import { supabase } from "@/lib/supabaseClient";
 import { trackEvent } from "@/lib/telemetry";
 import { WineListsSection } from "@/components/profile/WineListsSection";
@@ -38,6 +37,7 @@ import { useIsPremium } from "@/hooks/useUserSettings";
 import { createPremiumCheckoutSession } from "@/services/premiumCheckout";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useSettings } from "@/settings/SettingsContext";
+import { isPlayRC } from "@/lib/releaseChannel";
 
 const Me = () => {
   const navigate = useNavigate();
@@ -45,6 +45,7 @@ const Me = () => {
   const { user, signOut } = useAuth();
   const { themePreference, setThemePreference } = useTheme();
   const { isPremium, premiumSince, isLoading: isPremiumLoading } = useIsPremium();
+  const premiumFeaturesEnabled = !isPlayRC;
   const [profile, setProfile] = useState<{ displayName: string | null; avatarUrl: string | null } | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -366,6 +367,10 @@ const Me = () => {
   );
 
   const handlePremiumCtaClick = useCallback(async () => {
+    if (!premiumFeaturesEnabled) {
+      return;
+    }
+
     trackEvent("premium_cta_clicked", { source: "profile" });
 
     if (!user) {
@@ -397,7 +402,7 @@ const Me = () => {
     } finally {
       setIsStartingPremium(false);
     }
-  }, [navigate, t, toast, user]);
+  }, [navigate, premiumFeaturesEnabled, t, toast, user]);
 
   const handleSignOut = async () => {
     try {
@@ -546,7 +551,7 @@ const Me = () => {
         </div>
         <div className="flex flex-col items-stretch gap-3 sm:items-end">
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            {!isPremium ? (
+            {premiumFeaturesEnabled && !isPremium ? (
               <Button
                 className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
                 onClick={handlePremiumCtaClick}
