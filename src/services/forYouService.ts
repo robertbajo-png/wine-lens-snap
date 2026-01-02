@@ -55,13 +55,22 @@ const fetchAISuggestions = async (tasteProfile: TasteProfile): Promise<ForYouCar
   }
 };
 
+const hasTasteProfileData = (tasteProfile: TasteProfile): boolean =>
+  tasteProfile.topGrapes.length > 0 ||
+  tasteProfile.topRegions.length > 0 ||
+  tasteProfile.topStyles.length > 0 ||
+  tasteProfile.topPairings.length > 0 ||
+  [tasteProfile.avgSweetness, tasteProfile.avgAcidity, tasteProfile.avgTannin].some(
+    (value) => typeof value === "number",
+  );
+
 export const getForYouCards = async (userId: string): Promise<ForYouCard[]> => {
   if (!userId) return [];
 
   try {
     const tasteProfile = await getTasteProfileForUser(userId, 80);
 
-    if (tasteProfile.totalScans < 1) {
+    if (!hasTasteProfileData(tasteProfile)) {
       return [];
     }
 

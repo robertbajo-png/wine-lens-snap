@@ -50,25 +50,28 @@ describe("buildTasteProfile", () => {
 
     const profile = buildTasteProfile(scans);
 
-    expect(profile.totalScans).toBe(3);
-    expect(profile.grapes).toEqual([
+    expect(profile.topGrapes).toEqual([
       { value: "Merlot", count: 2 },
       { value: "Cabernet Sauvignon", count: 1 },
       { value: "Chardonnay", count: 1 },
     ]);
-    expect(profile.regions).toEqual([
+    expect(profile.topRegions).toEqual([
       { value: "Bordeaux", count: 2 },
       { value: "California", count: 1 },
       { value: "Frankrike", count: 1 },
       { value: "USA", count: 1 },
     ]);
-    expect(profile.styles).toEqual([
+    expect(profile.topStyles).toEqual([
       { value: "Rött", count: 2 },
       { value: "Vitt", count: 1 },
     ]);
+    expect(profile.topPairings).toEqual([]);
+    expect(profile.avgSweetness).toBeNull();
+    expect(profile.avgAcidity).toBeNull();
+    expect(profile.avgTannin).toBeNull();
   });
 
-  it("returnerar tomma listor när analys saknas", () => {
+  it("returnerar tom profil när analys saknas", () => {
     const scans: WineScan[] = [
       makeScan("1", null),
       makeScan("2", { grapes: [], land_region: "", style: null }),
@@ -77,11 +80,46 @@ describe("buildTasteProfile", () => {
     const profile = buildTasteProfile(scans);
 
     expect(profile).toEqual({
-      grapes: [],
-      regions: [],
-      styles: [],
-      totalScans: 2,
+      topGrapes: [],
+      topRegions: [],
+      topStyles: [],
+      topPairings: [],
+      avgSweetness: null,
+      avgAcidity: null,
+      avgTannin: null,
     });
+  });
+
+  it("räknar ut parningar och medelvärden för sötma, syra och tannin", () => {
+    const scans: WineScan[] = [
+      makeScan(
+        "1",
+        {
+          food_pairings: ["Steak", "Cheese"],
+          meters: { sötma: 2, fruktsyra: 3 },
+          strävhet: 4,
+        } as Partial<WineAnalysisResult> & { strävhet: number },
+      ),
+      makeScan(
+        "2",
+        {
+          food_pairings: ["Cheese", "Pasta"],
+          meters: { sötma: 3.5, fruktsyra: 2.5 },
+          tannin: 1,
+        } as Partial<WineAnalysisResult> & { tannin: number },
+      ),
+    ];
+
+    const profile = buildTasteProfile(scans);
+
+    expect(profile.topPairings).toEqual([
+      { value: "Cheese", count: 2 },
+      { value: "Pasta", count: 1 },
+      { value: "Steak", count: 1 },
+    ]);
+    expect(profile.avgSweetness).toBeCloseTo(2.75, 2);
+    expect(profile.avgAcidity).toBeCloseTo(2.75, 2);
+    expect(profile.avgTannin).toBeCloseTo(2.5, 2);
   });
 });
 
@@ -112,10 +150,12 @@ describe("getTasteProfileForUser", () => {
   it("hämtar senaste skanningar och bygger profil", async () => {
     const profile = await getTasteProfileForUser("user-123", 10);
 
-    expect(profile.grapes).toEqual([{ value: "Syrah", count: 1 }]);
-    expect(profile.regions).toEqual([{ value: "Frankrike", count: 1 }]);
-    expect(profile.styles).toEqual([{ value: "Rött", count: 1 }]);
-    expect(profile.totalScans).toBe(1);
+    expect(profile.topGrapes).toEqual([{ value: "Syrah", count: 1 }]);
+    expect(profile.topRegions).toEqual([{ value: "Frankrike", count: 1 }]);
+    expect(profile.topStyles).toEqual([{ value: "Rött", count: 1 }]);
+    expect(profile.avgSweetness).toBeNull();
+    expect(profile.avgAcidity).toBeNull();
+    expect(profile.avgTannin).toBeNull();
 
     expect(supabaseMocks.fromMock).toHaveBeenCalledWith("scans");
     expect(supabaseMocks.selectMock).toHaveBeenCalledWith(
@@ -129,7 +169,15 @@ describe("getTasteProfileForUser", () => {
   it("returnerar tom profil utan användar-id", async () => {
     const profile = await getTasteProfileForUser("");
 
-    expect(profile).toEqual({ grapes: [], regions: [], styles: [], totalScans: 0 });
+    expect(profile).toEqual({
+      topGrapes: [],
+      topRegions: [],
+      topStyles: [],
+      topPairings: [],
+      avgSweetness: null,
+      avgAcidity: null,
+      avgTannin: null,
+    });
     expect(supabaseMocks.fromMock).not.toHaveBeenCalled();
   });
 });
