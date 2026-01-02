@@ -15,6 +15,7 @@ import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { trackEvent } from "@/lib/telemetry";
 import { useFollowingFeedNotifications } from "@/hooks/useFollowingFeedNotifications";
 import { useTranslation } from "@/hooks/useTranslation";
+import { isPlayRC } from "@/lib/releaseChannel";
 
 const iconMap: Record<TabKey, ComponentType<SVGProps<SVGSVGElement>>> = {
   "for-you": ForYouIcon,
@@ -52,6 +53,13 @@ const BottomNav = () => {
     () => ({ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 0.75rem)` }),
     [],
   );
+
+  const gridTemplateColumns = useMemo<CSSProperties>(
+    () => ({ gridTemplateColumns: `repeat(${TAB_DEFINITIONS.length}, minmax(0, 1fr))` }),
+    [],
+  );
+
+  const followingBadgeCount = isPlayRC ? 0 : newPostsCount;
 
   const handleNavigate = useCallback(
     (tab: TabDefinition) => {
@@ -105,7 +113,7 @@ const BottomNav = () => {
       style={safeAreaPadding}
     >
       <div className="mx-auto flex w-full max-w-3xl items-center justify-center px-4">
-        <ul className="grid w-full grid-cols-5 items-end gap-1">
+        <ul className="grid w-full items-end gap-1" style={gridTemplateColumns}>
           {TAB_DEFINITIONS.map((tab) => {
             const Icon = iconMap[tab.key];
             const isActive = activeKey === tab.key;
@@ -139,8 +147,8 @@ const BottomNav = () => {
               );
             }
 
-            const showFollowingBadge = tab.key === "following" && newPostsCount > 0;
-            const badgeLabel = newPostsCount > 99 ? "99+" : `${newPostsCount}`;
+            const showFollowingBadge = tab.key === "following" && followingBadgeCount > 0;
+            const badgeLabel = followingBadgeCount > 99 ? "99+" : `${followingBadgeCount}`;
 
             return (
               <li key={tab.key} className="flex justify-center">

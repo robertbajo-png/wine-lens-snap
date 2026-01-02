@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import { feedMetaQueryKey } from "@/lib/followingQueries";
 import { fetchFollowingFeedMeta, touchUserFeedState } from "@/services/followingFeed";
+import { isPlayRC } from "@/lib/releaseChannel";
 
 export const useFollowingFeedNotifications = () => {
   const { user } = useAuth();
@@ -13,12 +14,12 @@ export const useFollowingFeedNotifications = () => {
   const metaQuery = useQuery({
     queryKey: feedMetaQueryKey(userId),
     queryFn: () => fetchFollowingFeedMeta(userId!),
-    enabled: Boolean(userId),
+    enabled: Boolean(userId) && !isPlayRC,
     staleTime: 30_000,
   });
 
   const markAsOpened = useCallback(async () => {
-    if (!userId) {
+    if (!userId || isPlayRC) {
       return;
     }
     await touchUserFeedState();
@@ -33,7 +34,7 @@ export const useFollowingFeedNotifications = () => {
   }, [metaQuery.data?.lastOpened]);
 
   return {
-    newPostsCount: metaQuery.data?.newPostsCount ?? 0,
+    newPostsCount: isPlayRC ? 0 : metaQuery.data?.newPostsCount ?? 0,
     lastOpened,
     isLoading: metaQuery.isLoading,
     isFetched: metaQuery.isFetched,
