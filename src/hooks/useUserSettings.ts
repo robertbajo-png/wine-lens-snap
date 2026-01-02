@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/auth/AuthProvider";
 import type { Tables } from "@/integrations/supabase/types";
 import { supabase } from "@/lib/supabaseClient";
+import { isPlayRC } from "@/lib/releaseChannel";
 
 type UserSettings = Tables<"user_settings">;
 
@@ -52,10 +53,14 @@ export const useUserSettings = () => {
 };
 
 export const useIsPremium = () => {
+  if (isPlayRC) {
+    return { isPremium: false, premiumSince: null, isLoading: false } as const;
+  }
+
   // TODO: Revert to actual premium check when ready
   // const { isPremium, premiumSince, isLoading } = useUserSettings();
   // return { isPremium, premiumSince, isLoading } as const;
-  
+
   // Temporarily bypass premium - all users get premium features
   return { isPremium: true, premiumSince: null, isLoading: false } as const;
 };

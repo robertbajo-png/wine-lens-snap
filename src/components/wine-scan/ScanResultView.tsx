@@ -22,6 +22,7 @@ import { BuySection } from "@/components/wine-scan/BuySection";
 import { getOffersByLabelHash, type WineOffer } from "@/services/marketplaceService";
 import { logEvent } from "@/lib/logger";
 import { isMarketplaceEnabled } from "@/lib/features";
+import { isPlayRC } from "@/lib/releaseChannel";
 
 const KeyFacts = lazy(() => import("@/components/result/KeyFacts"));
 const EvidenceAccordion = lazy(() => import("@/components/result/EvidenceAccordion"));
@@ -143,7 +144,10 @@ export const ScanResultView = ({
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
   const [offers, setOffers] = useState<WineOffer[]>([]);
-  const marketplaceEnabled = isMarketplaceEnabled();
+  const marketplaceEnabled = !isPlayRC && isMarketplaceEnabled();
+  const premiumFeaturesEnabled = !isPlayRC;
+  const showPremiumSections = premiumFeaturesEnabled && isPremium;
+  const showPremiumPaywall = premiumFeaturesEnabled && !isPremium;
 
   const labelHash = useMemo(
     () => computeLabelHash(ocrText ?? results.originaltext ?? results.vin ?? null),
@@ -512,7 +516,7 @@ export const ScanResultView = ({
                 <ClampTextCard title="Smak" text={results.smak} />
               </div>
 
-              {isPremium ? (
+              {showPremiumSections ? (
                 <>
                   <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
                     <Pairings items={pairings} />
@@ -530,7 +534,9 @@ export const ScanResultView = ({
                     />
                   </Suspense>
                 </>
-              ) : (
+              ) : null}
+
+              {showPremiumPaywall ? (
                 <Card className="border-theme-card/70 bg-theme-elevated/70">
                   <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3 text-sm text-theme-secondary">
@@ -552,7 +558,7 @@ export const ScanResultView = ({
                     </Button>
                   </CardContent>
                 </Card>
-              )}
+              ) : null}
 
             {detectedLanguage && (
               <p className="text-xs text-theme-secondary opacity-80">Upptäckt språk: {detectedLanguage.toUpperCase()}</p>

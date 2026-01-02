@@ -26,6 +26,7 @@ import { withTimeoutFallback } from "@/lib/fallback";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useIsPremium } from "@/hooks/useUserSettings";
 import { useTranslation } from "@/hooks/useTranslation";
+import { isPlayRC } from "@/lib/releaseChannel";
 const TREND_LIMIT = 3;
 const STYLE_LIMIT = 4;
 const MAX_SCANS_FETCH = 120;
@@ -883,6 +884,7 @@ const Explore = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isPremium, isLoading: isPremiumLoading } = useIsPremium();
+  const premiumFeaturesEnabled = !isPlayRC;
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
   const sessionIdRef = useRef<string>();
@@ -1008,7 +1010,8 @@ const Explore = () => {
   }, [manualFiltersActive, paramsFilters, fallbackQuickFilter]);
 
   const highlightedFilterId = selectedFilterId ?? (!manualFiltersActive ? fallbackQuickFilter?.id ?? null : null);
-  const advancedFiltersLocked = !isPremium && !isPremiumLoading;
+  const advancedFiltersLocked = premiumFeaturesEnabled && !isPremium && !isPremiumLoading;
+  const filtersDisabled = !premiumFeaturesEnabled || advancedFiltersLocked;
 
   const debouncedFilters = useDebouncedValue(effectiveFilters, 250);
   const debouncedSerializedFilters = useMemo(
@@ -1044,6 +1047,10 @@ const Explore = () => {
 
   const handleSelectFilter = useCallback(
     (filterId: string) => {
+      if (filtersDisabled) {
+        return;
+      }
+
       const next = availableFilters.find((filter) => filter.id === filterId);
       if (!next) return;
       logExploreCardOpened("quick_filter");
@@ -1067,12 +1074,12 @@ const Explore = () => {
         { sessionId: sessionIdRef.current },
       );
     },
-    [availableFilters, logExploreCardOpened, searchParams, setSearchParams],
+    [availableFilters, filtersDisabled, logExploreCardOpened, searchParams, setSearchParams],
   );
 
   const handleSearchFilterChange = useCallback(
     (field: SearchFilterField, value: string) => {
-      if (advancedFiltersLocked && field !== "label") {
+      if (filtersDisabled && field !== "label") {
         return;
       }
       const params = new URLSearchParams(searchParams);
@@ -1101,7 +1108,7 @@ const Explore = () => {
         { sessionId: sessionIdRef.current },
       );
     },
-    [advancedFiltersLocked, availableFilters, searchParams, setSearchParams],
+    [availableFilters, filtersDisabled, searchParams, setSearchParams],
   );
 
   const handleClearFilters = useCallback(() => {
@@ -1280,7 +1287,7 @@ const Explore = () => {
             </div>
           </label>
 
-          {advancedFiltersLocked && (
+          {premiumFeaturesEnabled && advancedFiltersLocked && (
             <div className="rounded-2xl border border-[hsl(var(--color-border)/0.45)] bg-[hsl(var(--color-surface)/0.35)] p-4 text-sm text-theme-secondary">
               <p className="font-semibold text-theme-primary">Avancerade filter är premium</p>
               <p className="mt-1">
@@ -1302,7 +1309,7 @@ const Explore = () => {
               <Select
                 value={effectiveFilters.grape ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("grape", value)}
-                disabled={advancedFiltersLocked}
+                disabled={filtersDisabled}
               >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla druvor" />
@@ -1323,7 +1330,7 @@ const Explore = () => {
               <Select
                 value={effectiveFilters.region ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("region", value)}
-                disabled={advancedFiltersLocked}
+                disabled={filtersDisabled}
               >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla regioner" />
@@ -1344,7 +1351,7 @@ const Explore = () => {
               <Select
                 value={effectiveFilters.style ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("style", value)}
-                disabled={advancedFiltersLocked}
+                disabled={filtersDisabled}
               >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla stilar" />

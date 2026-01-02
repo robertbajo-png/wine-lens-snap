@@ -26,6 +26,7 @@ import { ScanResultView } from "@/components/wine-scan/ScanResultView";
 import { ScanEmptyState } from "@/components/wine-scan/ScanEmptyState";
 import { FREE_SCAN_LIMIT_PER_DAY, getFreeScanUsage, incrementFreeScanUsage } from "@/lib/premiumAccess";
 import { normalizeEvidenceItems } from "@/lib/evidence";
+import { isPlayRC } from "@/lib/releaseChannel";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -84,6 +85,8 @@ const WineSnap = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { isPremium, isLoading: isPremiumLoading } = useIsPremium();
+  const premiumFeaturesEnabled = !isPlayRC;
+  const isPremiumUnlocked = premiumFeaturesEnabled && isPremium;
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [banner, setBanner] = useState<BannerState | null>(null);
@@ -207,7 +210,7 @@ const WineSnap = () => {
       return;
     }
 
-    if (!isPremium && !isPremiumLoading) {
+    if (premiumFeaturesEnabled && !isPremiumUnlocked && !isPremiumLoading) {
       const usage = getFreeScanUsage();
       if (usage.count >= usage.limit) {
         setBanner({
@@ -311,7 +314,7 @@ const WineSnap = () => {
         shouldAutoRetakeRef.current = false;
       }
 
-      if (!isPremium) {
+      if (!isPremiumUnlocked) {
         incrementFreeScanUsage();
         setFreeScanUsage(getFreeScanUsage());
       }
@@ -953,7 +956,7 @@ const WineSnap = () => {
     const refinementReason = results.mode === "label_only"
       ? "Det här bygger bara på etiketten – lägg till detaljer eller försök igen."
       : "Analysen är osäker – förbättra resultatet med fler detaljer.";
-    const showDetailedSections = isPremium;
+    const showDetailedSections = isPremiumUnlocked;
     const grapeSuggestions = Array.from(
       new Set(
         [
@@ -1028,7 +1031,7 @@ const WineSnap = () => {
           showVerifiedMeters={showVerifiedMeters}
           metersAreEstimated={metersAreEstimated}
           showDetailedSections={showDetailedSections}
-          isPremium={isPremium}
+          isPremium={isPremiumUnlocked}
           onUpgrade={() => navigate("/me")}
           freeScansRemaining={freeScansRemaining}
           ocrText={ocrText}
