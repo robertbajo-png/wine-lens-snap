@@ -1,13 +1,13 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { logEvent } from "@/lib/logger";
 
-interface ErrorBoundaryProps {
+type ErrorBoundaryProps = {
   children: ReactNode;
-}
+};
 
-interface ErrorBoundaryState {
+type ErrorBoundaryState = {
   hasError: boolean;
-}
+};
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = {
@@ -37,14 +37,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return (
         <div className="flex min-h-screen items-center justify-center bg-theme-canvas px-6 text-theme-primary">
           <div className="w-full max-w-md rounded-2xl border border-theme-card bg-theme-surface p-6 text-center shadow-theme-card">
-            <h1 className="text-2xl font-semibold">Något gick fel</h1>
-            <p className="mt-2 text-theme-secondary">Appen stötte på ett oväntat fel. Ladda om och försök igen.</p>
+            <h1 className="text-2xl font-semibold">Something went wrong</h1>
+            <p className="mt-2 text-theme-secondary">Reload to get back to the app.</p>
             <button
               type="button"
               className="mt-6 w-full rounded-xl bg-theme-accent px-4 py-2 text-sm font-semibold text-theme-on-accent shadow-theme-card transition hover:opacity-90"
               onClick={this.handleReload}
             >
-              Ladda om
+              Reload
             </button>
           </div>
         </div>
