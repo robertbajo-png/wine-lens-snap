@@ -9,10 +9,13 @@ export type TasteProfileEntry = {
 };
 
 export type TasteProfile = {
-  grapes: TasteProfileEntry[];
-  regions: TasteProfileEntry[];
-  styles: TasteProfileEntry[];
-  totalScans: number;
+  topGrapes: TasteProfileEntry[];
+  topRegions: TasteProfileEntry[];
+  topStyles: TasteProfileEntry[];
+  topPairings: TasteProfileEntry[];
+  avgSweetness: number | null;
+  avgAcidity: number | null;
+  avgTannin: number | null;
 };
 
 export type WineScan = Omit<Tables<"scans">, "analysis_json"> & {
@@ -24,6 +27,40 @@ const splitCompositeField = (value: string): string[] =>
     .split(/[,/|;]/)
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
+
+const normalizeToNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value.replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
+const getMeterValue = (
+  analysis: Partial<WineAnalysisResult> | null,
+  candidateKeys: string[],
+): number | null => {
+  if (!analysis) return null;
+
+  for (const key of candidateKeys) {
+    const meterValue = normalizeToNumber((analysis as Record<string, unknown>)?.meters?.[key]);
+    if (meterValue !== null) {
+      return meterValue;
+    }
+
+    const directValue = normalizeToNumber((analysis as Record<string, unknown>)[key]);
+    if (directValue !== null) {
+      return directValue;
+    }
+  }
+
+  return null;
+};
 
 const addCount = (counter: Map<string, TasteProfileEntry>, rawValue: string) => {
   const normalized = rawValue.trim();
@@ -41,6 +78,20 @@ const addCount = (counter: Map<string, TasteProfileEntry>, rawValue: string) => 
   counter.set(key, { value: normalized, count: 1 });
 };
 
+const extractStringValues = (raw: unknown): string[] => {
+  if (Array.isArray(raw)) {
+    return raw
+      .flatMap((value) => (typeof value === "string" ? splitCompositeField(value) : []))
+      .filter((value) => value.trim().length > 0);
+  }
+
+  if (typeof raw === "string") {
+    return splitCompositeField(raw);
+  }
+
+  return [];
+};
+
 const extractRegions = (rawRegion: unknown): string[] => {
   if (typeof rawRegion !== "string") return [];
   const trimmed = rawRegion.trim();
@@ -56,10 +107,31 @@ const sortEntries = (counter: Map<string, TasteProfileEntry>): TasteProfileEntry
     return b.count - a.count;
   });
 
+const computeAverage = (sum: number, count: number): number | null =>
+  count > 0 ? Math.round((sum / count) * 100) / 100 : null;
+
+const EMPTY_TASTE_PROFILE: TasteProfile = {
+  topGrapes: [],
+  topRegions: [],
+  topStyles: [],
+  topPairings: [],
+  avgSweetness: null,
+  avgAcidity: null,
+  avgTannin: null,
+};
+
 export const buildTasteProfile = (scans: WineScan[]): TasteProfile => {
   const grapeCounts = new Map<string, TasteProfileEntry>();
   const regionCounts = new Map<string, TasteProfileEntry>();
   const styleCounts = new Map<string, TasteProfileEntry>();
+  const pairingCounts = new Map<string, TasteProfileEntry>();
+
+  let sweetnessSum = 0;
+  let sweetnessCount = 0;
+  let aciditySum = 0;
+  let acidityCount = 0;
+  let tanninSum = 0;
+  let tanninCount = 0;
 
   for (const scan of scans) {
     const analysis = normalizeAnalysisJson(scan.analysis_json as Partial<WineAnalysisResult> | null);
@@ -67,30 +139,46 @@ export const buildTasteProfile = (scans: WineScan[]): TasteProfile => {
       continue;
     }
 
-    for (const grape of analysis.grapes) {
-      addCount(grapeCounts, grape);
+    extractStringValues(analysis.grapes).forEach((grape) => addCount(grapeCounts, grape));
+    extractRegions(analysis.land_region).forEach((region) => addCount(regionCounts, region));
+    extractStringValues(analysis.style).forEach((style) => addCount(styleCounts, style));
+    extractStringValues((analysis as Record<string, unknown>).food_pairings).forEach((pairing) =>
+      addCount(pairingCounts, pairing),
+    );
+
+    const sweetnessValue = getMeterValue(analysis, ["sötma", "sweetness"]);
+    if (sweetnessValue !== null) {
+      sweetnessSum += sweetnessValue;
+      sweetnessCount += 1;
     }
 
-    for (const region of extractRegions(analysis.land_region)) {
-      addCount(regionCounts, region);
+    const acidityValue = getMeterValue(analysis, ["fruktsyra", "acidity"]);
+    if (acidityValue !== null) {
+      aciditySum += acidityValue;
+      acidityCount += 1;
     }
 
-    if (analysis.style) {
-      addCount(styleCounts, analysis.style);
+    const tanninValue = getMeterValue(analysis, ["tannin", "tannins", "strävhet", "stravhet"]);
+    if (tanninValue !== null) {
+      tanninSum += tanninValue;
+      tanninCount += 1;
     }
   }
 
   return {
-    grapes: sortEntries(grapeCounts),
-    regions: sortEntries(regionCounts),
-    styles: sortEntries(styleCounts),
-    totalScans: scans.length,
+    topGrapes: sortEntries(grapeCounts),
+    topRegions: sortEntries(regionCounts),
+    topStyles: sortEntries(styleCounts),
+    topPairings: sortEntries(pairingCounts),
+    avgSweetness: computeAverage(sweetnessSum, sweetnessCount),
+    avgAcidity: computeAverage(aciditySum, acidityCount),
+    avgTannin: computeAverage(tanninSum, tanninCount),
   };
 };
 
 export const getTasteProfileForUser = async (userId: string, limit = 50): Promise<TasteProfile> => {
   if (!userId) {
-    return { grapes: [], regions: [], styles: [], totalScans: 0 };
+    return EMPTY_TASTE_PROFILE;
   }
 
   const resolvedLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 200) : 50;
@@ -111,6 +199,10 @@ export const getTasteProfileForUser = async (userId: string, limit = 50): Promis
       ...row,
       analysis_json: row.analysis_json as Partial<WineAnalysisResult> | null,
     })) ?? [];
+
+  if (!Array.isArray(scans) || scans.length === 0) {
+    return EMPTY_TASTE_PROFILE;
+  }
 
   return buildTasteProfile(scans);
 };
