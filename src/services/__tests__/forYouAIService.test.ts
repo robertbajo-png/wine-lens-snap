@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { getForYouCards } from "../forYouService";
+import { getForYouRecommendations } from "../forYouAIService";
 import { getTasteProfileForUser, type TasteProfile } from "../tasteProfileService";
 
 const supabaseMock = vi.hoisted(() => ({
@@ -31,7 +31,7 @@ const createProfile = (overrides: Partial<TasteProfile>): TasteProfile => ({
   ...overrides,
 });
 
-describe("getForYouCards", () => {
+describe("getForYouRecommendations", () => {
   beforeEach(() => {
     mockGetTasteProfileForUser.mockReset();
     supabaseMock.invoke.mockReset();
@@ -53,7 +53,7 @@ describe("getForYouCards", () => {
       error: null,
     });
 
-    const cards = await getForYouCards("user-1");
+    const cards = await getForYouRecommendations("user-1");
 
     expect(cards).toEqual([
       {
@@ -75,7 +75,7 @@ describe("getForYouCards", () => {
   });
 
   it("returns empty array when userId is missing", async () => {
-    const cards = await getForYouCards("");
+    const cards = await getForYouRecommendations("");
 
     expect(cards).toEqual([]);
     expect(mockGetTasteProfileForUser).not.toHaveBeenCalled();
@@ -85,13 +85,13 @@ describe("getForYouCards", () => {
   it("returns empty array when taste profile is empty", async () => {
     mockGetTasteProfileForUser.mockResolvedValue(createProfile({}));
 
-    const cards = await getForYouCards("user-3");
+    const cards = await getForYouRecommendations("user-3");
 
     expect(cards).toEqual([]);
     expect(supabaseMock.invoke).not.toHaveBeenCalled();
   });
 
-  it("returns empty array when AI suggestions fail", async () => {
+  it("returns fallback suggestions when AI suggestions fail", async () => {
     mockGetTasteProfileForUser.mockResolvedValue(
       createProfile({
         topRegions: [{ value: "Bordeaux", count: 2 }],
@@ -100,8 +100,16 @@ describe("getForYouCards", () => {
 
     supabaseMock.invoke.mockResolvedValue({ data: null, error: new Error("oops") });
 
-    const cards = await getForYouCards("user-4");
+    const cards = await getForYouRecommendations("user-4");
 
-    expect(cards).toEqual([]);
+    expect(cards).toEqual([
+      {
+        id: "fallback-0",
+        type: "ai-suggestion",
+        name: "Fler viner från Bordeaux",
+        reason: "Du återkommer ofta till flaskor från Bordeaux.",
+        region: "Bordeaux",
+      },
+    ]);
   });
 });
