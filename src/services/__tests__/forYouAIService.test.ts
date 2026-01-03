@@ -37,13 +37,7 @@ describe("getForYouRecommendations", () => {
     supabaseMock.invoke.mockReset();
   });
 
-  it("returns AI suggestions when taste profile has data", async () => {
-    mockGetTasteProfileForUser.mockResolvedValue(
-      createProfile({
-        topGrapes: [{ value: "Sangiovese", count: 4 }],
-      }),
-    );
-
+  it("returns server cards when AI responds", async () => {
     supabaseMock.invoke.mockResolvedValue({
       data: {
         cards: [
@@ -73,13 +67,8 @@ describe("getForYouRecommendations", () => {
         items: ["Toscana", "Sangiovese"],
       },
     ]);
-    expect(supabaseMock.invoke).toHaveBeenCalledWith("wine-suggestions", {
-      body: {
-        tasteProfile: expect.objectContaining({
-          topGrapes: [{ value: "Sangiovese", count: 4 }],
-        }),
-      },
-    });
+    expect(supabaseMock.invoke).toHaveBeenCalledWith("for-you");
+    expect(mockGetTasteProfileForUser).not.toHaveBeenCalled();
   });
 
   it("returns empty array when userId is missing", async () => {
@@ -90,23 +79,13 @@ describe("getForYouRecommendations", () => {
     expect(supabaseMock.invoke).not.toHaveBeenCalled();
   });
 
-  it("returns empty array when taste profile is empty", async () => {
-    mockGetTasteProfileForUser.mockResolvedValue(createProfile({}));
-
-    const cards = await getForYouRecommendations("user-3");
-
-    expect(cards).toEqual([]);
-    expect(supabaseMock.invoke).not.toHaveBeenCalled();
-  });
-
   it("returns fallback suggestions when AI suggestions fail", async () => {
+    supabaseMock.invoke.mockResolvedValue({ data: null, error: new Error("oops") });
     mockGetTasteProfileForUser.mockResolvedValue(
       createProfile({
         topRegions: [{ value: "Bordeaux", count: 2 }],
       }),
     );
-
-    supabaseMock.invoke.mockResolvedValue({ data: null, error: new Error("oops") });
 
     const cards = await getForYouRecommendations("user-4");
 
@@ -122,16 +101,15 @@ describe("getForYouRecommendations", () => {
   });
 
   it("falls back when AI response is invalid", async () => {
+    supabaseMock.invoke.mockResolvedValue({
+      data: { message: "not following schema" },
+      error: null,
+    });
     mockGetTasteProfileForUser.mockResolvedValue(
       createProfile({
         topStyles: [{ value: "Syrah", count: 3 }],
       }),
     );
-
-    supabaseMock.invoke.mockResolvedValue({
-      data: { message: "not following schema" },
-      error: null,
-    });
 
     const cards = await getForYouRecommendations("user-5");
 
