@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/auth/AuthProvider";
 import { logEvent } from "@/lib/logger";
-import { getForYouCards, type ForYouCard } from "@/services/forYouService";
+import { getForYouRecommendations, type ForYouCard } from "@/services/forYouAIService";
 import { getSavedAnalyses, WINE_CACHE_UPDATED_EVENT, type CachedWineAnalysisEntry } from "@/lib/wineCache";
 
 const formatDate = (iso: string) => {
@@ -53,7 +53,7 @@ const ForYou = () => {
     const fetchCards = async () => {
       setLoadingCards(true);
       try {
-        const nextCards = await getForYouCards(user?.id ?? "");
+        const nextCards = await getForYouRecommendations(user?.id ?? "");
         if (!ignore) {
           setCards(nextCards);
         }
