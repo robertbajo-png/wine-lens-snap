@@ -1,24 +1,9 @@
+import { safeParseForYou } from "@/lib/safeParseForYou";
 import { supabase } from "@/lib/supabaseClient";
+import { type ForYouRecommendationCard } from "@/schemas/forYouRecommendationsSchema";
 import { getTasteProfileForUser, type TasteProfile } from "@/services/tasteProfileService";
 
-export type ForYouCard = {
-  id: string;
-  type: "ai-suggestion";
-  name: string;
-  reason: string;
-  region?: string;
-  grape?: string;
-};
-
-type AISuggestionResponse = {
-  suggestions?: Array<{
-    name: string;
-    reason: string;
-    region?: string;
-    grape?: string;
-  }>;
-  error?: string;
-};
+export type ForYouCard = ForYouRecommendationCard;
 
 const hasTasteProfileData = (tasteProfile: TasteProfile): boolean =>
   tasteProfile.topGrapes.length > 0 ||
@@ -29,24 +14,9 @@ const hasTasteProfileData = (tasteProfile: TasteProfile): boolean =>
     (value) => typeof value === "number",
   );
 
-const mapAISuggestionsToCards = (suggestions: AISuggestionResponse["suggestions"]): ForYouCard[] => {
-  if (!suggestions || !Array.isArray(suggestions)) return [];
-
-  return suggestions
-    .filter((suggestion) => suggestion?.name && suggestion?.reason)
-    .map((suggestion, index) => ({
-      id: `ai-suggestion-${index}`,
-      type: "ai-suggestion" as const,
-      name: suggestion.name,
-      reason: suggestion.reason,
-      region: suggestion.region,
-      grape: suggestion.grape,
-    }));
-};
-
 const fetchAISuggestions = async (tasteProfile: TasteProfile): Promise<ForYouCard[]> => {
   try {
-    const { data, error } = await supabase.functions.invoke<AISuggestionResponse>("wine-suggestions", {
+    const { data, error } = await supabase.functions.invoke("wine-suggestions", {
       body: { tasteProfile },
     });
 
@@ -55,12 +25,8 @@ const fetchAISuggestions = async (tasteProfile: TasteProfile): Promise<ForYouCar
       return [];
     }
 
-    if (data?.error) {
-      console.warn("AI suggestion service error:", data.error);
-      return [];
-    }
-
-    return mapAISuggestionsToCards(data?.suggestions);
+    const parsed = safeParseForYou(data);
+    return parsed.data.cards;
   } catch (error) {
     console.error("AI suggestions fetch failed:", error);
     return [];
@@ -76,9 +42,9 @@ const buildFallbackSuggestions = (tasteProfile: TasteProfile): ForYouCard[] => {
     suggestions.push({
       id: `fallback-${index++}`,
       type: "ai-suggestion",
-      name: `${topGrape} att utforska`,
-      reason: `Baserat på dina senaste skanningar av ${topGrape}.`,
-      grape: topGrape,
+      title: `${topGrape} att utforska`,
+      subtitle: `Baserat på dina senaste skanningar av ${topGrape}.`,
+      items: [`Favoritdruva: ${topGrape}`],
     });
   }
 
@@ -87,9 +53,9 @@ const buildFallbackSuggestions = (tasteProfile: TasteProfile): ForYouCard[] => {
     suggestions.push({
       id: `fallback-${index++}`,
       type: "ai-suggestion",
-      name: `Fler viner från ${topRegion}`,
-      reason: `Du återkommer ofta till flaskor från ${topRegion}.`,
-      region: topRegion,
+      title: `Fler viner från ${topRegion}`,
+      subtitle: `Du återkommer ofta till flaskor från ${topRegion}.`,
+      items: [`Favoritregion: ${topRegion}`],
     });
   }
 
@@ -98,8 +64,9 @@ const buildFallbackSuggestions = (tasteProfile: TasteProfile): ForYouCard[] => {
     suggestions.push({
       id: `fallback-${index++}`,
       type: "ai-suggestion",
-      name: `${topStyle} i din stil`,
-      reason: `${topStyle} syns ofta i dina analyser.`,
+      title: `${topStyle} i din stil`,
+      subtitle: `${topStyle} syns ofta i dina analyser.`,
+      items: [`Stil: ${topStyle}`],
     });
   }
 
@@ -108,8 +75,9 @@ const buildFallbackSuggestions = (tasteProfile: TasteProfile): ForYouCard[] => {
     suggestions.push({
       id: `fallback-${index++}`,
       type: "ai-suggestion",
-      name: `Matcha med ${topPairing}`,
-      reason: `Dina sparade matchningar visar ${topPairing}.`,
+      title: `Matcha med ${topPairing}`,
+      subtitle: `Dina sparade matchningar visar ${topPairing}.`,
+      items: [`Matchning: ${topPairing}`],
     });
   }
 
@@ -117,8 +85,8 @@ const buildFallbackSuggestions = (tasteProfile: TasteProfile): ForYouCard[] => {
     suggestions.push({
       id: `fallback-${index++}`,
       type: "ai-suggestion",
-      name: "Utforska fler rekommendationer",
-      reason: "Vi använder dina senaste analyser för att hitta liknande flaskor.",
+      title: "Utforska fler rekommendationer",
+      subtitle: "Vi använder dina senaste analyser för att hitta liknande flaskor.",
     });
   }
 

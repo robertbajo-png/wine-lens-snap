@@ -203,21 +203,21 @@ const ForYou = () => {
                     className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-theme-elevated/70 p-5 shadow-inner shadow-black/20"
                     onClick={() => handleCardClick(card)}
                   >
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {card.grape && (
-                        <span className="rounded-full bg-theme-accent/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-theme-primary">
-                          {card.grape}
-                        </span>
-                      )}
-                      {card.region && (
-                        <span className="rounded-full bg-purple-500/20 px-3 py-1 text-xs font-semibold text-theme-secondary">
-                          {card.region}
-                        </span>
-                      )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-theme-accent/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-theme-primary">
+                        {card.type}
+                      </span>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-lg font-semibold text-theme-primary">{card.name}</p>
-                      <p className="text-sm text-theme-secondary/80">{card.reason}</p>
+                    <div className="space-y-2">
+                      <p className="text-lg font-semibold text-theme-primary">{card.title}</p>
+                      {card.subtitle && <p className="text-sm text-theme-secondary/80">{card.subtitle}</p>}
+                      {card.items?.length ? (
+                        <ul className="list-disc space-y-1 pl-5 text-sm text-theme-secondary/80">
+                          {card.items.map((item, index) => (
+                            <li key={`${card.id}-item-${index}`}>{item}</li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                   </div>
                 ))}

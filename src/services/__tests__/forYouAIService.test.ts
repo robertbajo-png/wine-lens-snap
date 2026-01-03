@@ -46,9 +46,18 @@ describe("getForYouRecommendations", () => {
 
     supabaseMock.invoke.mockResolvedValue({
       data: {
-        suggestions: [
-          { name: "Chianti Classico", reason: "Top grape match", region: "Toscana", grape: "Sangiovese" },
+        cards: [
+          {
+            id: "ai-card-0",
+            type: "ai-suggestion",
+            title: "Chianti Classico",
+            subtitle: "Top grape match",
+            items: ["Toscana", "Sangiovese"],
+          },
         ],
+        generated_at: "2024-01-01T00:00:00.000Z",
+        overall_confidence: 0.82,
+        notes: ["note"],
       },
       error: null,
     });
@@ -57,12 +66,11 @@ describe("getForYouRecommendations", () => {
 
     expect(cards).toEqual([
       {
-        id: "ai-suggestion-0",
+        id: "ai-card-0",
         type: "ai-suggestion",
-        name: "Chianti Classico",
-        reason: "Top grape match",
-        region: "Toscana",
-        grape: "Sangiovese",
+        title: "Chianti Classico",
+        subtitle: "Top grape match",
+        items: ["Toscana", "Sangiovese"],
       },
     ]);
     expect(supabaseMock.invoke).toHaveBeenCalledWith("wine-suggestions", {
@@ -106,9 +114,34 @@ describe("getForYouRecommendations", () => {
       {
         id: "fallback-0",
         type: "ai-suggestion",
-        name: "Fler viner från Bordeaux",
-        reason: "Du återkommer ofta till flaskor från Bordeaux.",
-        region: "Bordeaux",
+        title: "Fler viner från Bordeaux",
+        subtitle: "Du återkommer ofta till flaskor från Bordeaux.",
+        items: ["Favoritregion: Bordeaux"],
+      },
+    ]);
+  });
+
+  it("falls back when AI response is invalid", async () => {
+    mockGetTasteProfileForUser.mockResolvedValue(
+      createProfile({
+        topStyles: [{ value: "Syrah", count: 3 }],
+      }),
+    );
+
+    supabaseMock.invoke.mockResolvedValue({
+      data: { message: "not following schema" },
+      error: null,
+    });
+
+    const cards = await getForYouRecommendations("user-5");
+
+    expect(cards).toEqual([
+      {
+        id: "fallback-0",
+        type: "ai-suggestion",
+        title: "Syrah i din stil",
+        subtitle: "Syrah syns ofta i dina analyser.",
+        items: ["Stil: Syrah"],
       },
     ]);
   });
