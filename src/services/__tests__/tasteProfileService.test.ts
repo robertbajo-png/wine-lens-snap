@@ -17,7 +17,7 @@ vi.mock("@/lib/supabaseClient", () => ({
   },
 }));
 
-const makeScan = (id: string, analysis: Partial<WineAnalysisResult> | null): WineScan => ({
+const makeScan = (id: string, analysis: WineScan["analysis_json"]): WineScan => ({
   id,
   created_at: "2024-01-01T00:00:00Z",
   analysis_json: analysis,
@@ -120,6 +120,31 @@ describe("buildTasteProfile", () => {
     expect(profile.avgSweetness).toBeCloseTo(2.75, 2);
     expect(profile.avgAcidity).toBeCloseTo(2.75, 2);
     expect(profile.avgTannin).toBeCloseTo(2.5, 2);
+  });
+
+  it("parar JSON-strängar och läser ut värden defensivt", () => {
+    const scans: WineScan[] = [
+      makeScan(
+        "1",
+        JSON.stringify({
+          grapes: "Pinot Noir",
+          land_region: "Frankrike / Bourgogne",
+          style: "Rött",
+          meters: { sötma: "2.5" },
+        }),
+      ),
+      makeScan("2", "{not valid json"),
+    ];
+
+    const profile = buildTasteProfile(scans);
+
+    expect(profile.topGrapes).toEqual([{ value: "Pinot Noir", count: 1 }]);
+    expect(profile.topRegions).toEqual([
+      { value: "Bourgogne", count: 1 },
+      { value: "Frankrike", count: 1 },
+    ]);
+    expect(profile.topStyles).toEqual([{ value: "Rött", count: 1 }]);
+    expect(profile.avgSweetness).toBeCloseTo(2.5, 2);
   });
 });
 

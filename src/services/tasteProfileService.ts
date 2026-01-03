@@ -19,7 +19,7 @@ export type TasteProfile = {
 };
 
 export type WineScan = Omit<Tables<"scans">, "analysis_json"> & {
-  analysis_json: Partial<WineAnalysisResult> | null;
+  analysis_json: Partial<WineAnalysisResult> | string | null;
 };
 
 const splitCompositeField = (value: string): string[] =>
@@ -99,6 +99,58 @@ const extractRegions = (rawRegion: unknown): string[] => {
   return splitCompositeField(trimmed);
 };
 
+const parseAnalysisPayload = (
+  analysis: WineScan["analysis_json"],
+): Partial<WineAnalysisResult> | null => {
+  if (analysis === null || analysis === undefined) {
+    return null;
+  }
+
+  let candidate: unknown = analysis;
+
+  if (typeof analysis === "string") {
+    try {
+      candidate = JSON.parse(analysis);
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
+    return null;
+  }
+
+  const recordCandidate = { ...(candidate as Record<string, unknown>) };
+  let normalizedGrapes = extractStringValues(recordCandidate.grapes);
+  if (normalizedGrapes.length === 0) {
+    normalizedGrapes = extractStringValues((recordCandidate as Record<string, unknown>).druvor);
+  }
+  if (normalizedGrapes.length > 0) {
+    recordCandidate.grapes = normalizedGrapes;
+  }
+
+  const normalizedPairings = extractStringValues(
+    recordCandidate.food_pairings ?? (recordCandidate as Record<string, unknown>).passar_till,
+  );
+  if (normalizedPairings.length > 0) {
+    recordCandidate.food_pairings = normalizedPairings;
+  }
+
+  const meters = recordCandidate.meters;
+  if (meters && typeof meters === "object" && !Array.isArray(meters)) {
+    const normalizedMeters: Record<string, number | null> = {};
+    for (const [key, value] of Object.entries(meters as Record<string, unknown>)) {
+      normalizedMeters[key] = normalizeToNumber(value);
+    }
+    recordCandidate.meters = normalizedMeters;
+  }
+
+  return recordCandidate as Partial<WineAnalysisResult>;
+};
+
+const normalizeScanAnalysis = (analysis: WineScan["analysis_json"]) =>
+  normalizeAnalysisJson(parseAnalysisPayload(analysis));
+
 const sortEntries = (counter: Map<string, TasteProfileEntry>): TasteProfileEntry[] =>
   Array.from(counter.values()).sort((a, b) => {
     if (b.count === a.count) {
@@ -134,7 +186,7 @@ export const buildTasteProfile = (scans: WineScan[]): TasteProfile => {
   let tanninCount = 0;
 
   for (const scan of scans) {
-    const analysis = normalizeAnalysisJson(scan.analysis_json as Partial<WineAnalysisResult> | null);
+    const analysis = normalizeScanAnalysis(scan.analysis_json);
     if (!analysis) {
       continue;
     }
@@ -197,7 +249,7 @@ export const getTasteProfileForUser = async (userId: string, limit = 50): Promis
   const scans: WineScan[] =
     data?.map((row) => ({
       ...row,
-      analysis_json: row.analysis_json as Partial<WineAnalysisResult> | null,
+      analysis_json: row.analysis_json as WineScan["analysis_json"],
     })) ?? [];
 
   if (!Array.isArray(scans) || scans.length === 0) {
