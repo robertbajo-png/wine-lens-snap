@@ -14,21 +14,19 @@ const hasTasteProfileData = (tasteProfile: TasteProfile): boolean =>
     (value) => typeof value === "number",
   );
 
-const fetchAISuggestions = async (tasteProfile: TasteProfile): Promise<ForYouCard[]> => {
+const fetchServerCards = async (): Promise<ForYouCard[]> => {
   try {
-    const { data, error } = await supabase.functions.invoke("wine-suggestions", {
-      body: { tasteProfile },
-    });
+    const { data, error } = await supabase.functions.invoke("for-you");
 
     if (error) {
-      console.error("Failed to fetch AI suggestions:", error);
+      console.error("Failed to fetch For You cards:", error);
       return [];
     }
 
     const parsed = safeParseForYou(data);
     return parsed.data.cards;
   } catch (error) {
-    console.error("AI suggestions fetch failed:", error);
+    console.error("For You fetch failed:", error);
     return [];
   }
 };
@@ -97,15 +95,14 @@ export const getForYouRecommendations = async (userId: string): Promise<ForYouCa
   if (!userId) return [];
 
   try {
-    const tasteProfile = await getTasteProfileForUser(userId, 80);
-
-    if (!hasTasteProfileData(tasteProfile)) {
-      return [];
+    const serverCards = await fetchServerCards();
+    if (serverCards.length > 0) {
+      return serverCards;
     }
 
-    const aiCards = await fetchAISuggestions(tasteProfile);
-    if (aiCards.length > 0) {
-      return aiCards;
+    const tasteProfile = await getTasteProfileForUser(userId, 80);
+    if (!hasTasteProfileData(tasteProfile)) {
+      return [];
     }
 
     return buildFallbackSuggestions(tasteProfile);
