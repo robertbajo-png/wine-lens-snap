@@ -18,14 +18,7 @@ import {
 } from "@/services/forYouAIService";
 import { getSavedAnalyses, WINE_CACHE_UPDATED_EVENT, type CachedWineAnalysisEntry } from "@/lib/wineCache";
 
-const formatDate = (iso: string) => {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString("sv-SE", {
-    month: "short",
-    day: "numeric",
-  });
-};
+// formatDate is now created inside the component to use locale
 
 const ForYou = () => {
   const navigate = useNavigate();
@@ -296,8 +289,16 @@ const ForYou = () => {
             {recentEntries.length > 0 ? (
               <div className="flex flex-col gap-3">
                 {recentEntries.map((entry) => {
-                  const title = entry.result.vin || "Okänt vin";
+                  const title = entry.result.vin || t("wineDetail.unknownWine");
                   const subtitle = [entry.result.land_region, entry.result.årgång].filter(Boolean).join(" • ");
+                  const formatDate = (iso: string) => {
+                    const d = new Date(iso);
+                    if (Number.isNaN(d.getTime())) return "";
+                    return d.toLocaleDateString(locale === "en" ? "en-US" : "sv-SE", {
+                      month: "short",
+                      day: "numeric",
+                    });
+                  };
                   return (
                     <div
                       key={entry.key}

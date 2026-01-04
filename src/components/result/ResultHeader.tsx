@@ -2,6 +2,7 @@ import React from "react";
 import { Wine, MapPin, Building2 } from "lucide-react";
 import { FieldEvidenceTooltip } from "@/components/result/FieldEvidenceTooltip";
 import type { EvidenceItem } from "@/lib/wineCache";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface Props {
   vin?: string;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function ResultHeader({ vin, ar, producent, land_region, typ, evidenceItems, sourceType }: Props) {
+  const { t } = useTranslation();
   const hasVin = vin && vin !== "–";
   const hasYear = ar && ar !== "–";
   const hasProducent = producent && producent !== "–";
@@ -24,7 +26,7 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ, evi
   return (
     <header className="space-y-3">
       <h1 className="text-2xl font-bold leading-tight text-foreground sm:text-3xl">
-        {hasVin ? vin : "Okänt vin"}
+        {hasVin ? vin : t("wineDetail.unknownWine")}
         {hasYear && (
           <span className="ml-2 text-xl font-normal text-muted-foreground">
             {ar}
@@ -49,7 +51,7 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ, evi
               <span>{land_region}</span>
               <FieldEvidenceTooltip
                 field="land_region"
-                label="Region"
+                label={t("resultHeader.region")}
                 evidence={evidenceItems}
                 fallbackSource={fallbackSource}
               />
@@ -66,7 +68,7 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ, evi
           </span>
           <FieldEvidenceTooltip
             field="typ"
-            label="Stil"
+            label={t("resultHeader.style")}
             evidence={evidenceItems}
             fallbackSource={fallbackSource}
           />

@@ -232,6 +232,68 @@ export const translations = {
     "common.loading": "Laddar...",
     "common.error": "Ett fel uppstod",
     "common.retry": "Försök igen",
+
+    // Wine Detail
+    "wineDetail.loading": "Laddar vindetaljer...",
+    "wineDetail.notFoundLabel": "Vin ej hittat",
+    "wineDetail.notFoundTitle": "Kunde inte hitta vinet",
+    "wineDetail.notFoundDesc": "Det här vinet finns inte längre i din lokala historik.",
+    "wineDetail.back": "Tillbaka",
+    "wineDetail.scanNewWine": "Skanna ett nytt vin",
+    "wineDetail.scanNew": "Skanna nytt vin",
+    "wineDetail.labelAlt": "Etikett",
+    "wineDetail.unknownWine": "Okänt vin",
+    "wineDetail.character": "Karaktär",
+    "wineDetail.taste": "Smak",
+
+    // Key Facts
+    "keyFacts.title": "Fakta",
+    "keyFacts.grapes": "Druvor",
+    "keyFacts.colorType": "Färg/typ",
+    "keyFacts.classification": "Klassificering",
+    "keyFacts.alcohol": "Alkohol",
+    "keyFacts.volume": "Volym",
+    "keyFacts.sugar": "Socker",
+    "keyFacts.acid": "Syra",
+
+    // Pairings
+    "pairings.title": "Passar till",
+
+    // Clamp Text Card
+    "clampText.showMore": "Visa mer",
+    "clampText.showLess": "Visa mindre",
+
+    // Evidence Accordion
+    "evidence.title": "Källa & evidens",
+    "evidence.show": "Visa",
+    "evidence.close": "Stäng",
+    "evidence.primarySource": "Primär källa",
+    "evidence.label": "Etikett",
+    "evidence.web": "Webb",
+    "evidence.webDesc": "Länkar öppnas i ny flik",
+    "evidence.heuristic": "Härlett",
+    "evidence.other": "Övrigt",
+    "evidence.fieldVin": "Namn",
+    "evidence.fieldRegion": "Region",
+    "evidence.fieldProducent": "Producent",
+    "evidence.fieldDruvor": "Druvor",
+    "evidence.fieldGrape": "Druva",
+    "evidence.fieldVintage": "Årgång",
+    "evidence.fieldTyp": "Typ",
+    "evidence.fieldColorType": "Färg/typ",
+    "evidence.fieldClassification": "Klassificering",
+    "evidence.fieldAlcohol": "Alkohol",
+    "evidence.fieldVolume": "Volym",
+    "evidence.fieldCharacter": "Karaktär",
+    "evidence.fieldTaste": "Smak",
+    "evidence.fieldServing": "Servering",
+    "evidence.fieldSources": "Källa",
+    "evidence.fieldLabelText": "Etiketttext",
+    "evidence.fieldStyle": "Stil",
+
+    // Result Header
+    "resultHeader.region": "Region",
+    "resultHeader.style": "Stil",
   },
   en: {
     // Navigation
@@ -461,6 +523,68 @@ export const translations = {
     "common.loading": "Loading...",
     "common.error": "An error occurred",
     "common.retry": "Try again",
+
+    // Wine Detail
+    "wineDetail.loading": "Loading wine details...",
+    "wineDetail.notFoundLabel": "Wine not found",
+    "wineDetail.notFoundTitle": "Could not find the wine",
+    "wineDetail.notFoundDesc": "This wine is no longer in your local history.",
+    "wineDetail.back": "Back",
+    "wineDetail.scanNewWine": "Scan a new wine",
+    "wineDetail.scanNew": "Scan new wine",
+    "wineDetail.labelAlt": "Label",
+    "wineDetail.unknownWine": "Unknown wine",
+    "wineDetail.character": "Character",
+    "wineDetail.taste": "Taste",
+
+    // Key Facts
+    "keyFacts.title": "Facts",
+    "keyFacts.grapes": "Grapes",
+    "keyFacts.colorType": "Color/type",
+    "keyFacts.classification": "Classification",
+    "keyFacts.alcohol": "Alcohol",
+    "keyFacts.volume": "Volume",
+    "keyFacts.sugar": "Sugar",
+    "keyFacts.acid": "Acid",
+
+    // Pairings
+    "pairings.title": "Pairs with",
+
+    // Clamp Text Card
+    "clampText.showMore": "Show more",
+    "clampText.showLess": "Show less",
+
+    // Evidence Accordion
+    "evidence.title": "Source & evidence",
+    "evidence.show": "Show",
+    "evidence.close": "Close",
+    "evidence.primarySource": "Primary source",
+    "evidence.label": "Label",
+    "evidence.web": "Web",
+    "evidence.webDesc": "Links open in new tab",
+    "evidence.heuristic": "Inferred",
+    "evidence.other": "Other",
+    "evidence.fieldVin": "Name",
+    "evidence.fieldRegion": "Region",
+    "evidence.fieldProducent": "Producer",
+    "evidence.fieldDruvor": "Grapes",
+    "evidence.fieldGrape": "Grape",
+    "evidence.fieldVintage": "Vintage",
+    "evidence.fieldTyp": "Type",
+    "evidence.fieldColorType": "Color/type",
+    "evidence.fieldClassification": "Classification",
+    "evidence.fieldAlcohol": "Alcohol",
+    "evidence.fieldVolume": "Volume",
+    "evidence.fieldCharacter": "Character",
+    "evidence.fieldTaste": "Taste",
+    "evidence.fieldServing": "Serving",
+    "evidence.fieldSources": "Source",
+    "evidence.fieldLabelText": "Label text",
+    "evidence.fieldStyle": "Style",
+
+    // Result Header
+    "resultHeader.region": "Region",
+    "resultHeader.style": "Style",
   },
 } as const;
 

@@ -2,6 +2,8 @@ import React from "react";
 import { Grape, Palette, Award, Percent, FlaskConical, Droplets, Beaker } from "lucide-react";
 import { FieldEvidenceTooltip } from "@/components/result/FieldEvidenceTooltip";
 import type { EvidenceItem } from "@/lib/wineCache";
+import { useTranslation } from "@/hooks/useTranslation";
+import type { TranslationKey } from "@/lib/translations";
 
 type SourceKind = "label" | "web";
 
@@ -21,18 +23,18 @@ type FactFieldKey = Exclude<keyof Props, "evidenceItems" | "sourceType">;
 
 type FactConfig = {
   key: FactFieldKey;
-  label: string;
+  labelKey: TranslationKey;
   icon: React.ElementType;
 };
 
 const facts: FactConfig[] = [
-  { key: "druvor", label: "Druvor", icon: Grape },
-  { key: "fargtyp", label: "Färg/typ", icon: Palette },
-  { key: "klassificering", label: "Klassificering", icon: Award },
-  { key: "alkoholhalt", label: "Alkohol", icon: Percent },
-  { key: "volym", label: "Volym", icon: FlaskConical },
-  { key: "sockerhalt", label: "Socker", icon: Droplets },
-  { key: "syra", label: "Syra", icon: Beaker },
+  { key: "druvor", labelKey: "keyFacts.grapes", icon: Grape },
+  { key: "fargtyp", labelKey: "keyFacts.colorType", icon: Palette },
+  { key: "klassificering", labelKey: "keyFacts.classification", icon: Award },
+  { key: "alkoholhalt", labelKey: "keyFacts.alcohol", icon: Percent },
+  { key: "volym", labelKey: "keyFacts.volume", icon: FlaskConical },
+  { key: "sockerhalt", labelKey: "keyFacts.sugar", icon: Droplets },
+  { key: "syra", labelKey: "keyFacts.acid", icon: Beaker },
 ];
 
 const Row = ({
@@ -82,6 +84,7 @@ const Row = ({
 };
 
 export default function KeyFacts(props: Props) {
+  const { t } = useTranslation();
   const visibleFacts = facts.filter(f => props[f.key] && props[f.key] !== "–");
   
   if (visibleFacts.length === 0) return null;
@@ -90,12 +93,12 @@ export default function KeyFacts(props: Props) {
 
   return (
     <section className="rounded-2xl border border-border bg-card p-4">
-      <h3 className="mb-4 text-sm font-semibold text-foreground">Fakta</h3>
+      <h3 className="mb-4 text-sm font-semibold text-foreground">{t("keyFacts.title")}</h3>
       <div className="grid gap-3 sm:grid-cols-2">
         {visibleFacts.map((fact) => (
           <Row
             key={fact.key}
-            label={fact.label}
+            label={t(fact.labelKey)}
             value={props[fact.key]}
             icon={fact.icon}
             evidenceItems={props.evidenceItems}
