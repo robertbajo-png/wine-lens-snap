@@ -102,7 +102,7 @@ describe("getForYouRecommendations", () => {
 
   it("falls back when AI response is invalid", async () => {
     supabaseMock.invoke.mockResolvedValue({
-      data: { message: "not following schema" },
+      data: { message: "schema mismatch" },
       error: null,
     });
     mockGetTasteProfileForUser.mockResolvedValue(

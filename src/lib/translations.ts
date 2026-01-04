@@ -8,7 +8,6 @@ export const translations = {
     "nav.forYou": "För dig",
     "nav.explore": "Utforska",
     "nav.scan": "Skanna",
-    "nav.following": "Följer",
     "nav.profile": "Profil",
 
     // Login
@@ -42,7 +41,7 @@ export const translations = {
     "me.savedLists": "Sparade listor",
     "me.savedListsDesc": "Bygg favoritlistor, köp-igen och gästdetaljer utan begränsning.",
     "me.yourProfile": "Din profil",
-    "me.profileSubtitle": "Uppdatera namn och bild så visas de på följelistor och kommande sociala ytor.",
+    "me.profileSubtitle": "Uppdatera namn och bild så visas de tydligt i appen.",
     "me.editProfile": "Redigera profil",
     "me.editProfileTitle": "Redigera profil",
     "me.editProfileSubtitle": "Ändra visningsnamn och profilbild. Bilden måste vara en PNG, JPG eller WEBP på högst 1 MB.",
@@ -63,7 +62,7 @@ export const translations = {
     "me.lightModeDesc": "Ljus bakgrund och högsta kontrast för detaljer.",
     "me.darkMode": "Mörkt läge",
     "me.darkModeDesc": "Skonsamt för ögonen i dunkla miljöer.",
-    "me.systemMode": "Följ systeminställning",
+    "me.systemMode": "Använd systeminställning",
     "me.systemModeDesc": "Använd samma tema som din enhet.",
     "me.savingTheme": "Sparar temat...",
     "me.manageAccount": "Hantera konto",
@@ -180,15 +179,6 @@ export const translations = {
     "explore.searchLabel": "Sök i vinarkivet",
     "explore.searchPlaceholder": "Sök bland etiketter, producenter eller anteckningar",
 
-    // Following
-    "following.badge": "Följer",
-    "following.title": "Kuraterade skapare & listor",
-    "following.subtitle": "Följ redaktionens favoriter för att se butikslistor, livesändningar och nördiga rekommendationer så fort funktionen rullas ut.",
-    "following.newPosts": "{count} nya inlägg",
-    "following.creators": "{count} skapare",
-    "following.youFollow": "{count} följer du",
-    "following.totalFollowers": "{count} följare totalt",
-    "following.loginToFollow": "Logga in för att följa",
 
     // Common
     "common.goBack": "Gå tillbaka",
@@ -201,7 +191,6 @@ export const translations = {
     "nav.forYou": "For You",
     "nav.explore": "Explore",
     "nav.scan": "Scan",
-    "nav.following": "Following",
     "nav.profile": "Profile",
 
     // Login
@@ -235,7 +224,7 @@ export const translations = {
     "me.savedLists": "Saved lists",
     "me.savedListsDesc": "Build favorite lists, buy-again and guest details without limits.",
     "me.yourProfile": "Your profile",
-    "me.profileSubtitle": "Update your name and photo so they appear on follow lists and upcoming social features.",
+    "me.profileSubtitle": "Update your name and photo so they look right across the app.",
     "me.editProfile": "Edit profile",
     "me.editProfileTitle": "Edit profile",
     "me.editProfileSubtitle": "Change display name and profile picture. Image must be PNG, JPG or WEBP, max 1 MB.",
@@ -256,7 +245,7 @@ export const translations = {
     "me.lightModeDesc": "Light background with highest contrast for details.",
     "me.darkMode": "Dark mode",
     "me.darkModeDesc": "Easy on the eyes in dim environments.",
-    "me.systemMode": "Follow system setting",
+    "me.systemMode": "Use system setting",
     "me.systemModeDesc": "Use the same theme as your device.",
     "me.savingTheme": "Saving theme...",
     "me.manageAccount": "Manage account",
@@ -373,15 +362,6 @@ export const translations = {
     "explore.searchLabel": "Search the wine archive",
     "explore.searchPlaceholder": "Search labels, producers or notes",
 
-    // Following
-    "following.badge": "Following",
-    "following.title": "Curated creators & lists",
-    "following.subtitle": "Follow the editor's favorites to see store lists, live streams and nerdy recommendations as soon as the feature rolls out.",
-    "following.newPosts": "{count} new posts",
-    "following.creators": "{count} creators",
-    "following.youFollow": "{count} you follow",
-    "following.totalFollowers": "{count} followers total",
-    "following.loginToFollow": "Log in to follow",
 
     // Common
     "common.goBack": "Go back",
