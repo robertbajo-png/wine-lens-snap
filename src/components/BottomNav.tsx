@@ -4,7 +4,6 @@ import { useAuth } from "@/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 import {
   ExploreIcon,
-  FollowingIcon,
   ForYouIcon,
   ProfileIcon,
   ScanIcon,
@@ -13,23 +12,19 @@ import { TAB_DEFINITIONS, getDefaultTabPath, type TabDefinition, type TabKey } f
 import { useTabStateContext } from "@/contexts/TabStateContext";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { trackEvent } from "@/lib/telemetry";
-import { useFollowingFeedNotifications } from "@/hooks/useFollowingFeedNotifications";
 import { useTranslation } from "@/hooks/useTranslation";
-import { isPlayRC } from "@/lib/releaseChannel";
 
 const iconMap: Record<TabKey, ComponentType<SVGProps<SVGSVGElement>>> = {
   "for-you": ForYouIcon,
   explore: ExploreIcon,
   scan: ScanIcon,
-  following: FollowingIcon,
   profile: ProfileIcon,
 };
 
-const tabLabelKeys: Record<TabKey, "nav.forYou" | "nav.explore" | "nav.scan" | "nav.following" | "nav.profile"> = {
+const tabLabelKeys: Record<TabKey, "nav.forYou" | "nav.explore" | "nav.scan" | "nav.profile"> = {
   "for-you": "nav.forYou",
   explore: "nav.explore",
   scan: "nav.scan",
-  following: "nav.following",
   profile: "nav.profile",
 };
 
@@ -39,7 +34,6 @@ const BottomNav = () => {
   const { stateMap } = useTabStateContext();
   const triggerHaptic = useHapticFeedback();
   const { user, loading } = useAuth();
-  const { newPostsCount } = useFollowingFeedNotifications();
   const { t } = useTranslation();
 
   const activeKey = useMemo(() => {
@@ -58,8 +52,6 @@ const BottomNav = () => {
     () => ({ gridTemplateColumns: `repeat(${TAB_DEFINITIONS.length}, minmax(0, 1fr))` }),
     [],
   );
-
-  const followingBadgeCount = isPlayRC ? 0 : newPostsCount;
 
   const handleNavigate = useCallback(
     (tab: TabDefinition) => {
@@ -147,9 +139,6 @@ const BottomNav = () => {
               );
             }
 
-            const showFollowingBadge = tab.key === "following" && followingBadgeCount > 0;
-            const badgeLabel = followingBadgeCount > 99 ? "99+" : `${followingBadgeCount}`;
-
             return (
               <li key={tab.key} className="flex justify-center">
                 <button
@@ -165,14 +154,6 @@ const BottomNav = () => {
                 >
                   <span className="relative inline-flex">
                     <Icon className="h-5 w-5" aria-hidden="true" />
-                    {showFollowingBadge ? (
-                      <span
-                        className="absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-[#F06292] px-1 text-[0.55rem] font-semibold leading-none text-white shadow"
-                        aria-hidden="true"
-                      >
-                        {badgeLabel}
-                      </span>
-                    ) : null}
                   </span>
                   <span>{label}</span>
                 </button>
