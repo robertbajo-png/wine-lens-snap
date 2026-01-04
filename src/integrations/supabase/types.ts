@@ -47,6 +47,65 @@ export type Database = {
         }
         Relationships: []
       }
+      creator_posts: {
+        Row: {
+          body_json: Json | null
+          created_at: string
+          creator_id: string
+          id: string
+          type: string
+        }
+        Insert: {
+          body_json?: Json | null
+          created_at?: string
+          creator_id: string
+          id?: string
+          type?: string
+        }
+        Update: {
+          body_json?: Json | null
+          created_at?: string
+          creator_id?: string
+          id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_posts_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "creators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creators: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string
+          followers_count: number
+          id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name: string
+          followers_count?: number
+          id?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string
+          followers_count?: number
+          id?: string
+        }
+        Relationships: []
+      }
       event_logs: {
         Row: {
           created_at: string
@@ -305,6 +364,50 @@ export type Database = {
         }
         Relationships: []
       }
+      user_feed_state: {
+        Row: {
+          last_seen_at: string
+          user_id: string
+        }
+        Insert: {
+          last_seen_at?: string
+          user_id: string
+        }
+        Update: {
+          last_seen_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_follows: {
+        Row: {
+          created_at: string
+          creator_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_follows_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "creators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_settings: {
         Row: {
           created_at: string
@@ -368,6 +471,42 @@ export type Database = {
         }
         Relationships: []
       }
+      wine_offers: {
+        Row: {
+          country: string | null
+          created_at: string
+          currency: string | null
+          id: string
+          label_hash: string
+          merchant_name: string
+          price: number | null
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          label_hash: string
+          merchant_name: string
+          price?: number | null
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          currency?: string | null
+          id?: string
+          label_hash?: string
+          merchant_name?: string
+          price?: number | null
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       winesnap_cache: {
         Row: {
           created_at: string | null
@@ -391,7 +530,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      touch_user_feed_state: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

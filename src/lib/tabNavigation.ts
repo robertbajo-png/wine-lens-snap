@@ -1,4 +1,4 @@
-export type TabKey = "for-you" | "explore" | "scan" | "profile";
+export type TabKey = "for-you" | "explore" | "scan" | "history" | "profile";
 
 export type TabDefinition = {
   key: TabKey;
@@ -10,6 +10,7 @@ const BASE_TAB_DEFINITIONS: TabDefinition[] = [
   { key: "for-you", label: "För dig", path: "/for-you" },
   { key: "explore", label: "Utforska", path: "/explore" },
   { key: "scan", label: "Skanna", path: "/scan" },
+  { key: "history", label: "Historik", path: "/me/wines" },
   { key: "profile", label: "Profil", path: "/me" },
 ];
 
