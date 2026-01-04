@@ -129,6 +129,29 @@ export const translations = {
     "history.someNotRemoved": "Vissa poster kunde inte tas bort.",
     "history.vintage": "Årgång",
     "history.scanned": "Skannad",
+    "history.offlineTitle": "Offline – sparar lokalt",
+    "history.offlineText": "Vi synkar dina skanningar nästa gång du är online.",
+
+    // HistorySummary
+    "historySummary.title": "Dina vinminnen",
+    "historySummary.subtitle": "Utforska dina tidigare analyser, upptäck favoriter och hoppa snabbt tillbaka in i WineSnap.",
+    "historySummary.totalSaved": "Totalt sparade",
+    "historySummary.totalSavedDesc": "Alla analyser finns sparade lokalt på din enhet.",
+    "historySummary.latestAnalysis": "Senaste analys",
+    "historySummary.startScanning": "Gör en skanning för att komma igång.",
+    "historySummary.originsRepresented": "Ursprung representerade",
+    "historySummary.originsDesc": "Ett smakbibliotek fyllt av olika regioner.",
+
+    // WineCard
+    "wineCard.colorLabel": "Färg",
+    "wineCard.tasteTypeLabel": "Smaktyp",
+    "wineCard.originLabel": "Ursprung",
+    "wineCard.unknownWine": "Okänt vin",
+    "wineCard.noImage": "Ingen bild",
+    "wineCard.notSynced": "Ej synkad",
+    "wineCard.open": "Öppna",
+    "wineCard.share": "Dela",
+    "wineCard.deleteLocally": "Radera lokalt",
 
     // ForYou
     "forYou.badge": "För dig",
@@ -336,6 +359,29 @@ export const translations = {
     "history.someNotRemoved": "Some entries could not be removed.",
     "history.vintage": "Vintage",
     "history.scanned": "Scanned",
+    "history.offlineTitle": "Offline – saving locally",
+    "history.offlineText": "We'll sync your scans when you're back online.",
+
+    // HistorySummary
+    "historySummary.title": "Your wine memories",
+    "historySummary.subtitle": "Explore your previous analyses, discover favorites and quickly jump back into WineSnap.",
+    "historySummary.totalSaved": "Total saved",
+    "historySummary.totalSavedDesc": "All analyses are saved locally on your device.",
+    "historySummary.latestAnalysis": "Latest analysis",
+    "historySummary.startScanning": "Make a scan to get started.",
+    "historySummary.originsRepresented": "Origins represented",
+    "historySummary.originsDesc": "A flavor library filled with different regions.",
+
+    // WineCard
+    "wineCard.colorLabel": "Color",
+    "wineCard.tasteTypeLabel": "Taste type",
+    "wineCard.originLabel": "Origin",
+    "wineCard.unknownWine": "Unknown wine",
+    "wineCard.noImage": "No image",
+    "wineCard.notSynced": "Not synced",
+    "wineCard.open": "Open",
+    "wineCard.share": "Share",
+    "wineCard.deleteLocally": "Delete locally",
 
     // ForYou
     "forYou.badge": "For You",

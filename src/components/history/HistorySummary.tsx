@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface HistorySummaryProps {
   total: number;
@@ -46,6 +47,8 @@ const HistorySummary = ({
   regionsCount,
   isLoading,
 }: HistorySummaryProps) => {
+  const { t } = useTranslation();
+
   if (isLoading) {
     return <HistorySummarySkeleton />;
   }
@@ -58,9 +61,11 @@ const HistorySummary = ({
             <Sparkles className="h-6 w-6" />
           </div>
           <div className="space-y-2">
-            <CardTitle className="text-3xl font-semibold text-theme-primary">Dina vinminnen</CardTitle>
+            <CardTitle className="text-3xl font-semibold text-theme-primary">
+              {t("historySummary.title")}
+            </CardTitle>
             <CardDescription className="max-w-2xl text-base text-theme-secondary">
-              Utforska dina tidigare analyser, upptäck favoriter och hoppa snabbt tillbaka in i WineSnap.
+              {t("historySummary.subtitle")}
             </CardDescription>
           </div>
         </div>
@@ -68,21 +73,27 @@ const HistorySummary = ({
       <CardContent className="pb-6">
         <div className="grid gap-4 pt-4 sm:grid-cols-3">
           <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 shadow-inner shadow-black/5">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">Totalt sparade</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">
+              {t("historySummary.totalSaved")}
+            </p>
             <p className="mt-3 text-3xl font-semibold text-theme-primary">{total}</p>
-            <p className="text-sm text-theme-secondary">Alla analyser finns sparade lokalt på din enhet.</p>
+            <p className="text-sm text-theme-secondary">{t("historySummary.totalSavedDesc")}</p>
           </div>
           <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 shadow-inner shadow-black/5">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">Senaste analys</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">
+              {t("historySummary.latestAnalysis")}
+            </p>
             <p className="mt-3 text-lg font-semibold text-theme-primary">{lastRelative ?? "–"}</p>
             <p className="text-sm text-theme-secondary">
-              {lastAbsolute ?? "Gör en skanning för att komma igång."}
+              {lastAbsolute ?? t("historySummary.startScanning")}
             </p>
           </div>
           <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 shadow-inner shadow-black/5">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">Ursprung representerade</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-theme-secondary">
+              {t("historySummary.originsRepresented")}
+            </p>
             <p className="mt-3 text-3xl font-semibold text-theme-primary">{regionsCount}</p>
-            <p className="text-sm text-theme-secondary">Ett smakbibliotek fyllt av olika regioner.</p>
+            <p className="text-sm text-theme-secondary">{t("historySummary.originsDesc")}</p>
           </div>
         </div>
       </CardContent>

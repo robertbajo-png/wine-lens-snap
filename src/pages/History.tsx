@@ -35,48 +35,11 @@ import { toast } from "@/components/ui/use-toast";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Banner } from "@/components/Banner";
 import { trackEvent } from "@/lib/telemetry";
-
-const formatDate = (iso: string) => {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "Okänd tid";
-  return date.toLocaleString("sv-SE", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const formatRelativeTime = (iso: string) => {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-
-  const diffMs = date.getTime() - Date.now();
-  const absMs = Math.abs(diffMs);
-  const units: [Intl.RelativeTimeFormatUnit, number][] = [
-    ["year", 1000 * 60 * 60 * 24 * 365],
-    ["month", 1000 * 60 * 60 * 24 * 30],
-    ["week", 1000 * 60 * 60 * 24 * 7],
-    ["day", 1000 * 60 * 60 * 24],
-    ["hour", 1000 * 60 * 60],
-    ["minute", 1000 * 60],
-  ];
-
-  const rtf = new Intl.RelativeTimeFormat("sv", { numeric: "auto" });
-
-  for (const [unit, unitMs] of units) {
-    if (absMs >= unitMs || unit === "minute") {
-      const value = Math.round(diffMs / unitMs);
-      return rtf.format(value, unit);
-    }
-  }
-
-  return "";
-};
+import { useTranslation } from "@/hooks/useTranslation";
 
 const History = () => {
   const navigate = useNavigate();
+  const { t, locale } = useTranslation();
   const [entries, setEntries] = useState<CachedWineAnalysisEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [devDialogOpen, setDevDialogOpen] = useState(false);
@@ -85,6 +48,51 @@ const History = () => {
   const refreshTimeoutRef = useRef<number | null>(null);
   const openLoggedRef = useRef(false);
   const { isOffline } = useNetworkStatus();
+
+  const formatDate = useCallback(
+    (iso: string) => {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return t("history.unknownTime");
+      return date.toLocaleString(locale === "en" ? "en-US" : "sv-SE", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    },
+    [locale, t],
+  );
+
+  const formatRelativeTime = useCallback(
+    (iso: string) => {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return "";
+
+      const diffMs = date.getTime() - Date.now();
+      const absMs = Math.abs(diffMs);
+      const units: [Intl.RelativeTimeFormatUnit, number][] = [
+        ["year", 1000 * 60 * 60 * 24 * 365],
+        ["month", 1000 * 60 * 60 * 24 * 30],
+        ["week", 1000 * 60 * 60 * 24 * 7],
+        ["day", 1000 * 60 * 60 * 24],
+        ["hour", 1000 * 60 * 60],
+        ["minute", 1000 * 60],
+      ];
+
+      const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+
+      for (const [unit, unitMs] of units) {
+        if (absMs >= unitMs || unit === "minute") {
+          const value = Math.round(diffMs / unitMs);
+          return rtf.format(value, unit);
+        }
+      }
+
+      return "";
+    },
+    [locale],
+  );
 
   const loadEntries = useCallback(() => {
     setEntries(getSavedAnalyses());
@@ -194,8 +202,8 @@ const History = () => {
     refreshEntries(true);
     setDevStatus(
       seeded.length > 0
-        ? `Lade till ${seeded.length} demoposter. Uppdatera historiken vid behov.`
-        : "Kunde inte lägga till demodata. Försök igen."
+        ? t("history.added", { count: seeded.length })
+        : t("history.couldNotAdd"),
     );
   };
 
@@ -203,7 +211,9 @@ const History = () => {
     clearCache();
     refreshEntries();
     const updated = getSavedAnalyses();
-    setDevStatus(updated.length === 0 ? "Historiken rensades." : "Vissa poster kunde inte tas bort.");
+    setDevStatus(
+      updated.length === 0 ? t("history.historyCleared") : t("history.someNotRemoved"),
+    );
   };
 
   const handleCopyToClipboard = async (
@@ -239,16 +249,18 @@ const History = () => {
 
       if (!options.silent) {
         toast({
-          title: "Vinanalys kopierad",
-          description: `${entry.result.vin || "Vinprofil"} finns nu i urklipp.`,
+          title: t("history.wineAnalysisCopied"),
+          description: t("history.copiedToClipboard", {
+            wine: entry.result.vin || t("wineCard.unknownWine"),
+          }),
         });
       }
     } catch (error) {
       console.error("Error copying wine analysis to clipboard:", error);
       if (!options.silent) {
         toast({
-          title: "Kunde inte kopiera",
-          description: "Din webbläsare blockerade kopieringen. Försök igen.",
+          title: t("history.couldNotCopy"),
+          description: t("history.browserBlocked"),
           variant: "destructive",
         });
       }
@@ -256,13 +268,13 @@ const History = () => {
   };
 
   const handleShare = async (entry: CachedWineAnalysisEntry) => {
-    const shareTitle = entry.result.vin || "WineSnap-analys";
+    const shareTitle = entry.result.vin || t("wineCard.unknownWine");
     const shareLines = [
       entry.result.vin,
       entry.result.land_region,
       entry.result.typ,
-      entry.result.årgång ? `Årgång ${entry.result.årgång}` : null,
-      `Skannad ${formatDate(entry.timestamp)}`,
+      entry.result.årgång ? `${t("history.vintage")} ${entry.result.årgång}` : null,
+      `${t("history.scanned")} ${formatDate(entry.timestamp)}`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -281,8 +293,8 @@ const History = () => {
       try {
         await navigator.share(shareData);
         toast({
-          title: "Delning öppnades",
-          description: "Välj app för att dela din analys.",
+          title: t("history.sharingOpened"),
+          description: t("history.chooseApp"),
         });
         return;
       } catch (error) {
@@ -295,8 +307,8 @@ const History = () => {
 
     await handleCopyToClipboard(entry, { silent: true });
     toast({
-      title: "Delning ej tillgänglig",
-      description: "Analysen kopierades istället till urklipp.",
+      title: t("history.sharingNotAvailable"),
+      description: t("history.copiedInstead"),
     });
   };
 
@@ -308,8 +320,8 @@ const History = () => {
         {isOffline && (
           <Banner
             type="warning"
-            title="Offline – sparar lokalt"
-            text="Vi synkar dina skanningar nästa gång du är online."
+            title={t("history.offlineTitle")}
+            text={t("history.offlineText")}
           />
         )}
 
@@ -319,17 +331,17 @@ const History = () => {
               variant="ghost"
               onClick={() => navigate(-1)}
               className="gap-2 rounded-full border border-theme-card bg-theme-elevated px-4 text-theme-primary shadow-lg shadow-purple-900/20 backdrop-blur transition hover:bg-theme-elevated"
-              aria-label="Gå tillbaka"
+              aria-label={t("common.goBack")}
             >
               <ArrowLeft className="h-4 w-4" />
-              Tillbaka
+              {t("history.back")}
             </Button>
             <Badge variant="outline" className="rounded-full border-theme-card bg-theme-elevated text-xs uppercase tracking-[0.25em] text-theme-secondary">
               {isLoading
-                ? "Laddar historik"
+                ? t("history.loadingHistory")
                 : entries.length === 0
-                ? "Tom historik"
-                : `${entries.length} sparade viner`}
+                ? t("history.emptyHistory")
+                : t("history.savedWines", { count: entries.length })}
             </Badge>
           </div>
 
@@ -338,52 +350,50 @@ const History = () => {
               variant="outline"
               onClick={handleRefresh}
               className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
-              aria-label="Uppdatera historiken"
+              aria-label={t("history.refresh")}
             >
-              Uppdatera
+              {t("history.refresh")}
             </Button>
             <Dialog open={devDialogOpen} onOpenChange={setDevDialogOpen}>
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
                   className="gap-2 rounded-full border-dashed border-theme-card bg-theme-elevated text-theme-primary shadow-sm backdrop-blur transition hover:bg-[hsl(var(--surface-elevated)/0.85)]"
-                  aria-label="Öppna testverktyg"
+                  aria-label={t("history.testTools")}
                 >
                   <Wand2 className="h-4 w-4" />
-                  Testverktyg
+                  {t("history.testTools")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Testverktyg för historiken</DialogTitle>
+                  <DialogTitle>{t("history.testToolsTitle")}</DialogTitle>
                   <DialogDescription>
-                    Fyll listan med färdiga demoposter eller rensa lagrade analyser när du förbereder manuell testning.
+                    {t("history.testToolsSubtitle")}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 text-theme-secondary">
                   <div className="rounded-xl border border-theme-card bg-theme-elevated p-4 text-sm">
-                    <p className="font-medium text-theme-primary">Tips</p>
-                    <p>
-                      Demoposterna sparas lokalt i din webbläsare. De påverkar inte riktiga analyser och kan tas bort när som helst.
-                    </p>
+                    <p className="font-medium text-theme-primary">{t("history.tip")}</p>
+                    <p>{t("history.tipText")}</p>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <Button
                       onClick={handleSeedDemo}
                       className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] sm:flex-1"
-                      aria-label="Fyll listan med demodata"
+                      aria-label={t("history.fillWithDemo")}
                     >
                       <Wand2 className="h-4 w-4" />
-                      Fyll med demodata
+                      {t("history.fillWithDemo")}
                     </Button>
                     <Button
                       variant="outline"
                       onClick={handleClearAll}
                       className="gap-2 rounded-full border-destructive/60 bg-theme-elevated text-destructive hover:bg-destructive/10 sm:flex-1"
-                      aria-label="Rensa historiken"
+                      aria-label={t("history.clearHistory")}
                     >
                       <Eraser className="h-4 w-4" />
-                      Rensa historiken
+                      {t("history.clearHistory")}
                     </Button>
                   </div>
                   {devStatus && <Banner type="info" text={devStatus} className="text-left" />}
@@ -393,14 +403,13 @@ const History = () => {
             <Button
               onClick={() => navigate("/scan")}
               className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
-              aria-label="Öppna kameran för ny skanning"
+              aria-label={t("history.newScan")}
             >
               <Camera className="h-4 w-4" />
-              Ny skanning
+              {t("history.newScan")}
             </Button>
           </div>
         </div>
-
 
         <HistorySummary
           total={entries.length}
@@ -419,28 +428,30 @@ const History = () => {
         ) : entries.length === 0 ? (
           <Card className="border border-dashed border-theme-card bg-theme-elevated text-center text-theme-primary shadow-xl backdrop-blur">
             <CardHeader className="space-y-2">
-              <CardTitle className="text-2xl text-theme-primary">Du har inga sparade viner ännu.</CardTitle>
+              <CardTitle className="text-2xl text-theme-primary">
+                {t("history.noSavedWines")}
+              </CardTitle>
               <CardDescription className="text-base text-theme-secondary">
-                Skanna en flaska och spara dina favoriter här.
+                {t("history.scanAndSave")}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4 pb-10">
               <Button
                 onClick={() => navigate("/scan")}
                 className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
-                aria-label="Starta din första skanning"
+                aria-label={t("history.scanWine")}
               >
                 <Camera className="h-4 w-4" />
-                Skanna vin
+                {t("history.scanWine")}
               </Button>
               <Button
                 variant="outline"
                 onClick={() => setDevDialogOpen(true)}
                 className="gap-2 rounded-full border-dashed border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-                aria-label="Visa testverktyg"
+                aria-label={t("history.showTestTools")}
               >
                 <Wand2 className="h-4 w-4" />
-                Visa testverktyg
+                {t("history.showTestTools")}
               </Button>
             </CardContent>
           </Card>
@@ -458,7 +469,6 @@ const History = () => {
             ))}
           </div>
         )}
-
       </div>
     </div>
   );
