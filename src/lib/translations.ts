@@ -8,6 +8,7 @@ export const translations = {
     "nav.forYou": "För dig",
     "nav.explore": "Utforska",
     "nav.scan": "Skanna",
+    "nav.history": "Historik",
     "nav.profile": "Profil",
 
     // Login
@@ -191,6 +192,7 @@ export const translations = {
     "nav.forYou": "For You",
     "nav.explore": "Explore",
     "nav.scan": "Scan",
+    "nav.history": "History",
     "nav.profile": "Profile",
 
     // Login

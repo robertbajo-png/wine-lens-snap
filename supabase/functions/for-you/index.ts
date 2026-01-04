@@ -425,24 +425,38 @@ const parseAiJson = (raw: string): ForYouResponse | null => {
   }
 };
 
+type RawCard = {
+  id?: unknown;
+  title?: unknown;
+  type?: unknown;
+  subtitle?: unknown;
+  items?: unknown;
+  cta?: unknown;
+};
+
+const isValidRawCard = (card: unknown): card is RawCard =>
+  card !== null && typeof card === "object";
+
 const sanitizeCards = (cards: unknown[]): ForYouCard[] =>
   cards
-    .filter((card) => card && (typeof card.title === "string" || typeof card.subtitle === "string"))
+    .filter((card): card is RawCard => isValidRawCard(card) && (typeof card.title === "string" || typeof card.subtitle === "string"))
     .map((card, index) => {
       const title = typeof card.title === "string" ? card.title.trim() : "Rekommendation";
       const type = typeof card.type === "string" ? card.type.trim() : "ai-suggestion";
       const subtitle = typeof card.subtitle === "string" ? card.subtitle.trim() : undefined;
-      const items = Array.isArray(card.items)
-        ? card.items
-          .map((item) => (typeof item === "string" ? item.trim() : ""))
-          .filter((item) => item.length > 0)
+      const rawItems = card.items;
+      const items = Array.isArray(rawItems)
+        ? rawItems
+          .map((item: unknown) => (typeof item === "string" ? item.trim() : ""))
+          .filter((item: string) => item.length > 0)
         : undefined;
+      const rawCta = card.cta;
       const cta =
-        card.cta && typeof card.cta === "object" && !Array.isArray(card.cta)
+        rawCta && typeof rawCta === "object" && !Array.isArray(rawCta)
           ? {
-            label: typeof card.cta.label === "string" ? card.cta.label.trim() : undefined,
-            href: typeof card.cta.href === "string" ? card.cta.href.trim() : undefined,
-            action: typeof card.cta.action === "string" ? card.cta.action.trim() : undefined,
+            label: typeof (rawCta as Record<string, unknown>).label === "string" ? ((rawCta as Record<string, unknown>).label as string).trim() : undefined,
+            href: typeof (rawCta as Record<string, unknown>).href === "string" ? ((rawCta as Record<string, unknown>).href as string).trim() : undefined,
+            action: typeof (rawCta as Record<string, unknown>).action === "string" ? ((rawCta as Record<string, unknown>).action as string).trim() : undefined,
           }
           : undefined;
 

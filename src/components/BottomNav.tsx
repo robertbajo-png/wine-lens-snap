@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, type ComponentType, type CSSProperties, type SVGProps } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { History } from "lucide-react";
 import { useAuth } from "@/auth/AuthProvider";
 import { cn } from "@/lib/utils";
 import {
@@ -14,17 +15,21 @@ import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { trackEvent } from "@/lib/telemetry";
 import { useTranslation } from "@/hooks/useTranslation";
 
+const HistoryIcon = (props: SVGProps<SVGSVGElement>) => <History {...props} />;
+
 const iconMap: Record<TabKey, ComponentType<SVGProps<SVGSVGElement>>> = {
   "for-you": ForYouIcon,
   explore: ExploreIcon,
   scan: ScanIcon,
+  history: HistoryIcon,
   profile: ProfileIcon,
 };
 
-const tabLabelKeys: Record<TabKey, "nav.forYou" | "nav.explore" | "nav.scan" | "nav.profile"> = {
+const tabLabelKeys: Record<TabKey, "nav.forYou" | "nav.explore" | "nav.scan" | "nav.history" | "nav.profile"> = {
   "for-you": "nav.forYou",
   explore: "nav.explore",
   scan: "nav.scan",
+  history: "nav.history",
   profile: "nav.profile",
 };
 
@@ -59,9 +64,9 @@ const BottomNav = () => {
       const targetPath = targetState?.lastPath ?? getDefaultTabPath(tab.key);
       const label = t(tabLabelKeys[tab.key]);
 
-      const isProfileTab = tab.key === "profile";
+      const requiresAuth = tab.key === "profile" || tab.key === "history";
 
-      if (isProfileTab && !user && !loading) {
+      if (requiresAuth && !user && !loading) {
         triggerHaptic();
         trackEvent("tab_select", {
           tab: tab.key,
