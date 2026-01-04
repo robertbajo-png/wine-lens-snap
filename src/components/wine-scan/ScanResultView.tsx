@@ -16,12 +16,7 @@ import { Label } from "@/components/ui/label";
 import { BookmarkPlus, Download, ImageUp, Loader2, Lock, RefreshCcw, Trash2 } from "lucide-react";
 import type { BadgeProps } from "@/components/ui/badge";
 import { computeLabelHash, type EvidenceItem, type WineAnalysisResult } from "@/lib/wineCache";
-import { ReactNode, Suspense, lazy, useEffect, useMemo, useState } from "react";
-import { FREE_SCAN_LIMIT_PER_DAY } from "@/lib/premiumAccess";
-import { BuySection } from "@/components/wine-scan/BuySection";
-import { getOffersByLabelHash, type WineOffer } from "@/services/marketplaceService";
-import { logEvent } from "@/lib/logger";
-import { isMarketplaceEnabled } from "@/lib/features";
+import { ReactNode, Suspense, lazy, useMemo } from "react";
 import { isPlayRC } from "@/lib/releaseChannel";
 
 const KeyFacts = lazy(() => import("@/components/result/KeyFacts"));
@@ -143,8 +138,6 @@ export const ScanResultView = ({
   freeScansRemaining,
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
-  const [offers, setOffers] = useState<WineOffer[]>([]);
-  const marketplaceEnabled = !isPlayRC && isMarketplaceEnabled();
   const premiumFeaturesEnabled = !isPlayRC;
   const showPremiumSections = premiumFeaturesEnabled && isPremium;
   const showPremiumPaywall = premiumFeaturesEnabled && !isPremium;
@@ -153,69 +146,6 @@ export const ScanResultView = ({
     () => computeLabelHash(ocrText ?? results.originaltext ?? results.vin ?? null),
     [ocrText, results.originaltext, results.vin],
   );
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const fetchOffers = async () => {
-      if (!marketplaceEnabled) {
-        setOffers([]);
-        return;
-      }
-
-      if (!labelHash) {
-        setOffers([]);
-        return;
-      }
-
-      try {
-        const fetchedOffers = await getOffersByLabelHash(labelHash);
-        if (!isCancelled) {
-          setOffers(fetchedOffers);
-        }
-      } catch (error) {
-        if (import.meta.env.DEV) {
-          console.warn("Kunde inte hämta marketplace-erbjudanden", error);
-        }
-        if (!isCancelled) {
-          setOffers([]);
-        }
-      }
-    };
-
-    void fetchOffers();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [labelHash, marketplaceEnabled]);
-
-  const visibleOffers = useMemo(
-    () => offers.filter((offer) => Boolean(offer.url)).slice(0, 3),
-    [offers],
-  );
-
-  const handleOfferClick = (offer: WineOffer) => {
-    if (!offer.url) return;
-
-    window.open(offer.url, "_blank", "noopener,noreferrer");
-    void logEvent("offer_clicked", {
-      labelHash,
-      merchant: offer.merchant,
-      url: offer.url,
-    });
-  };
-
-  useEffect(() => {
-    if (!marketplaceEnabled) return;
-    if (!labelHash) return;
-    if (visibleOffers.length === 0) return;
-
-    void logEvent("offer_section_shown", {
-      labelHash,
-      offersCount: visibleOffers.length,
-    });
-  }, [labelHash, marketplaceEnabled, visibleOffers.length]);
 
   return (
     <>
@@ -469,10 +399,6 @@ export const ScanResultView = ({
                 labelHash={labelHash}
                 isLoggedIn={isLoggedIn}
               />
-
-              {marketplaceEnabled && visibleOffers.length > 0 && (
-                <BuySection offers={visibleOffers} onOfferClick={handleOfferClick} />
-              )}
 
               <section className="rounded-2xl border border-border bg-card p-4">
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-3">

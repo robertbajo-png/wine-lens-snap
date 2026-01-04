@@ -24,5 +24,3 @@ export const getFeatureFlag = (flagName: string, defaultValue = false): boolean 
   const envValue = import.meta.env?.[flagName as keyof ImportMetaEnv] as unknown;
   return parseBoolean(envValue, defaultValue);
 };
-
-export const isMarketplaceEnabled = () => getFeatureFlag("VITE_FEATURE_MARKETPLACE", false);
