@@ -3,6 +3,7 @@ import { Navigate, Outlet, createBrowserRouter, useLocation } from "react-router
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/auth/AuthProvider";
+import { useTranslation } from "@/hooks/useTranslation";
 import BottomTabLayout from "@/layouts/BottomTabLayout";
 
 const ForYou = lazy(() => import("@/pages/ForYou"));
@@ -18,11 +19,14 @@ const DevEventsPage = lazy(() => import("@/pages/dev/Events"));
 const DevFeedbackPage = lazy(() => import("@/pages/dev/Feedback"));
 const WineDetail = lazy(() => import("@/pages/WineDetail"));
 
-const LoadingScreen = () => (
-  <div className="flex min-h-[50vh] items-center justify-center text-theme-secondary">
-    Laddar...
-  </div>
-);
+const LoadingScreen = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center text-theme-secondary">
+      {t("common.loading")}
+    </div>
+  );
+};
 
 const withSuspense = (node: JSX.Element) => (
   <Suspense fallback={<LoadingScreen />}>{node}</Suspense>
@@ -55,25 +59,26 @@ const GuardSkeleton = () => (
   </div>
 );
 
-const LoginPrompt = ({ to }: { to: string }) => (
-  <div className="mx-auto flex min-h-[50vh] max-w-xl flex-col items-center justify-center gap-4 px-4 text-center">
-    <div className="space-y-2">
-      <p className="text-sm uppercase tracking-[0.2em] text-theme-secondary">Begränsad sida</p>
-      <h1 className="text-2xl font-semibold text-theme-primary">Du behöver logga in</h1>
-      <p className="text-theme-secondary">
-        Logga in för att se din profil och historik. Vi sparar din destination så att du kommer rätt efteråt.
-      </p>
+const LoginPrompt = ({ to }: { to: string }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="mx-auto flex min-h-[50vh] max-w-xl flex-col items-center justify-center gap-4 px-4 text-center">
+      <div className="space-y-2">
+        <p className="text-sm uppercase tracking-[0.2em] text-theme-secondary">{t("router.restrictedPage")}</p>
+        <h1 className="text-2xl font-semibold text-theme-primary">{t("router.loginRequired")}</h1>
+        <p className="text-theme-secondary">{t("router.loginRequiredDesc")}</p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-3">
+        <Button asChild className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] px-6 text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]">
+          <a href={to}>{t("router.login")}</a>
+        </Button>
+        <Button asChild variant="ghost" className="rounded-full border border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80">
+          <a href="/scan">{t("router.continueToScan")}</a>
+        </Button>
+      </div>
     </div>
-    <div className="flex flex-wrap justify-center gap-3">
-      <Button asChild className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] px-6 text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]">
-        <a href={to}>Logga in</a>
-      </Button>
-      <Button asChild variant="ghost" className="rounded-full border border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80">
-        <a href="/scan">Fortsätt till skanning</a>
-      </Button>
-    </div>
-  </div>
-);
+  );
+};
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth();

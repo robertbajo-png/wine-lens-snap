@@ -181,6 +181,29 @@ export const translations = {
     "explore.searchPlaceholder": "Sök bland etiketter, producenter eller anteckningar",
 
 
+    // Router
+    "router.restrictedPage": "Begränsad sida",
+    "router.loginRequired": "Du behöver logga in",
+    "router.loginRequiredDesc": "Logga in för att se din profil och historik. Vi sparar din destination så att du kommer rätt efteråt.",
+    "router.login": "Logga in",
+    "router.continueToScan": "Fortsätt till skanning",
+
+    // Wine Lists
+    "wineLists.myLists": "Mina listor",
+    "wineLists.onlyShowNonEmpty": "Vi visar endast listor med sparade viner.",
+    "wineLists.emptyHint": "Inga sparade viner ännu. Lägg till favoriter från resultatsidan så dyker listorna upp här.",
+    "wineLists.couldNotLoad": "Kunde inte läsa dina listor",
+    "wineLists.wineRemoved": "Vinet togs bort",
+    "wineLists.listUpdated": "Listan uppdaterades.",
+    "wineLists.couldNotRemove": "Kunde inte ta bort vinet",
+    "wineLists.countSuffix": "st",
+    "wineLists.savedLabel": "Sparad etikett",
+    "wineLists.unknownWine": "Okänt vin",
+    "wineLists.missingProducer": "Producent saknas",
+    "wineLists.missingRegion": "Region saknas",
+    "wineLists.removeFromList": "Ta bort vin ur listan",
+    "wineLists.hiddenCount": "+{count} fler visas när du öppnar listan i historiken.",
+
     // Common
     "common.goBack": "Gå tillbaka",
     "common.loading": "Laddar...",
@@ -364,6 +387,28 @@ export const translations = {
     "explore.searchLabel": "Search the wine archive",
     "explore.searchPlaceholder": "Search labels, producers or notes",
 
+    // Router
+    "router.restrictedPage": "Restricted page",
+    "router.loginRequired": "You need to sign in",
+    "router.loginRequiredDesc": "Sign in to view your profile and history. We'll save your destination so you end up in the right place.",
+    "router.login": "Sign in",
+    "router.continueToScan": "Continue to scan",
+
+    // Wine Lists
+    "wineLists.myLists": "My lists",
+    "wineLists.onlyShowNonEmpty": "Only lists with saved wines are shown.",
+    "wineLists.emptyHint": "No saved wines yet. Add favorites from the result page and lists will appear here.",
+    "wineLists.couldNotLoad": "Could not load your lists",
+    "wineLists.wineRemoved": "Wine removed",
+    "wineLists.listUpdated": "List was updated.",
+    "wineLists.couldNotRemove": "Could not remove wine",
+    "wineLists.countSuffix": "pcs",
+    "wineLists.savedLabel": "Saved label",
+    "wineLists.unknownWine": "Unknown wine",
+    "wineLists.missingProducer": "Producer missing",
+    "wineLists.missingRegion": "Region missing",
+    "wineLists.removeFromList": "Remove wine from list",
+    "wineLists.hiddenCount": "+{count} more shown when you open the list in history.",
 
     // Common
     "common.goBack": "Go back",
