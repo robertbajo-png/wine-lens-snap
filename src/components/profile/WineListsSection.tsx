@@ -6,7 +6,6 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { fetchWineListsWithItems, removeScanFromList, type WineListDetail } from "@/services/wineLists";
 import { Loader2, RefreshCw, Trash2 } from "lucide-react";
-import { PremiumBadge } from "@/components/PremiumBadge";
 
 const formatRelativeTime = (iso: string) => {
   const date = new Date(iso);
@@ -118,7 +117,6 @@ export const WineListsSection = () => {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle className="text-theme-primary">Mina listor</CardTitle>
-            {/* PremiumBadge temporarily hidden for RC */}
           </div>
           <CardDescription className="text-theme-secondary">
             Vi visar endast listor med sparade viner.

@@ -9,15 +9,13 @@ import { ScanStatusBanner } from "@/components/wine-scan/ScanStatusBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { PremiumBadge } from "@/components/PremiumBadge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookmarkPlus, Download, ImageUp, Loader2, Lock, RefreshCcw, Trash2 } from "lucide-react";
+import { BookmarkPlus, Download, ImageUp, Loader2, RefreshCcw, Trash2 } from "lucide-react";
 import type { BadgeProps } from "@/components/ui/badge";
 import { computeLabelHash, type EvidenceItem, type WineAnalysisResult } from "@/lib/wineCache";
 import { ReactNode, Suspense, lazy, useMemo } from "react";
-import { isPlayRC } from "@/lib/releaseChannel";
 
 const KeyFacts = lazy(() => import("@/components/result/KeyFacts"));
 const EvidenceAccordion = lazy(() => import("@/components/result/EvidenceAccordion"));
@@ -79,9 +77,6 @@ interface ScanResultViewProps {
   ocrText?: string | null;
   evidenceLinks?: EvidenceItem[] | null;
   detectedLanguage?: string;
-  isPremium: boolean;
-  onUpgrade: () => void;
-  freeScansRemaining: number;
 }
 
 export const ScanResultView = ({
@@ -133,14 +128,8 @@ export const ScanResultView = ({
   ocrText,
   evidenceLinks,
   detectedLanguage,
-  isPremium,
-  onUpgrade,
-  freeScansRemaining,
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
-  const premiumFeaturesEnabled = !isPlayRC;
-  const showPremiumSections = premiumFeaturesEnabled && isPremium;
-  const showPremiumPaywall = premiumFeaturesEnabled && !isPremium;
 
   const labelHash = useMemo(
     () => computeLabelHash(ocrText ?? results.originaltext ?? results.vin ?? null),
@@ -299,8 +288,6 @@ export const ScanResultView = ({
 
           {banner}
 
-          {/* Premium promo card temporarily hidden for RC */}
-
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <Badge variant={statusTone}>{statusLabel}</Badge>
             <div className="flex flex-wrap gap-2">
@@ -404,7 +391,6 @@ export const ScanResultView = ({
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Smakprofil</h3>
-                    {/* PremiumBadge temporarily hidden for RC */}
                   </div>
                   <div className="flex flex-col items-end gap-1 text-right">
                     <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -442,53 +428,25 @@ export const ScanResultView = ({
                 <ClampTextCard title="Smak" text={results.smak} />
               </div>
 
-              {showPremiumSections ? (
-                <>
-                  <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
-                    <Pairings items={pairings} />
-                  </Suspense>
+              <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
+                <Pairings items={pairings} />
+              </Suspense>
 
-                  <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
-                    <ServingCard servering={results.servering} />
-                  </Suspense>
+              <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
+                <ServingCard servering={results.servering} />
+              </Suspense>
 
-                  <Suspense fallback={<LazySectionFallback className="min-h-[160px]" />}>
-                    <EvidenceAccordion
-                      ocr={ocrText}
-                      hits={evidenceLinks}
-                      primary={results.källa}
-                    />
-                  </Suspense>
-                </>
-              ) : null}
+              <Suspense fallback={<LazySectionFallback className="min-h-[160px]" />}>
+                <EvidenceAccordion
+                  ocr={ocrText}
+                  hits={evidenceLinks}
+                  primary={results.källa}
+                />
+              </Suspense>
 
-              {showPremiumPaywall ? (
-                <Card className="border-theme-card/70 bg-theme-elevated/70">
-                  <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-start gap-3 text-sm text-theme-secondary">
-                      <Lock className="mt-1 h-4 w-4 text-theme-primary" aria-hidden="true" />
-                      <div className="space-y-1">
-                        <p className="font-semibold text-theme-primary">Djupare analys är låst</p>
-                        <p>
-                          Matrekommendationer, serveringstips och källor ingår i premium. Uppgradera för att se
-                          helheten.
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="rounded-full border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
-                      onClick={onUpgrade}
-                    >
-                      Lås upp Premium
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : null}
-
-            {detectedLanguage && (
-              <p className="text-xs text-theme-secondary opacity-80">Upptäckt språk: {detectedLanguage.toUpperCase()}</p>
-            )}
+              {detectedLanguage && (
+                <p className="text-xs text-theme-secondary opacity-80">Upptäckt språk: {detectedLanguage.toUpperCase()}</p>
+              )}
 
               <p className="text-xs text-theme-secondary opacity-80">
                 Spara profilen för att lägga till den i dina viner. Osparade skanningar rensas när du lämnar sidan.
