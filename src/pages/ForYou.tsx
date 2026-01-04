@@ -55,18 +55,31 @@ const ForYou = () => {
       if (!shouldFetch && cached) {
         setCards(cached.cards);
         setCardsUpdatedAt(cached.updatedAt);
+        void logEvent(force ? "for_you_refreshed" : "for_you_loaded", {
+          source: "cache",
+          card_count: cached.cards.length,
+        });
         return;
       }
 
       setLoadingCards(true);
       try {
         const result = await getForYouCards(userId, { forceRefresh: true });
-        if (result.cards.length > 0 || !cached) {
-          setCards(result.cards);
-        } else if (cached) {
-          setCards(cached.cards);
-        }
-        setCardsUpdatedAt(result.updatedAt ?? cached?.updatedAt ?? null);
+        const resolvedCards = result.cards.length > 0 || !cached ? result.cards : cached.cards ?? [];
+        const resolvedUpdatedAt = result.updatedAt ?? cached?.updatedAt ?? null;
+
+        setCards(resolvedCards);
+        setCardsUpdatedAt(resolvedUpdatedAt);
+
+        void logEvent(force ? "for_you_refreshed" : "for_you_loaded", {
+          source: result.source,
+          card_count: resolvedCards.length,
+        });
+      } catch (error) {
+        void logEvent("for_you_error", {
+          location: "cards_fetch",
+          message: error instanceof Error ? error.message : "unknown_error",
+        });
       } finally {
         setLoadingCards(false);
       }
@@ -189,11 +202,12 @@ const ForYou = () => {
       setScenarioNotes([]);
       setScenarioGeneratedAt(null);
 
-      void logEvent("for_you_scenario_selected", { mode });
+      void logEvent("scenario_clicked", { mode });
 
       if (!user?.id) {
         setScenarioLoading(false);
         setScenarioError(t("forYou.scenario.loginRequired"));
+        void logEvent("scenario_fail", { mode, reason: "unauthenticated" });
         return;
       }
 
@@ -202,10 +216,14 @@ const ForYou = () => {
         setScenarioCards(result.cards);
         setScenarioGeneratedAt(result.generatedAt);
         setScenarioNotes(result.notes);
-        void logEvent("for_you_scenario_loaded", { mode, cards: result.cards.length });
+        void logEvent("scenario_success", { mode, card_count: result.cards.length });
       } catch (error) {
         console.error("Failed to fetch scenario cards", error);
         setScenarioError(t("forYou.scenario.error"));
+        void logEvent("scenario_fail", {
+          mode,
+          reason: error instanceof Error ? error.message : "unknown_error",
+        });
       } finally {
         setScenarioLoading(false);
       }
