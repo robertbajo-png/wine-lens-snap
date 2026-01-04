@@ -28,6 +28,7 @@ const createProfile = (overrides: Partial<TasteProfile>): TasteProfile => ({
   avgSweetness: null,
   avgAcidity: null,
   avgTannin: null,
+  totalScans: 5,
   ...overrides,
 });
 
@@ -120,6 +121,32 @@ describe("getForYouRecommendations", () => {
         title: "Syrah i din stil",
         subtitle: "Syrah syns ofta i dina analyser.",
         items: ["Stil: Syrah"],
+      },
+    ]);
+  });
+
+  it("returns onboarding cards when fewer than 3 scans", async () => {
+    supabaseMock.invoke.mockResolvedValue({ data: null, error: new Error("oops") });
+    mockGetTasteProfileForUser.mockResolvedValue(
+      createProfile({
+        totalScans: 2,
+      }),
+    );
+
+    const cards = await getForYouRecommendations("user-6");
+
+    expect(cards).toEqual([
+      {
+        id: "onboarding-0",
+        type: "onboarding",
+        title: "Skanna 3 viner för personliga förslag",
+        subtitle: "Vi behöver några skanningar för att bygga din smakprofil.",
+      },
+      {
+        id: "onboarding-1",
+        type: "onboarding",
+        title: "Tips: fota hela etiketten",
+        subtitle: "Det hjälper AI:n att förstå stil, druvor och producent.",
       },
     ]);
   });

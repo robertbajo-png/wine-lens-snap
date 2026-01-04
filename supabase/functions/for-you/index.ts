@@ -344,6 +344,7 @@ const buildTasteProfile = (scans: ScanRow[]): TasteProfile => {
 const fetchRecentScans = async (userId: string, limit = 50): Promise<ScanRow[]> => {
   const resolvedLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 200) : 50;
 
+  // Recommendations are derived only from user's wine_scans
   const { data, error } = await supabaseAdmin
     .from("scans")
     .select("id,created_at,analysis_json,raw_ocr,vintage")
