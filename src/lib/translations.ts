@@ -186,8 +186,8 @@ export const translations = {
 
     // Explore
     "explore.badge": "Utforska",
-    "explore.title": "Dina viner",
-    "explore.subtitle": "Baserat på dina skanningar och analyser. Mer precision när du skannar fler viner.",
+    "explore.title": "Din samling",
+    "explore.subtitle": "Dina skanningar. Din samling.",
     "explore.searchLabel": "Sök i vinarkivet",
     "explore.searchPlaceholder": "Sök bland etiketter, producenter eller anteckningar",
 
@@ -390,8 +390,8 @@ export const translations = {
 
     // Explore
     "explore.badge": "Explore",
-    "explore.title": "Your wines",
-    "explore.subtitle": "Based on your scans and analyses. More precision as you scan more wines.",
+    "explore.title": "Your collection",
+    "explore.subtitle": "Your scans. Your collection.",
     "explore.searchLabel": "Search the wine archive",
     "explore.searchPlaceholder": "Search labels, producers or notes",
 
