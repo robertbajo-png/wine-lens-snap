@@ -73,6 +73,21 @@ const hasTasteProfileData = (tasteProfile: TasteProfile): boolean =>
     (value) => typeof value === "number",
   );
 
+const buildOnboardingCards = (): ForYouCard[] => [
+  {
+    id: "onboarding-0",
+    type: "onboarding",
+    title: "Skanna 3 viner för personliga förslag",
+    subtitle: "Vi behöver några skanningar för att bygga din smakprofil.",
+  },
+  {
+    id: "onboarding-1",
+    type: "onboarding",
+    title: "Tips: fota hela etiketten",
+    subtitle: "Det hjälper AI:n att förstå stil, druvor och producent.",
+  },
+];
+
 const fetchServerCards = async (): Promise<ForYouCard[]> => {
   try {
     const { data, error } = await supabase.functions.invoke("for-you");
@@ -160,10 +175,16 @@ export const getForYouRecommendations = async (userId: string): Promise<ForYouCa
     }
 
     const tasteProfile = await getTasteProfileForUser(userId, 80);
+
+    if (tasteProfile.totalScans < 3) {
+      return buildOnboardingCards();
+    }
+
     if (!hasTasteProfileData(tasteProfile)) {
       return [];
     }
 
+    // Recommendations are derived only from user's wine_scans
     return buildFallbackSuggestions(tasteProfile);
   } catch (error) {
     console.error("Failed to build ForYou AI cards", error);

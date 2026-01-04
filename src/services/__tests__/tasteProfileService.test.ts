@@ -69,6 +69,7 @@ describe("buildTasteProfile", () => {
     expect(profile.avgSweetness).toBeNull();
     expect(profile.avgAcidity).toBeNull();
     expect(profile.avgTannin).toBeNull();
+    expect(profile.totalScans).toBe(3);
   });
 
   it("returnerar tom profil när analys saknas", () => {
@@ -87,6 +88,7 @@ describe("buildTasteProfile", () => {
       avgSweetness: null,
       avgAcidity: null,
       avgTannin: null,
+      totalScans: 2,
     });
   });
 
@@ -120,6 +122,7 @@ describe("buildTasteProfile", () => {
     expect(profile.avgSweetness).toBeCloseTo(2.75, 2);
     expect(profile.avgAcidity).toBeCloseTo(2.75, 2);
     expect(profile.avgTannin).toBeCloseTo(2.5, 2);
+    expect(profile.totalScans).toBe(2);
   });
 
   it("parar JSON-strängar och läser ut värden defensivt", () => {
@@ -145,6 +148,7 @@ describe("buildTasteProfile", () => {
     ]);
     expect(profile.topStyles).toEqual([{ value: "Rött", count: 1 }]);
     expect(profile.avgSweetness).toBeCloseTo(2.5, 2);
+    expect(profile.totalScans).toBe(2);
   });
 });
 
@@ -181,6 +185,7 @@ describe("getTasteProfileForUser", () => {
     expect(profile.avgSweetness).toBeNull();
     expect(profile.avgAcidity).toBeNull();
     expect(profile.avgTannin).toBeNull();
+    expect(profile.totalScans).toBe(1);
 
     expect(supabaseMocks.fromMock).toHaveBeenCalledWith("scans");
     expect(supabaseMocks.selectMock).toHaveBeenCalledWith(
@@ -202,6 +207,7 @@ describe("getTasteProfileForUser", () => {
       avgSweetness: null,
       avgAcidity: null,
       avgTannin: null,
+      totalScans: 0,
     });
     expect(supabaseMocks.fromMock).not.toHaveBeenCalled();
   });

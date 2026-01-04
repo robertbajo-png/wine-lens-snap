@@ -16,6 +16,7 @@ export type TasteProfile = {
   avgSweetness: number | null;
   avgAcidity: number | null;
   avgTannin: number | null;
+  totalScans: number;
 };
 
 export type WineScan = Omit<Tables<"scans">, "analysis_json"> & {
@@ -170,6 +171,7 @@ const EMPTY_TASTE_PROFILE: TasteProfile = {
   avgSweetness: null,
   avgAcidity: null,
   avgTannin: null,
+  totalScans: 0,
 };
 
 export const buildTasteProfile = (scans: WineScan[]): TasteProfile => {
@@ -225,6 +227,7 @@ export const buildTasteProfile = (scans: WineScan[]): TasteProfile => {
     avgSweetness: computeAverage(sweetnessSum, sweetnessCount),
     avgAcidity: computeAverage(aciditySum, acidityCount),
     avgTannin: computeAverage(tanninSum, tanninCount),
+    totalScans: scans.length,
   };
 };
 
