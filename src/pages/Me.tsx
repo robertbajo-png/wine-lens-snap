@@ -9,7 +9,6 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -28,28 +27,21 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
-import { trackEvent } from "@/lib/telemetry";
 import { WineListsSection } from "@/components/profile/WineListsSection";
 import { useTheme } from "@/ui/ThemeProvider";
 import type { ThemePreference } from "@/ui/theme";
-import { Camera, Globe, Laptop, Loader2, LogOut, Moon, PenLine, Sparkles, SunMedium, UploadCloud } from "lucide-react";
-import { useIsPremium } from "@/hooks/useUserSettings";
-import { createPremiumCheckoutSession } from "@/services/premiumCheckout";
+import { Camera, Globe, Laptop, Loader2, LogOut, Moon, PenLine, SunMedium, UploadCloud } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useSettings } from "@/settings/SettingsContext";
-import { isPlayRC } from "@/lib/releaseChannel";
 
 const Me = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, signOut } = useAuth();
   const { themePreference, setThemePreference } = useTheme();
-  const { isPremium, premiumSince, isLoading: isPremiumLoading } = useIsPremium();
-  const premiumFeaturesEnabled = !isPlayRC;
   const [profile, setProfile] = useState<{ displayName: string | null; avatarUrl: string | null } | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isStartingPremium, setIsStartingPremium] = useState(false);
   const [formDisplayName, setFormDisplayName] = useState("");
   const [formNameError, setFormNameError] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -59,7 +51,7 @@ const Me = () => {
   const [langSaving, setLangSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const avatarObjectUrlRef = useRef<string | null>(null);
-  const { t, locale, dateLocale } = useTranslation();
+  const { t } = useTranslation();
   const { lang, setLang } = useSettings();
 
   const email = user?.email ?? (typeof user?.user_metadata?.email === "string" ? user.user_metadata.email : null);
@@ -122,17 +114,6 @@ const Me = () => {
     () => getInitials((formDisplayName && formDisplayName.trim().length > 0 ? formDisplayName : displayName) ?? ""),
     [displayName, formDisplayName, getInitials],
   );
-  const premiumDescription = useMemo(() => {
-    if (isPremium) {
-      if (premiumSince) {
-        return t("me.premiumSince", { date: premiumSince.toLocaleDateString(dateLocale) });
-      }
-
-      return t("me.premiumActive");
-    }
-
-    return t("me.freeDescription");
-  }, [dateLocale, isPremium, premiumSince, t]);
   const themeOptions = useMemo(
     () => [
       {
@@ -366,44 +347,6 @@ const Me = () => {
     [lang, langSaving, setLang, t, toast],
   );
 
-  const handlePremiumCtaClick = useCallback(async () => {
-    if (!premiumFeaturesEnabled) {
-      return;
-    }
-
-    trackEvent("premium_cta_clicked", { source: "profile" });
-
-    if (!user) {
-      navigate("/login?redirectTo=/me");
-      return;
-    }
-
-    setIsStartingPremium(true);
-    try {
-      const origin = window.location.origin;
-      const checkoutUrl = `${origin}/premium/checkout/session`;
-      const cancelUrl = `${origin}/me?premium_cancelled=1`;
-      const successUrl = `${origin}/me?premium=1`;
-
-      const session = await createPremiumCheckoutSession(checkoutUrl, {
-        cancelUrl,
-        successUrl,
-      });
-
-      window.location.href = session.redirectUrl;
-    } catch (error) {
-      console.error("Failed to start premium checkout", error);
-      trackEvent("premium_checkout_failed", { source: "profile", message: (error as Error)?.message });
-      toast({
-        title: t("me.couldNotStartPayment"),
-        description: t("me.tryAgainSoon"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsStartingPremium(false);
-    }
-  }, [navigate, premiumFeaturesEnabled, t, toast, user]);
-
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -546,22 +489,10 @@ const Me = () => {
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold text-theme-primary">{displayName}</h1>
             {email ? <p className="text-sm text-theme-secondary">{email}</p> : null}
-            {/* Premium status temporarily hidden for RC */}
           </div>
         </div>
         <div className="flex flex-col items-stretch gap-3 sm:items-end">
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            {premiumFeaturesEnabled && !isPremium ? (
-              <Button
-                className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
-                onClick={handlePremiumCtaClick}
-                aria-label={t("me.becomePremium")}
-                disabled={isPremiumLoading || isStartingPremium}
-              >
-                {isStartingPremium ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {isStartingPremium ? t("me.starting") : t("me.becomePremium")}
-              </Button>
-            ) : null}
             <Button
               className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
               onClick={() => navigate("/scan")}

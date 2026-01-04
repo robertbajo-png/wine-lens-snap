@@ -16,7 +16,6 @@ const NotFound = lazy(() => import("@/pages/NotFound"));
 const Login = lazy(() => import("@/pages/Login"));
 const LoginCallback = lazy(() => import("@/pages/LoginCallback"));
 const Me = lazy(() => import("@/pages/Me"));
-const PremiumCheckoutSession = lazy(() => import("@/pages/PremiumCheckoutSession"));
 const DevEventsPage = lazy(() => import("@/pages/dev/Events"));
 const DevFeedbackPage = lazy(() => import("@/pages/dev/Feedback"));
 const WineDetail = lazy(() => import("@/pages/WineDetail"));
@@ -123,7 +122,6 @@ const StartRedirect = () => {
 };
 
 const followingRoutes = isPlayRC ? [] : [{ path: "following", element: withSuspense(<Following />) }];
-const premiumRoutes = isPlayRC ? [] : [{ path: "premium/checkout/session", element: withSuspense(<PremiumCheckoutSession />) }];
 
 export const router = createBrowserRouter([
   {
@@ -141,7 +139,6 @@ export const router = createBrowserRouter([
         children: [
           { path: "me", element: withSuspense(<Me />) },
           { path: "me/wines", element: withSuspense(<History />) },
-          ...premiumRoutes,
         ],
       },
     ],
