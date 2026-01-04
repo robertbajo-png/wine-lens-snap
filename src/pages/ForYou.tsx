@@ -2,12 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Camera, ArrowRight } from "lucide-react";
+import { Sparkles, Camera, ArrowRight, RefreshCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/auth/AuthProvider";
 import { logEvent } from "@/lib/logger";
-import { getForYouRecommendations, type ForYouCard } from "@/services/forYouAIService";
+import {
+  getCachedForYouCards,
+  getForYouCards,
+  isForYouCacheStale,
+  type ForYouCard,
+} from "@/services/forYouAIService";
 import { getSavedAnalyses, WINE_CACHE_UPDATED_EVENT, type CachedWineAnalysisEntry } from "@/lib/wineCache";
 
 const formatDate = (iso: string) => {
@@ -21,25 +26,57 @@ const formatDate = (iso: string) => {
 
 const ForYou = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { user } = useAuth();
   const [history, setHistory] = useState<CachedWineAnalysisEntry[]>([]);
   const [cards, setCards] = useState<ForYouCard[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
+  const [cardsUpdatedAt, setCardsUpdatedAt] = useState<string | null>(null);
   const hasLoggedOpen = useRef(false);
+
+  const refreshCards = useCallback(
+    async ({ force = false }: { force?: boolean } = {}) => {
+      const userId = user?.id;
+      if (!userId) return;
+
+      const cached = getCachedForYouCards(userId);
+      const shouldFetch = force || !cached || isForYouCacheStale(cached);
+
+      if (!shouldFetch && cached) {
+        setCards(cached.cards);
+        setCardsUpdatedAt(cached.updatedAt);
+        return;
+      }
+
+      setLoadingCards(true);
+      try {
+        const result = await getForYouCards(userId, { forceRefresh: true });
+        if (result.cards.length > 0 || !cached) {
+          setCards(result.cards);
+        } else if (cached) {
+          setCards(cached.cards);
+        }
+        setCardsUpdatedAt(result.updatedAt ?? cached?.updatedAt ?? null);
+      } finally {
+        setLoadingCards(false);
+      }
+    },
+    [user?.id],
+  );
 
   useEffect(() => {
     setHistory(getSavedAnalyses());
 
     const handleUpdate = () => {
       setHistory(getSavedAnalyses());
+      void refreshCards({ force: true });
     };
 
     window.addEventListener(WINE_CACHE_UPDATED_EVENT, handleUpdate);
     return () => {
       window.removeEventListener(WINE_CACHE_UPDATED_EVENT, handleUpdate);
     };
-  }, []);
+  }, [refreshCards]);
 
   useEffect(() => {
     if (hasLoggedOpen.current) return;
@@ -50,29 +87,48 @@ const ForYou = () => {
 
   useEffect(() => {
     let ignore = false;
-    const fetchCards = async () => {
-      setLoadingCards(true);
-      try {
-        const nextCards = await getForYouRecommendations(user?.id ?? "");
-        if (!ignore) {
-          setCards(nextCards);
-        }
-      } finally {
-        if (!ignore) {
-          setLoadingCards(false);
-        }
+    const hydrateCache = () => {
+      if (!user?.id || ignore) return;
+      const cached = getCachedForYouCards(user.id);
+      if (cached) {
+        setCards(cached.cards);
+        setCardsUpdatedAt(cached.updatedAt);
       }
     };
 
-    void fetchCards();
+    const refreshFromSource = async () => {
+      if (!user?.id || ignore) {
+        setCards([]);
+        setCardsUpdatedAt(null);
+        return;
+      }
+
+      const cached = getCachedForYouCards(user.id);
+      const shouldForceRefresh = !cached || isForYouCacheStale(cached);
+
+      await refreshCards({ force: shouldForceRefresh });
+    };
+
+    hydrateCache();
+    void refreshFromSource();
+
     return () => {
       ignore = true;
     };
-  }, [user?.id]);
+  }, [refreshCards, user?.id]);
 
   const handleCardClick = useCallback((card: ForYouCard) => {
     void logEvent("for_you_card_clicked", { cardId: card.id, type: card.type });
   }, []);
+
+  const formattedCardsUpdatedAt = useMemo(() => {
+    if (!cardsUpdatedAt) return null;
+    const parsed = new Date(cardsUpdatedAt);
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    const localeCode = locale === "sv" ? "sv-SE" : "en-US";
+    return parsed.toLocaleString(localeCode, { dateStyle: "medium", timeStyle: "short" });
+  }, [cardsUpdatedAt, locale]);
 
   const recentEntries = useMemo(() => history.slice(0, 4), [history]);
 
@@ -184,14 +240,32 @@ const ForYou = () => {
           </section>
 
           <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-[hsl(var(--color-surface-alt)/0.8)] p-6 shadow-theme-card backdrop-blur">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-theme-secondary/70">{t("forYou.suggestions")}</p>
                 <h2 className="text-2xl font-semibold text-theme-primary">{t("forYou.suggestionsTitle")}</h2>
+                {formattedCardsUpdatedAt ? (
+                  <p className="text-xs text-theme-secondary/70">
+                    {t("forYou.lastUpdated", { timestamp: formattedCardsUpdatedAt })}
+                  </p>
+                ) : null}
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 rounded-full px-3 py-2 text-theme-primary hover:bg-[hsl(var(--color-surface)/0.6)]"
+                onClick={() => void refreshCards({ force: true })}
+                disabled={loadingCards}
+              >
+                <RefreshCcw
+                  className={`h-4 w-4 ${loadingCards ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+                {loadingCards ? t("forYou.refreshing") : t("forYou.refresh")}
+              </Button>
             </div>
 
-            {loadingCards ? (
+            {cards.length === 0 && loadingCards ? (
               <div className="rounded-2xl border border-theme-card bg-theme-elevated/70 p-6 text-sm text-theme-secondary">
                 {t("common.loading")}
               </div>
@@ -221,6 +295,9 @@ const ForYou = () => {
                     </div>
                   </div>
                 ))}
+                {loadingCards ? (
+                  <p className="text-xs text-theme-secondary/70">{t("forYou.refreshing")}</p>
+                ) : null}
               </div>
             ) : (
               <Banner
