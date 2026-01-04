@@ -7,6 +7,16 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const GOOGLE_API_KEY = Deno.env.get("GOOGLE_API_KEY");
 
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+const FOR_YOU_EVENT_TYPE = "for_you_generation";
+const SCENARIO_EVENT_TYPE = "for_you_scenario";
+
+// Rate limits
+const FOR_YOU_WINDOW_MS = 12 * 60 * 60 * 1000; // 12h to stay within 6–12h target
+const SCENARIO_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h window for daily caps
+const SCENARIO_DAILY_LIMIT = 20;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
@@ -61,6 +71,23 @@ const respondJson = (payload: Record<string, unknown>, status = 200) =>
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+
+const buildRateLimitResponse = (kind: "for-you" | "scenario") =>
+  kind === "for-you"
+    ? respondJson(
+      {
+        error: "rate_limit",
+        message: "För dig kan uppdateras högst en gång var 12:e timme. Försök igen senare.",
+      },
+      429,
+    )
+    : respondJson(
+      {
+        error: "rate_limit",
+        message: "Du har nått gränsen 20 scenariokort per dag. Försök igen imorgon.",
+      },
+      429,
+    );
 
 const getUserFromRequest = async (req: Request) => {
   const authHeader = req.headers.get("authorization");
@@ -197,6 +224,43 @@ const sortEntries = (counter: Map<string, TasteProfileEntry>): TasteProfileEntry
     return b.count - a.count;
   });
 
+const countEventsSince = async (userId: string, eventType: string, since: Date) => {
+  const { count, error } = await supabaseAdmin
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("event_type", eventType)
+    .gte("created_at", since.toISOString());
+
+  if (error) {
+    console.error("[for-you] Failed to count events", error.message);
+    throw new Error("event_count_failed");
+  }
+
+  return count ?? 0;
+};
+
+const recordEvent = async (userId: string, eventType: string, payload: Record<string, unknown> = {}) => {
+  const { error } = await supabaseAdmin.from("events").insert({
+    user_id: userId,
+    event_type: eventType,
+    payload,
+  });
+
+  if (error) {
+    console.error("[for-you] Failed to record event", error.message);
+    throw new Error("event_record_failed");
+  }
+};
+
+const safelyRecordEvent = async (userId: string, eventType: string, payload: Record<string, unknown> = {}) => {
+  try {
+    await recordEvent(userId, eventType, payload);
+  } catch (error) {
+    console.error("[for-you] Failed to log event", error);
+  }
+};
+
 const computeAverage = (sum: number, count: number): number | null =>
   count > 0 ? Math.round((sum / count) * 100) / 100 : null;
 
@@ -278,10 +342,9 @@ const buildTasteProfile = (scans: ScanRow[]): TasteProfile => {
 };
 
 const fetchRecentScans = async (userId: string, limit = 50): Promise<ScanRow[]> => {
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const resolvedLimit = Number.isFinite(limit) && limit > 0 ? Math.min(Math.floor(limit), 200) : 50;
 
-  const { data, error } = await admin
+  const { data, error } = await supabaseAdmin
     .from("scans")
     .select("id,created_at,analysis_json,raw_ocr,vintage")
     .eq("user_id", userId)
@@ -502,6 +565,24 @@ const SCENARIO_LABELS: Record<ScenarioMode, { label: string; summary: string }> 
     label: "Liknar",
     summary: "Viner som liknar din senaste historik och favoritstilar.",
   },
+};
+
+const enforceRateLimits = async (userId: string, scenarioMode: ScenarioMode | null) => {
+  if (scenarioMode) {
+    const since = new Date(Date.now() - SCENARIO_WINDOW_MS);
+    const count = await countEventsSince(userId, SCENARIO_EVENT_TYPE, since);
+    if (count >= SCENARIO_DAILY_LIMIT) {
+      return buildRateLimitResponse("scenario");
+    }
+    return null;
+  }
+
+  const since = new Date(Date.now() - FOR_YOU_WINDOW_MS);
+  const count = await countEventsSince(userId, FOR_YOU_EVENT_TYPE, since);
+  if (count >= 1) {
+    return buildRateLimitResponse("for-you");
+  }
+  return null;
 };
 
 const buildScenarioPrompt = (mode: ScenarioMode, profile: TasteProfile) => {
@@ -797,9 +878,19 @@ serve(async (req) => {
       return respondJson({ error: "auth_required" }, 401);
     }
 
+    const rateLimitResponse = await enforceRateLimits(user.id, scenarioMode);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
     const scans = await fetchRecentScans(user.id, 50);
     if (!Array.isArray(scans) || scans.length < 3) {
-      return respondJson(buildOnboardingCards());
+      const onboarding = buildOnboardingCards();
+      await safelyRecordEvent(user.id, scenarioMode ? SCENARIO_EVENT_TYPE : FOR_YOU_EVENT_TYPE, {
+        reason: "onboarding",
+        scenario: scenarioMode,
+      });
+      return respondJson(onboarding);
     }
 
     const tasteProfile = buildTasteProfile(scans);
@@ -807,19 +898,39 @@ serve(async (req) => {
     if (scenarioMode) {
       const scenarioResponse = await generateScenarioCards(scenarioMode, tasteProfile);
       if (scenarioResponse) {
+        await safelyRecordEvent(user.id, SCENARIO_EVENT_TYPE, {
+          scenario: scenarioMode,
+          source: "ai",
+          total_scans: tasteProfile.totalScans,
+        });
         return respondJson(scenarioResponse);
       }
 
-      return respondJson(buildScenarioFallback(scenarioMode, tasteProfile));
+      const fallbackScenario = buildScenarioFallback(scenarioMode, tasteProfile);
+      await safelyRecordEvent(user.id, SCENARIO_EVENT_TYPE, {
+        scenario: scenarioMode,
+        source: "fallback",
+        total_scans: tasteProfile.totalScans,
+      });
+      return respondJson(fallbackScenario);
     }
 
     const aiResponse = await generateAiCards(tasteProfile);
     if (aiResponse) {
+      await safelyRecordEvent(user.id, FOR_YOU_EVENT_TYPE, {
+        source: "ai",
+        total_scans: tasteProfile.totalScans,
+      });
       return respondJson(aiResponse);
     }
 
     // Fallback without crashing the endpoint
-    return respondJson(buildFallbackFromProfile(tasteProfile));
+    const fallbackResponse = buildFallbackFromProfile(tasteProfile);
+    await safelyRecordEvent(user.id, FOR_YOU_EVENT_TYPE, {
+      source: "fallback",
+      total_scans: tasteProfile.totalScans,
+    });
+    return respondJson(fallbackResponse);
   } catch (error) {
     console.error("[for-you] Unexpected error", error);
     return respondJson({ error: "server_error", message: error instanceof Error ? error.message : "Unknown error" }, 500);
