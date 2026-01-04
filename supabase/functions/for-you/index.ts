@@ -54,6 +54,8 @@ type ScanRow = {
   vintage?: number | null;
 };
 
+type ScenarioMode = "tonight" | "food" | "similar";
+
 const respondJson = (payload: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(payload), {
     status,
@@ -359,7 +361,7 @@ const parseAiJson = (raw: string): ForYouResponse | null => {
   }
 };
 
-const sanitizeCards = (cards: any[]): ForYouCard[] =>
+const sanitizeCards = (cards: unknown[]): ForYouCard[] =>
   cards
     .filter((card) => card && (typeof card.title === "string" || typeof card.subtitle === "string"))
     .map((card, index) => {
@@ -478,6 +480,161 @@ const buildOnboardingCards = (): ForYouResponse => ({
   notes: ["Onboarding – för få skanningar"],
 });
 
+const parseScenarioMode = (mode: unknown): ScenarioMode | null => {
+  if (typeof mode !== "string") return null;
+  const normalized = mode.toLowerCase();
+  if (normalized === "tonight" || normalized === "food" || normalized === "similar") {
+    return normalized;
+  }
+  return null;
+};
+
+const SCENARIO_LABELS: Record<ScenarioMode, { label: string; summary: string }> = {
+  tonight: {
+    label: "Ikväll",
+    summary: "Snabba tips för vad du kan öppna ikväll baserat på din smak.",
+  },
+  food: {
+    label: "Till mat",
+    summary: "Maträtt + vin-stil som matchar dina preferenser.",
+  },
+  similar: {
+    label: "Liknar",
+    summary: "Viner som liknar din senaste historik och favoritstilar.",
+  },
+};
+
+const buildScenarioPrompt = (mode: ScenarioMode, profile: TasteProfile) => {
+  const base = [
+    `Scenario: ${SCENARIO_LABELS[mode].label} — ${SCENARIO_LABELS[mode].summary}`,
+    `Totalt antal skanningar: ${profile.totalScans}`,
+    `Favoritdruvor: ${formatTopEntries(profile.topGrapes, 4)}`,
+    `Favoritregioner: ${formatTopEntries(profile.topRegions, 4)}`,
+    `Stilar: ${formatTopEntries(profile.topStyles, 3)}`,
+    `Matparningar: ${formatTopEntries(profile.topPairings, 3)}`,
+  ];
+
+  if (profile.recentHighlights.length > 0) {
+    base.push(
+      "Senaste viner:",
+      ...profile.recentHighlights.map((line) => `- ${line}`),
+    );
+  }
+
+  const scenarioHints: Record<ScenarioMode, string> = {
+    tonight:
+      "Fokus: 3–5 konkreta flasktyper att öppna ikväll. Prioritera favoritdruvor/regioner och lägg till serveringshintar (temp, karaff, lagring).",
+    food:
+      "Fokus: 3–5 kombinationer av vin + maträtt. Använd topp-parningar och förslag på kök (italiensk pasta, grill, ostbrickor).",
+    similar:
+      "Fokus: 3–5 viner som liknar användarens senaste skanningar. Lyft fram varför de matchar (druva, stil, region).",
+  };
+
+  return `Du är en svensk sommelier som svarar på snabba "För dig"-scenarier.
+
+Bygg kort för scenariot "${SCENARIO_LABELS[mode].label}". ${scenarioHints[mode]}
+
+Krav:
+- Svara på svenska och håll varje kort kortfattat.
+- Ge 3–5 kort. Lägg en engagerande titel och en kort förklaring i subtitle.
+- items (1–3) ska ge konkreta tips (servering, mat, liknande viner).
+- Sätt id som "scenario-${mode}-<index>" och type till "${SCENARIO_LABELS[mode].label}".
+
+Data:
+${base.join("\n")}
+
+Returnera ENDAST JSON:
+{
+  "cards": [
+    { "id": "scenario-${mode}-0", "type": "${SCENARIO_LABELS[mode].label}", "title": "Titel", "subtitle": "Kort text", "items": ["punkt"] }
+  ],
+  "generated_at": "ISO timestamp",
+  "overall_confidence": 0.0-1.0,
+  "notes": ["korta noteringar"]
+}`;
+};
+
+const buildScenarioFallback = (mode: ScenarioMode, profile: TasteProfile): ForYouResponse => {
+  const cards: ForYouCard[] = [];
+  let index = 0;
+
+  const addCard = (title: string, subtitle?: string, items?: string[]) => {
+    cards.push({
+      id: `scenario-${mode}-${index++}`,
+      type: SCENARIO_LABELS[mode].label,
+      title,
+      ...(subtitle ? { subtitle } : {}),
+      ...(items && items.length > 0 ? { items } : {}),
+    });
+  };
+
+  if (mode === "tonight") {
+    const style = profile.topStyles[0]?.value;
+    const region = profile.topRegions[0]?.value;
+    if (style || region) {
+      addCard(
+        `${style ?? "Stil"} från ${region ?? "din favoritregion"}`,
+        "Öppna nu: lufta lätt och servera runt 15–17°C.",
+        [style ? `Din stil: ${style}` : undefined, region ? `Region du gillar: ${region}` : undefined].filter(
+          Boolean,
+        ) as string[],
+      );
+    }
+    if (profile.topGrapes[0]) {
+      addCard(
+        `${profile.topGrapes[0].value} ikväll`,
+        "Säkert kort från din historik.",
+        ["Välj en flaska med balans i syra och frukt", "Funkar fint som solo-sip"],
+      );
+    }
+  } else if (mode === "food") {
+    const pairing = profile.topPairings[0]?.value;
+    const grape = profile.topGrapes[0]?.value;
+    if (pairing) {
+      addCard(`Till ${pairing}`, "Smakmatchning från dina tidigare parningar.", [
+        `Servera med ${pairing.toLowerCase()}`,
+        "Håll syran i balans för maten",
+      ]);
+    }
+    if (grape) {
+      addCard(
+        `${grape} till middagen`,
+        "Matvänligt val från din smakprofil.",
+        ["Lägg till örter eller sälta", "Välj en producent du känner igen"],
+      );
+    }
+  } else if (mode === "similar") {
+    const highlight = profile.recentHighlights[0] ?? profile.topRegions[0]?.value ?? profile.topGrapes[0]?.value;
+    if (highlight) {
+      addCard(`Liknar ${highlight}`, "Baserat på dina senaste skanningar.", [
+        "Hitta samma druva eller region",
+        "Kolla efter liknande årgångar",
+      ]);
+    }
+    if (profile.topStyles[0]) {
+      addCard(
+        `Mer av ${profile.topStyles[0].value}`,
+        "Håller sig nära din stilpreferens.",
+        ["Testa en annan producent", "Jämför prisnivåer"],
+      );
+    }
+  }
+
+  if (cards.length === 0) {
+    addCard("Skanna några viner först", "Vi behöver fler datapunkter för att träffa rätt.", [
+      "Skanna minst 3 viner",
+      "Dina tips blir mer träffsäkra direkt efter en skanning",
+    ]);
+  }
+
+  return {
+    cards: cards.slice(0, 5),
+    generated_at: new Date().toISOString(),
+    overall_confidence: 0.35,
+    notes: [`Fallbackscenario ${mode}`],
+  };
+};
+
 const generateAiCards = async (profile: TasteProfile): Promise<ForYouResponse | null> => {
   if (!GOOGLE_API_KEY) {
     console.error("[for-you] Missing GOOGLE_API_KEY");
@@ -544,12 +701,97 @@ const generateAiCards = async (profile: TasteProfile): Promise<ForYouResponse | 
   };
 };
 
+const generateScenarioCards = async (mode: ScenarioMode, profile: TasteProfile): Promise<ForYouResponse | null> => {
+  if (!GOOGLE_API_KEY) {
+    console.error("[for-you] Missing GOOGLE_API_KEY");
+    return null;
+  }
+
+  const prompt = buildScenarioPrompt(mode, profile);
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.55,
+        maxOutputTokens: 900,
+        responseMimeType: "application/json",
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("[for-you] Gemini API (scenario) error:", response.status, errorText);
+    return null;
+  }
+
+  const data = await response.json();
+  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+
+  if (!content) {
+    console.error("[for-you] Gemini returned empty content for scenario", data);
+    return null;
+  }
+
+  const parsed = parseAiJson(content);
+  if (!parsed || !Array.isArray(parsed.cards)) {
+    console.error("[for-you] Parsed AI scenario response missing cards");
+    return null;
+  }
+
+  const cards = sanitizeCards(parsed.cards).map((card, index) => ({
+    ...card,
+    id: card.id || `scenario-${mode}-${index}`,
+    type: SCENARIO_LABELS[mode].label,
+  }));
+
+  if (cards.length === 0) {
+    console.error("[for-you] AI scenario returned no usable cards");
+    return null;
+  }
+
+  const confidence =
+    typeof parsed.overall_confidence === "number" && Number.isFinite(parsed.overall_confidence)
+      ? Math.max(0, Math.min(1, parsed.overall_confidence))
+      : 0.6;
+
+  return {
+    cards: cards.slice(0, 5),
+    generated_at:
+      typeof parsed.generated_at === "string" && parsed.generated_at.trim().length > 0
+        ? parsed.generated_at
+        : new Date().toISOString(),
+    overall_confidence: confidence,
+    notes: Array.isArray(parsed.notes)
+      ? parsed.notes.filter((note: unknown) => typeof note === "string")
+      : [],
+  };
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const url = new URL(req.url);
+    const urlMode = parseScenarioMode(url.searchParams.get("mode"));
+    let body: Record<string, unknown> | null = null;
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      try {
+        body = await req.json();
+      } catch {
+        body = null;
+      }
+    }
+
+    const bodyMode = parseScenarioMode(body?.mode);
+    const scenarioMode = bodyMode ?? urlMode;
+
     const user = await getUserFromRequest(req);
     if (!user) {
       return respondJson({ error: "auth_required" }, 401);
@@ -561,6 +803,15 @@ serve(async (req) => {
     }
 
     const tasteProfile = buildTasteProfile(scans);
+
+    if (scenarioMode) {
+      const scenarioResponse = await generateScenarioCards(scenarioMode, tasteProfile);
+      if (scenarioResponse) {
+        return respondJson(scenarioResponse);
+      }
+
+      return respondJson(buildScenarioFallback(scenarioMode, tasteProfile));
+    }
 
     const aiResponse = await generateAiCards(tasteProfile);
     if (aiResponse) {

@@ -4,6 +4,7 @@ import { type ForYouRecommendationCard } from "@/schemas/forYouRecommendationsSc
 import { getTasteProfileForUser, type TasteProfile } from "@/services/tasteProfileService";
 
 export type ForYouCard = ForYouRecommendationCard;
+export type ForYouScenarioMode = "tonight" | "food" | "similar";
 
 const CACHE_PREFIX = "for_you_cards_v1";
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -193,4 +194,34 @@ export const getForYouCards = async (
   }
 
   return { cards: cached.cards, updatedAt: cached.updatedAt, source: "cache" };
+};
+
+export const getForYouScenarioCards = async (
+  userId: string,
+  mode: ForYouScenarioMode,
+): Promise<{ cards: ForYouCard[]; generatedAt: string | null; notes: string[] }> => {
+  if (!userId) {
+    return { cards: [], generatedAt: null, notes: [] };
+  }
+
+  try {
+    const { data, error } = await supabase.functions.invoke("for-you", {
+      body: { mode },
+    });
+
+    if (error) {
+      console.error("Failed to fetch scenario cards:", error);
+      return { cards: [], generatedAt: null, notes: [] };
+    }
+
+    const parsed = safeParseForYou(data);
+    return {
+      cards: parsed.data.cards,
+      generatedAt: parsed.data.generated_at ?? null,
+      notes: parsed.data.notes ?? [],
+    };
+  } catch (error) {
+    console.error("Scenario For You fetch failed:", error);
+    return { cards: [], generatedAt: null, notes: [] };
+  }
 };
