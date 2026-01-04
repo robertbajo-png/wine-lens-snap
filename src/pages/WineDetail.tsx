@@ -10,6 +10,7 @@ import ClampTextCard from "@/components/result/ClampTextCard";
 import { WineListsPanel } from "@/components/result/WineListsPanel";
 import { useAuth } from "@/auth/AuthProvider";
 import { normalizeEvidenceItems } from "@/lib/evidence";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const KeyFacts = lazy(() => import("@/components/result/KeyFacts"));
 const Pairings = lazy(() => import("@/components/result/Pairings"));
@@ -26,6 +27,7 @@ const WineDetail = () => {
   const { scanId } = useParams<{ scanId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [entry, setEntry] = useState<CachedWineAnalysisEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -62,7 +64,7 @@ const WineDetail = () => {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center text-theme-secondary">
-        Laddar vindetaljer...
+        {t("wineDetail.loading")}
       </div>
     );
   }
@@ -71,10 +73,14 @@ const WineDetail = () => {
     return (
       <div className="mx-auto flex min-h-[50vh] max-w-xl flex-col items-center justify-center gap-4 px-4 text-center">
         <div className="space-y-2">
-          <p className="text-sm uppercase tracking-[0.2em] text-theme-secondary">Vin ej hittat</p>
-          <h1 className="text-2xl font-semibold text-theme-primary">Kunde inte hitta vinet</h1>
+          <p className="text-sm uppercase tracking-[0.2em] text-theme-secondary">
+            {t("wineDetail.notFoundLabel")}
+          </p>
+          <h1 className="text-2xl font-semibold text-theme-primary">
+            {t("wineDetail.notFoundTitle")}
+          </h1>
           <p className="text-theme-secondary">
-            Det här vinet finns inte längre i din lokala historik.
+            {t("wineDetail.notFoundDesc")}
           </p>
         </div>
         <div className="flex flex-wrap justify-center gap-3">
@@ -84,13 +90,13 @@ const WineDetail = () => {
             className="gap-2 rounded-full border border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
           >
             <ArrowLeft className="h-4 w-4" />
-            Tillbaka
+            {t("wineDetail.back")}
           </Button>
           <Button
             onClick={handleNewScan}
             className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] px-6 text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
           >
-            Skanna ett nytt vin
+            {t("wineDetail.scanNewWine")}
           </Button>
         </div>
       </div>
@@ -171,12 +177,12 @@ const WineDetail = () => {
 
         {/* Character */}
         {results.karaktär && (
-          <ClampTextCard title="Karaktär" text={results.karaktär} lines={4} />
+          <ClampTextCard titleKey="wineDetail.character" text={results.karaktär} lines={4} />
         )}
 
         {/* Taste */}
         {results.smak && (
-          <ClampTextCard title="Smak" text={results.smak} lines={4} />
+          <ClampTextCard titleKey="wineDetail.taste" text={results.smak} lines={4} />
         )}
 
         {/* Pairings */}
@@ -203,7 +209,7 @@ const WineDetail = () => {
           <div className="overflow-hidden rounded-3xl border border-theme-card bg-theme-elevated/60 backdrop-blur-sm">
             <img
               src={entry.imageData}
-              alt="Etikett"
+              alt={t("wineDetail.labelAlt")}
               className="w-full object-contain"
               style={{ maxHeight: "300px" }}
             />
@@ -217,7 +223,7 @@ const WineDetail = () => {
             className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] px-8 py-3 text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
           >
             <Camera className="h-5 w-5" />
-            Skanna nytt vin
+            {t("wineDetail.scanNew")}
           </Button>
         </div>
       </div>

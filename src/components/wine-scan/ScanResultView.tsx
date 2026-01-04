@@ -424,8 +424,8 @@ export const ScanResultView = ({
               </Suspense>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <ClampTextCard title="Karaktär" text={results.karaktär} />
-                <ClampTextCard title="Smak" text={results.smak} />
+                <ClampTextCard titleKey="wineDetail.character" text={results.karaktär} />
+                <ClampTextCard titleKey="wineDetail.taste" text={results.smak} />
               </div>
 
               <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>

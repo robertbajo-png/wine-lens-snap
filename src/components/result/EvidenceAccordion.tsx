@@ -1,5 +1,7 @@
 import React from "react";
 import type { EvidenceItem } from "@/lib/wineCache";
+import { useTranslation } from "@/hooks/useTranslation";
+import type { TranslationKey } from "@/lib/translations";
 
 interface EvidenceAccordionProps {
   ocr?: string;
@@ -7,26 +9,26 @@ interface EvidenceAccordionProps {
   primary?: string;
 }
 
-const FIELD_LABELS: Record<string, string> = {
-  vin: "Namn",
-  land_region: "Region",
-  region: "Region",
-  producent: "Producent",
-  druvor: "Druvor",
-  grape: "Druva",
-  grapes: "Druvor",
-  årgång: "Årgång",
-  typ: "Typ",
-  färgtyp: "Färg/typ",
-  klassificering: "Klassificering",
-  alkoholhalt: "Alkohol",
-  volym: "Volym",
-  karaktär: "Karaktär",
-  smak: "Smak",
-  servering: "Servering",
-  sources: "Källa",
-  etiketttext: "Etiketttext",
-  style: "Stil",
+const FIELD_LABEL_KEYS: Record<string, TranslationKey> = {
+  vin: "evidence.fieldVin",
+  land_region: "evidence.fieldRegion",
+  region: "evidence.fieldRegion",
+  producent: "evidence.fieldProducent",
+  druvor: "evidence.fieldDruvor",
+  grape: "evidence.fieldGrape",
+  grapes: "evidence.fieldDruvor",
+  årgång: "evidence.fieldVintage",
+  typ: "evidence.fieldTyp",
+  färgtyp: "evidence.fieldColorType",
+  klassificering: "evidence.fieldClassification",
+  alkoholhalt: "evidence.fieldAlcohol",
+  volym: "evidence.fieldVolume",
+  karaktär: "evidence.fieldCharacter",
+  smak: "evidence.fieldTaste",
+  servering: "evidence.fieldServing",
+  sources: "evidence.fieldSources",
+  etiketttext: "evidence.fieldLabelText",
+  style: "evidence.fieldStyle",
 };
 
 type EvidenceByType = {
@@ -35,15 +37,9 @@ type EvidenceByType = {
   heuristic: EvidenceItem[];
 };
 
-const formatFieldLabel = (field: string) => {
-  if (FIELD_LABELS[field]) return FIELD_LABELS[field];
-  const spaced = field.replace(/[_-]+/g, " ");
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-};
-
 const groupByField = (items: EvidenceItem[]) => {
   return items.reduce<Record<string, EvidenceItem[]>>((acc, item) => {
-    const key = item.field || "Övrigt";
+    const key = item.field || "_other";
     if (!acc[key]) {
       acc[key] = [];
     }
@@ -53,6 +49,16 @@ const groupByField = (items: EvidenceItem[]) => {
 };
 
 export default function EvidenceAccordion({ ocr, hits, primary }: EvidenceAccordionProps) {
+  const { t } = useTranslation();
+  
+  const formatFieldLabel = (field: string): string => {
+    if (field === "_other") return t("evidence.other");
+    const labelKey = FIELD_LABEL_KEYS[field];
+    if (labelKey) return t(labelKey);
+    const spaced = field.replace(/[_-]+/g, " ");
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+  };
+
   const hasOcr = Boolean(ocr && ocr !== "–");
   const validHits = Array.isArray(hits)
     ? (hits.filter((item): item is EvidenceItem => Boolean(item)) as EvidenceItem[])
@@ -90,10 +96,10 @@ export default function EvidenceAccordion({ ocr, hits, primary }: EvidenceAccord
 
   if (!hasEvidence && !hasPrimary) return null;
 
-  const sections: { type: keyof EvidenceByType; title: string; description?: string }[] = [
-    { type: "label", title: "Etikett" },
-    { type: "web", title: "Webb", description: "Länkar öppnas i ny flik" },
-    { type: "heuristic", title: "Härlett" },
+  const sections: { type: keyof EvidenceByType; titleKey: TranslationKey; descriptionKey?: TranslationKey }[] = [
+    { type: "label", titleKey: "evidence.label" },
+    { type: "web", titleKey: "evidence.web", descriptionKey: "evidence.webDesc" },
+    { type: "heuristic", titleKey: "evidence.heuristic" },
   ];
 
   return (
@@ -103,17 +109,17 @@ export default function EvidenceAccordion({ ocr, hits, primary }: EvidenceAccord
         className="flex w-full items-center justify-between px-4 py-3"
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="text-sm font-semibold text-theme-primary">Källa & evidens</span>
-        <span className="text-xs text-theme-secondary">{open ? "Stäng" : "Visa"}</span>
+        <span className="text-sm font-semibold text-theme-primary">{t("evidence.title")}</span>
+        <span className="text-xs text-theme-secondary">{open ? t("evidence.close") : t("evidence.show")}</span>
       </button>
       {open && (
         <div className="space-y-4 px-4 pb-4">
           {hasPrimary && (
             <p className="text-xs text-theme-secondary">
-              Primär källa: <span className="underline">{primary}</span>
+              {t("evidence.primarySource")}: <span className="underline">{primary}</span>
             </p>
           )}
-          {sections.map(({ type, title, description }) => {
+          {sections.map(({ type, titleKey, descriptionKey }) => {
             const items = evidenceByType[type];
             if (items.length === 0) return null;
             const grouped = groupByField(items);
@@ -121,8 +127,8 @@ export default function EvidenceAccordion({ ocr, hits, primary }: EvidenceAccord
             return (
               <div key={type} className="space-y-3">
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-semibold text-theme-primary">{title}</p>
-                  {description && <p className="text-xs text-theme-secondary">{description}</p>}
+                  <p className="text-sm font-semibold text-theme-primary">{t(titleKey)}</p>
+                  {descriptionKey && <p className="text-xs text-theme-secondary">{t(descriptionKey)}</p>}
                 </div>
                 <div className="space-y-2">
                   {Object.entries(grouped).map(([field, fieldItems]) => (

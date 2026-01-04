@@ -1,5 +1,6 @@
 import React from "react";
 import { Utensils, Beef, Fish, Salad, Cake, CircleDot } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
 
 const foodIcons: Record<string, React.ElementType> = {
   kött: Beef,
@@ -29,6 +30,8 @@ function getIconForFood(food: string): React.ElementType {
 }
 
 export default function Pairings({ items }: { items?: string[] }) {
+  const { t } = useTranslation();
+  
   if (!Array.isArray(items) || items.length === 0) return null;
 
   const chips = items.filter(Boolean).slice(0, 8);
@@ -38,7 +41,7 @@ export default function Pairings({ items }: { items?: string[] }) {
     <section className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
       <div className="mb-3 flex items-center gap-2">
         <Utensils className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-white">Passar till</h3>
+        <h3 className="text-sm font-semibold text-white">{t("pairings.title")}</h3>
       </div>
       <div className="flex flex-wrap gap-2">
         {chips.map((item, index) => {

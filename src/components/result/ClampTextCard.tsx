@@ -1,8 +1,10 @@
 import React from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useTranslation } from "@/hooks/useTranslation";
+import type { TranslationKey } from "@/lib/translations";
 
 type ClampTextCardProps = {
-  title: string;
+  titleKey: TranslationKey;
   text?: string;
   lines?: 2 | 3 | 4 | 5 | 6;
 };
@@ -15,7 +17,8 @@ const clampClassMap: Record<NonNullable<ClampTextCardProps["lines"]>, string> = 
   6: "line-clamp-6",
 };
 
-export default function ClampTextCard({ title, text, lines = 4 }: ClampTextCardProps) {
+export default function ClampTextCard({ titleKey, text, lines = 4 }: ClampTextCardProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
   const textRef = React.useRef<HTMLParagraphElement>(null);
   const [isOverflowing, setIsOverflowing] = React.useState(false);
@@ -30,7 +33,7 @@ export default function ClampTextCard({ title, text, lines = 4 }: ClampTextCardP
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-      <h3 className="text-sm font-semibold text-white/60">{title}</h3>
+      <h3 className="text-sm font-semibold text-white/60">{t(titleKey)}</h3>
       <p 
         ref={textRef}
         className={`mt-2 text-sm text-white ${open ? "" : clampClassMap[lines] ?? clampClassMap[4]}`}
@@ -46,12 +49,12 @@ export default function ClampTextCard({ title, text, lines = 4 }: ClampTextCardP
           {open ? (
             <>
               <ChevronUp className="h-3 w-3" />
-              Visa mindre
+              {t("clampText.showLess")}
             </>
           ) : (
             <>
               <ChevronDown className="h-3 w-3" />
-              Visa mer
+              {t("clampText.showMore")}
             </>
           )}
         </button>
