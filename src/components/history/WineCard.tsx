@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CachedWineAnalysisEntry } from "@/lib/wineCache";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface WineCardProps {
   entry: CachedWineAnalysisEntry;
@@ -44,17 +45,21 @@ export const WineCardSkeleton = () => (
 
 const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: WineCardProps) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const classificationTags = [
-    { label: "Färg", value: entry.result.färgtyp },
-    { label: "Smaktyp", value: entry.result.typ },
-    { label: "Ursprung", value: entry.result.land_region },
+    { label: t("wineCard.colorLabel"), value: entry.result.färgtyp },
+    { label: t("wineCard.tasteTypeLabel"), value: entry.result.typ },
+    { label: t("wineCard.originLabel"), value: entry.result.land_region },
   ].filter((tag) => tag.value);
 
   const pairings = (entry.result.passar_till ?? []).slice(0, 2);
 
-  const displayTitle = entry.result.vin || "Okänt vin";
-  const displaySubtitle = [entry.result.land_region, entry.result.årgång ? `Årgång ${entry.result.årgång}` : null]
+  const displayTitle = entry.result.vin || t("wineCard.unknownWine");
+  const displaySubtitle = [
+    entry.result.land_region,
+    entry.result.årgång ? `${t("history.vintage")} ${entry.result.årgång}` : null,
+  ]
     .filter(Boolean)
     .join(" • ");
 
@@ -73,7 +78,9 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-theme-secondary">Ingen bild</div>
+            <div className="flex h-full items-center justify-center text-sm text-theme-secondary">
+              {t("wineCard.noImage")}
+            </div>
           )}
           <div className="absolute bottom-2 left-2 rounded-full border border-white/10 bg-black/60 px-3 py-1 text-xs font-medium uppercase tracking-[0.24em] text-theme-primary">
             {formatRelativeTime(entry.timestamp)}
@@ -83,7 +90,7 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
               variant="outline"
               className="absolute right-2 top-2 rounded-full border-amber-500/60 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-amber-100"
             >
-              Ej synkad
+              {t("wineCard.notSynced")}
             </Badge>
           )}
         </div>
@@ -136,7 +143,7 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
               className="gap-2 rounded-full bg-theme-elevated px-4 py-2 text-sm font-semibold text-theme-primary shadow-sm transition hover:bg-[hsl(var(--surface-elevated)/0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B095FF] focus-visible:ring-offset-2 focus-visible:ring-offset-theme-elevated"
             >
               <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              Öppna
+              {t("wineCard.open")}
             </Button>
 
             <Button
@@ -146,7 +153,7 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
               className="gap-2 rounded-full border-theme-card bg-theme-elevated px-4 py-2 text-sm font-semibold text-theme-primary transition hover:bg-[hsl(var(--surface-elevated)/0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B095FF] focus-visible:ring-offset-2 focus-visible:ring-offset-theme-elevated"
             >
               <Share2 className="h-4 w-4" aria-hidden="true" />
-              Dela
+              {t("wineCard.share")}
             </Button>
 
             <Button
@@ -156,7 +163,7 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
               className="gap-2 rounded-full border-destructive/60 bg-theme-elevated px-4 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 focus-visible:ring-offset-theme-elevated"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
-              Radera lokalt
+              {t("wineCard.deleteLocally")}
             </Button>
           </div>
         </div>
