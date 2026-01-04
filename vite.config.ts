@@ -23,7 +23,6 @@ export default defineConfig(({ mode }) => ({
           "page-for-you": ["./src/pages/ForYou.tsx"],
           "page-explore": ["./src/pages/Explore.tsx"],
           "page-scan": ["./src/pages/WineSnap.tsx"],
-          "page-following": ["./src/pages/Following.tsx"],
           "page-history": ["./src/pages/History.tsx"],
           "page-me": ["./src/pages/Me.tsx"],
           "page-auth": ["./src/pages/Login.tsx", "./src/pages/LoginCallback.tsx"],

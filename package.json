@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "audit:rc": "npm run typecheck && npm run build && ! grep -R --exclude-dir={.git,node_modules,dist} \"marketplace/premium/following/creator/stripe/paywall\" src public"
   },
   "dependencies": {
     "@google/genai": "^1.28.0",
