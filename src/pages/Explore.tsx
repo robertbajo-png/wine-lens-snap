@@ -24,9 +24,7 @@ import { trackEvent } from "@/lib/telemetry";
 import { logEvent } from "@/lib/logger";
 import { withTimeoutFallback } from "@/lib/fallback";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { useIsPremium } from "@/hooks/useUserSettings";
 import { useTranslation } from "@/hooks/useTranslation";
-import { isPlayRC } from "@/lib/releaseChannel";
 const TREND_LIMIT = 3;
 const STYLE_LIMIT = 4;
 const MAX_SCANS_FETCH = 120;
@@ -883,8 +881,6 @@ ExploreScanList.displayName = "ExploreScanList";
 const Explore = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isPremium, isLoading: isPremiumLoading } = useIsPremium();
-  const premiumFeaturesEnabled = !isPlayRC;
   const [searchParams, setSearchParams] = useSearchParams();
   const { t } = useTranslation();
   const sessionIdRef = useRef<string>();
@@ -903,10 +899,6 @@ const Explore = () => {
       logExploreCardOpened(cardType);
     }
   };
-
-  const handleUpgrade = useCallback(() => {
-    navigate("/me");
-  }, [navigate]);
 
   if (!sessionIdRef.current) {
     sessionIdRef.current = createExploreSessionId();
@@ -1010,8 +1002,6 @@ const Explore = () => {
   }, [manualFiltersActive, paramsFilters, fallbackQuickFilter]);
 
   const highlightedFilterId = selectedFilterId ?? (!manualFiltersActive ? fallbackQuickFilter?.id ?? null : null);
-  const advancedFiltersLocked = premiumFeaturesEnabled && !isPremium && !isPremiumLoading;
-  const filtersDisabled = !premiumFeaturesEnabled || advancedFiltersLocked;
 
   const debouncedFilters = useDebouncedValue(effectiveFilters, 250);
   const debouncedSerializedFilters = useMemo(
@@ -1047,10 +1037,6 @@ const Explore = () => {
 
   const handleSelectFilter = useCallback(
     (filterId: string) => {
-      if (filtersDisabled) {
-        return;
-      }
-
       const next = availableFilters.find((filter) => filter.id === filterId);
       if (!next) return;
       logExploreCardOpened("quick_filter");
@@ -1074,14 +1060,11 @@ const Explore = () => {
         { sessionId: sessionIdRef.current },
       );
     },
-    [availableFilters, filtersDisabled, logExploreCardOpened, searchParams, setSearchParams],
+    [availableFilters, logExploreCardOpened, searchParams, setSearchParams],
   );
 
   const handleSearchFilterChange = useCallback(
     (field: SearchFilterField, value: string) => {
-      if (filtersDisabled && field !== "label") {
-        return;
-      }
       const params = new URLSearchParams(searchParams);
       const normalizedValue = field === "label" ? value : value === FILTER_EMPTY_VALUE ? "" : value;
       if (normalizedValue) {
@@ -1108,7 +1091,7 @@ const Explore = () => {
         { sessionId: sessionIdRef.current },
       );
     },
-    [availableFilters, filtersDisabled, searchParams, setSearchParams],
+    [availableFilters, searchParams, setSearchParams],
   );
 
   const handleClearFilters = useCallback(() => {
@@ -1287,29 +1270,12 @@ const Explore = () => {
             </div>
           </label>
 
-          {premiumFeaturesEnabled && advancedFiltersLocked && (
-            <div className="rounded-2xl border border-[hsl(var(--color-border)/0.45)] bg-[hsl(var(--color-surface)/0.35)] p-4 text-sm text-theme-secondary">
-              <p className="font-semibold text-theme-primary">Avancerade filter är premium</p>
-              <p className="mt-1">
-                Filtrera på druva, region och stil med premium för att låsa upp fler träffar och bättre rekommendationer.
-              </p>
-              <Button
-                size="sm"
-                className="mt-3 w-fit rounded-full bg-theme-accent px-4 text-theme-on-accent"
-                onClick={handleUpgrade}
-              >
-                Bli premium
-              </Button>
-            </div>
-          )}
-
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex flex-col gap-2">
               <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Druva</Label>
               <Select
                 value={effectiveFilters.grape ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("grape", value)}
-                disabled={filtersDisabled}
               >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla druvor" />
@@ -1330,7 +1296,6 @@ const Explore = () => {
               <Select
                 value={effectiveFilters.region ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("region", value)}
-                disabled={filtersDisabled}
               >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla regioner" />
@@ -1351,7 +1316,6 @@ const Explore = () => {
               <Select
                 value={effectiveFilters.style ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("style", value)}
-                disabled={filtersDisabled}
               >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
                   <SelectValue placeholder="Alla stilar" />

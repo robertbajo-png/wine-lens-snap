@@ -26,7 +26,6 @@ export default defineConfig(({ mode }) => ({
           "page-following": ["./src/pages/Following.tsx"],
           "page-history": ["./src/pages/History.tsx"],
           "page-me": ["./src/pages/Me.tsx"],
-          "page-premium": ["./src/pages/PremiumCheckoutSession.tsx"],
           "page-auth": ["./src/pages/Login.tsx", "./src/pages/LoginCallback.tsx"],
           "page-static": ["./src/pages/About.tsx", "./src/pages/NotFound.tsx"],
           "page-dev": ["./src/pages/dev/Events.tsx"],

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
-import { useIsPremium } from "@/hooks/useUserSettings";
 import { computeLabelHash, type WineAnalysisResult } from "@/lib/wineCache";
 import { prewarmOcr } from "@/lib/ocrWorker";
 import { Banner } from "@/components/Banner";
@@ -24,9 +23,7 @@ import { useScanPipeline } from "@/hooks/useScanPipeline";
 import type { PipelineSource, ProgressKey, ScanStatus } from "@/services/scanPipelineService";
 import { ScanResultView } from "@/components/wine-scan/ScanResultView";
 import { ScanEmptyState } from "@/components/wine-scan/ScanEmptyState";
-import { FREE_SCAN_LIMIT_PER_DAY, getFreeScanUsage, incrementFreeScanUsage } from "@/lib/premiumAccess";
 import { normalizeEvidenceItems } from "@/lib/evidence";
-import { isPlayRC } from "@/lib/releaseChannel";
 
 const INTRO_ROUTE = "/for-you";
 const AUTO_RETAKE_DELAY = 1500;
@@ -84,9 +81,6 @@ const WineSnap = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { isPremium, isLoading: isPremiumLoading } = useIsPremium();
-  const premiumFeaturesEnabled = !isPlayRC;
-  const isPremiumUnlocked = premiumFeaturesEnabled && isPremium;
   const { isInstallable, isInstalled, handleInstall } = usePWAInstall();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [banner, setBanner] = useState<BannerState | null>(null);
@@ -128,7 +122,6 @@ const WineSnap = () => {
   } = useScanPipeline();
   const { setTabState } = useTabStateContext();
   const triggerHaptic = useHapticFeedback();
-  const [freeScanUsage, setFreeScanUsage] = useState(() => getFreeScanUsage());
 
   // Auto-trigger camera on mount if no image/results
   const autoOpenedRef = useRef(false);
@@ -210,27 +203,6 @@ const WineSnap = () => {
       return;
     }
 
-    if (premiumFeaturesEnabled && !isPremiumUnlocked && !isPremiumLoading) {
-      const usage = getFreeScanUsage();
-      if (usage.count >= usage.limit) {
-        setBanner({
-          type: "warning",
-          title: "Premium-funktion",
-          text: `Gratis ger ${usage.limit} analyser per dag. Lås upp obegränsade skanningar och djupanalys med Premium.`,
-          ctaLabel: "Bli premium",
-          onCta: () => navigate("/me"),
-        });
-        toast({
-          title: "Begränsat i gratisläget",
-          description: "Du har nått dagens gräns. Uppgradera till premium för obegränsade analyser.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setFreeScanUsage(usage);
-    }
-
     const modeHint = cameraModeRef.current ? "camera" : "manual";
     const labelHashPresent = Boolean(
       computeLabelHash(currentOcrText ?? results?.originaltext ?? results?.vin ?? null),
@@ -272,7 +244,7 @@ const WineSnap = () => {
         uiLang,
         supabaseUrl,
         supabaseAnonKey,
-        allowFullAnalysis: true, // TODO: revert to isPremium || isPremiumLoading when premium gating is ready
+        allowFullAnalysis: true,
       });
 
       const {
@@ -312,11 +284,6 @@ const WineSnap = () => {
         });
       } else {
         shouldAutoRetakeRef.current = false;
-      }
-
-      if (!isPremiumUnlocked) {
-        incrementFreeScanUsage();
-        setFreeScanUsage(getFreeScanUsage());
       }
 
       if (fromCache) {
@@ -956,7 +923,7 @@ const WineSnap = () => {
     const refinementReason = results.mode === "label_only"
       ? "Det här bygger bara på etiketten – lägg till detaljer eller försök igen."
       : "Analysen är osäker – förbättra resultatet med fler detaljer.";
-    const showDetailedSections = isPremiumUnlocked;
+    const showDetailedSections = true;
     const grapeSuggestions = Array.from(
       new Set(
         [
@@ -972,7 +939,6 @@ const WineSnap = () => {
           .slice(0, 6),
       ),
     );
-    const freeScansRemaining = Math.max(0, freeScanUsage.remaining);
 
     return (
       <>
@@ -1031,9 +997,6 @@ const WineSnap = () => {
           showVerifiedMeters={showVerifiedMeters}
           metersAreEstimated={metersAreEstimated}
           showDetailedSections={showDetailedSections}
-          isPremium={isPremiumUnlocked}
-          onUpgrade={() => navigate("/me")}
-          freeScansRemaining={freeScansRemaining}
           ocrText={ocrText}
           evidenceLinks={evidenceItems}
           detectedLanguage={results.detekterat_språk}
