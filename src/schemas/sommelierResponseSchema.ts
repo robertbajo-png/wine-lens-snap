@@ -1,10 +1,11 @@
 import { z } from "zod";
 
-const normalizeText = z.string().transform((value) => value.trim());
+const trimmedString = (minLength = 0) =>
+  z.string().min(minLength).transform((value) => value.trim());
 
 export const sommelierRecommendationSchema = z.object({
-  title: normalizeText.min(1),
-  why: normalizeText.min(1),
+  title: trimmedString(1),
+  why: trimmedString(1),
   scan_id: z.string().optional(),
   from_collection: z.boolean().optional(),
   confidence: z.coerce.number().min(0).max(1).optional(),
@@ -13,8 +14,8 @@ export const sommelierRecommendationSchema = z.object({
 export const sommelierResponseSchema = z.object({
   recommendations: z.array(sommelierRecommendationSchema).default([]),
   overall_confidence: z.coerce.number().min(0).max(1).optional().nullable(),
-  notes: z.array(normalizeText).default([]),
-  next_actions: z.array(normalizeText).default([]),
+  notes: z.array(trimmedString()).default([]),
+  next_actions: z.array(trimmedString()).default([]),
 }).passthrough();
 
 export type SommelierRecommendation = z.infer<typeof sommelierRecommendationSchema>;

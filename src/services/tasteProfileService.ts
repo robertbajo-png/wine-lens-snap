@@ -194,7 +194,7 @@ export const buildTasteProfile = (scans: WineScan[]): TasteProfile => {
     extractStringValues(analysis.grapes).forEach((grape) => addCount(grapeCounts, grape));
     extractRegions(analysis.land_region).forEach((region) => addCount(regionCounts, region));
     extractStringValues(analysis.style).forEach((style) => addCount(styleCounts, style));
-    extractStringValues((analysis as Record<string, unknown>).food_pairings).forEach((pairing) =>
+    extractStringValues((analysis as unknown as Record<string, unknown>).food_pairings).forEach((pairing) =>
       addCount(pairingCounts, pairing),
     );
 
