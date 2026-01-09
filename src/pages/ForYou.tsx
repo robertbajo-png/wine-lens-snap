@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AmbientBackground } from "@/components/AmbientBackground";
 import { Banner } from "@/components/Banner";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Sparkles, Camera, ArrowRight, RefreshCcw, MoonStar, Utensils } from "lucide-react";
@@ -237,37 +238,38 @@ const ForYou = () => {
   return (
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
       <AmbientBackground />
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-4 py-16 sm:px-6 lg:px-10">
-        <div className="flex flex-col gap-4 rounded-3xl border border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface-alt)/0.9)] px-6 py-8 shadow-theme-card backdrop-blur sm:px-10 sm:py-12">
-          <div className="flex flex-col gap-3 text-center sm:text-left">
-            <span className="inline-flex items-center gap-2 self-center rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.6)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/80 sm:self-start">
-              <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
-              {t("forYou.badge")}
-            </span>
-            <h1 className="text-3xl font-semibold text-theme-primary sm:text-4xl">{t("forYou.title")}</h1>
-            <p className="max-w-2xl text-sm text-theme-secondary/80 sm:text-base">
-              {t("forYou.subtitle")}
-            </p>
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-4 pb-24 pt-12 sm:px-6 lg:px-10">
+        <AppHeader
+          variant="hero"
+          title={t("forYou.title")}
+          subtitle={t("forYou.subtitle")}
+          rightActions={
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-              <Button
-                size="lg"
-                className="group inline-flex items-center gap-2 rounded-full bg-theme-accent px-6 text-theme-on-accent shadow-theme-card transition hover:opacity-90"
-                onClick={() => navigate("/scan")}
-              >
-                <Camera className="h-4 w-4 transition group-hover:-translate-y-0.5" aria-hidden="true" />
-                {t("forYou.scanWineBottle")}
-              </Button>
-              <Button
-                variant="outline"
-                className="gap-2 rounded-full border-theme-card bg-theme-elevated px-5 py-2 text-sm font-semibold text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
-                onClick={() => navigate("/me/wines")}
-              >
-                {t("forYou.viewHistory")}
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </Button>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.6)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/80">
+                <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
+                {t("forYou.badge")}
+              </span>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <Button
+                  size="lg"
+                  className="group inline-flex items-center gap-2 rounded-full bg-theme-accent px-6 text-theme-on-accent shadow-theme-card transition hover:opacity-90"
+                  onClick={() => navigate("/scan")}
+                >
+                  <Camera className="h-4 w-4 transition group-hover:-translate-y-0.5" aria-hidden="true" />
+                  {t("forYou.scanWineBottle")}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2 rounded-full border-theme-card bg-theme-elevated px-5 py-2 text-sm font-semibold text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
+                  onClick={() => navigate("/me/wines")}
+                >
+                  {t("forYou.viewHistory")}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>
+          }
+        />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-[hsl(var(--color-surface-alt)/0.8)] p-6 shadow-theme-card backdrop-blur">

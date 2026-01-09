@@ -1,5 +1,6 @@
 import { ProgressBanner } from "@/components/ProgressBanner";
 import ResultSkeleton from "@/components/result/ResultSkeleton";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { ScanLoadingView } from "@/components/wine-scan/ScanLoadingView";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,38 +56,41 @@ export const ScanEmptyState = ({
 
   return (
     <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center px-4 pb-20 pt-12 text-center sm:px-8">
-      <header className="mb-10 flex w-full flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-elevated shadow-lg shadow-purple-900/40">
-            <Wine className="h-6 w-6 text-purple-100" />
-          </div>
-          <div className="text-left">
-            <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">WineSnap</p>
-            <p className="text-sm text-theme-secondary">Skanna vinetiketter med AI</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button variant="ghost" size="sm" className="text-theme-secondary hover:text-theme-primary" onClick={onNavigateHome}>
-            Hem
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-theme-secondary hover:text-theme-primary"
-            onClick={onNavigateProfile}
-          >
-            Profil
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-            onClick={onNavigateHistory}
-          >
-            Historik
-          </Button>
-        </div>
-      </header>
+      <div className="mb-10 w-full">
+        <AppHeader
+          variant="compact"
+          title="WineSnap"
+          subtitle="Skanna vinetiketter med AI"
+          rightActions={
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-theme-secondary hover:text-theme-primary"
+                onClick={onNavigateHome}
+              >
+                Hem
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-theme-secondary hover:text-theme-primary"
+                onClick={onNavigateProfile}
+              >
+                Profil
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
+                onClick={onNavigateHistory}
+              >
+                Historik
+              </Button>
+            </div>
+          }
+        />
+      </div>
 
       {banner}
 

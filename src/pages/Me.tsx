@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/components/ui/use-toast";
+import { AppHeader } from "@/components/layout/AppHeader";
 import { useAuth } from "@/auth/AuthProvider";
 import { supabase } from "@/lib/supabaseClient";
 import { WineListsSection } from "@/components/profile/WineListsSection";
@@ -478,40 +479,41 @@ const Me = () => {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-12 sm:px-8">
-      <header className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16 border border-[hsl(var(--color-border))] bg-theme-elevated">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={t("me.profileImage")} className="object-cover" /> : null}
-            <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
-              {initials || "WS"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold text-theme-primary">{displayName}</h1>
-            {email ? <p className="text-sm text-theme-secondary">{email}</p> : null}
-          </div>
-        </div>
-        <div className="flex flex-col items-stretch gap-3 sm:items-end">
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <Button
-              className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
-              onClick={() => navigate("/scan")}
-              aria-label={t("me.newScan")}
-            >
-              <Camera className="h-4 w-4" />
-              {t("me.newScan")}
-            </Button>
-            <Button
-              variant="outline"
-              className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
-              onClick={() => navigate("/me/wines")}
-              aria-label={t("me.myWines")}
-            >
-              {t("me.myWines")}
-            </Button>
-          </div>
-        </div>
-      </header>
+      <div className="mb-10">
+        <AppHeader
+          variant="compact"
+          title={displayName}
+          subtitle={email ?? undefined}
+          rightActions={
+            <div className="flex flex-wrap items-center gap-4">
+              <Avatar className="h-12 w-12 border border-[hsl(var(--color-border))] bg-theme-elevated">
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt={t("me.profileImage")} className="object-cover" /> : null}
+                <AvatarFallback className="bg-theme-elevated text-base font-semibold text-theme-primary">
+                  {initials || "WS"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
+                  onClick={() => navigate("/scan")}
+                  aria-label={t("me.newScan")}
+                >
+                  <Camera className="h-4 w-4" />
+                  {t("me.newScan")}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
+                  onClick={() => navigate("/me/wines")}
+                  aria-label={t("me.myWines")}
+                >
+                  {t("me.myWines")}
+                </Button>
+              </div>
+            </div>
+          }
+        />
+      </div>
 
       <div className="space-y-6">
         {/* Premium section temporarily hidden for RC */}

@@ -1,4 +1,5 @@
 import { AmbientBackground } from "@/components/AmbientBackground";
+import { AppHeader } from "@/components/layout/AppHeader";
 import MetersRow from "@/components/result/MetersRow";
 import ResultHeader from "@/components/result/ResultHeader";
 import { WineListsPanel } from "@/components/result/WineListsPanel";
@@ -250,41 +251,44 @@ export const ScanResultView = ({
         <AmbientBackground />
 
         <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-32 pt-10 sm:pt-16">
-          <header className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-purple-200/80">WineSnap</p>
-              <p className="text-sm text-theme-secondary">Din digitala sommelier</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-theme-secondary hover:text-theme-primary"
-                onClick={onNavigateProfile}
-              >
-                Profil
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-                onClick={onNavigateHistory}
-              >
-                Historik
-              </Button>
-              {showInstallCTA && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
-                  onClick={onInstall}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Installera app
-                </Button>
-              )}
-            </div>
-          </header>
+          <div className="mb-10">
+            <AppHeader
+              variant="compact"
+              title="WineSnap"
+              subtitle="Din digitala sommelier"
+              rightActions={
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-theme-secondary hover:text-theme-primary"
+                    onClick={onNavigateProfile}
+                  >
+                    Profil
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
+                    onClick={onNavigateHistory}
+                  >
+                    Historik
+                  </Button>
+                  {showInstallCTA && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
+                      onClick={onInstall}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Installera app
+                    </Button>
+                  )}
+                </div>
+              }
+            />
+          </div>
 
           {banner}
 
