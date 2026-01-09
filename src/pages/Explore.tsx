@@ -25,6 +25,10 @@ import { logEvent } from "@/lib/logger";
 import { withTimeoutFallback } from "@/lib/fallback";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useTranslation } from "@/hooks/useTranslation";
+import type { TranslationKey } from "@/lib/translations";
+
+type TranslateFn = (key: TranslationKey, params?: Record<string, string | number>) => string;
+
 const TREND_LIMIT = 3;
 const STYLE_LIMIT = 4;
 const MAX_SCANS_FETCH = 120;
@@ -307,8 +311,8 @@ const FALLBACK_CURATED_SEEDS: CuratedSeed[] = [
   },
 ];
 
-const pluralize = (count: number, singular: string, plural: string) =>
-  count === 1 ? singular : plural;
+const pluralize = (count: number, singularKey: TranslationKey, pluralKey: TranslationKey, t: TranslateFn) =>
+  count === 1 ? t(singularKey) : t(pluralKey);
 
 const parseGrapes = (value?: string | null): string[] => {
   if (!value) return [];
@@ -441,7 +445,7 @@ const parseQuickFilterPayload = (payload: unknown): QuickFilter | null => {
   };
 };
 
-const normalizeScanRow = (row: ScanRow): ExploreScan => {
+const normalizeScanRow = (row: ScanRow, t: TranslateFn): ExploreScan => {
   const analysis = normalizeAnalysisJson(row.analysis_json as unknown as WineAnalysisResult | null);
   const createdAt = row.created_at ?? new Date().toISOString();
   const createdAtMs = Date.parse(createdAt);
@@ -451,7 +455,7 @@ const normalizeScanRow = (row: ScanRow): ExploreScan => {
 
   return {
     id: row.id,
-    title: analysis?.vin ?? "Okänd etikett",
+    title: analysis?.vin ?? t("explore.unknownLabel"),
     producer: analysis?.producent ?? null,
     region: analysis?.land_region ?? null,
     grapesRaw,
@@ -495,7 +499,7 @@ const normalizeWineIndexRow = (row: WineIndexRow): ExploreScan => {
   };
 };
 
-const deriveTrendingRegions = (scans: ExploreScan[]): AggregationItem[] => {
+const deriveTrendingRegions = (scans: ExploreScan[], t: TranslateFn): AggregationItem[] => {
   const now = Date.now();
   const windowMs = TREND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   const eligible = scans.filter((scan) => {
@@ -543,12 +547,12 @@ const deriveTrendingRegions = (scans: ExploreScan[]): AggregationItem[] => {
     .slice(0, TREND_LIMIT)
     .map((item) => ({
       label: item.label,
-      detail: `${item.count} ${pluralize(item.count, "skanning", "skanningar")} senaste ${weeks} veckorna`,
+      detail: t("explore.scanCount", { count: item.count, unit: pluralize(item.count, "explore.scan", "explore.scans", t), weeks }),
       count: item.count,
     }));
 };
 
-const derivePopularStyles = (scans: ExploreScan[]): AggregationItem[] => {
+const derivePopularStyles = (scans: ExploreScan[], t: TranslateFn, locale: string): AggregationItem[] => {
   const styleScans = scans
     .filter((scan) => Boolean(cleanFilterValue(scan.style)))
     .sort((a, b) => b.createdAtMs - a.createdAtMs);
@@ -574,19 +578,19 @@ const derivePopularStyles = (scans: ExploreScan[]): AggregationItem[] => {
     .sort((a, b) => {
       if (b.weighted !== a.weighted) return b.weighted - a.weighted;
       if (b.count !== a.count) return b.count - a.count;
-      return a.label.localeCompare(b.label, "sv", { sensitivity: "base" });
+      return a.label.localeCompare(b.label, locale, { sensitivity: "base" });
     })
     .slice(0, STYLE_LIMIT)
     .map((item) => ({
       label: item.label,
-      detail: `${item.count} ${pluralize(item.count, "träff", "träffar")} totalt`,
+      detail: t("explore.hitCount", { count: item.count, unit: pluralize(item.count, "explore.hit", "explore.hits", t) }),
       count: item.count,
     }));
 };
 
-const formatRelativeTime = (iso: string) => {
+const formatRelativeTime = (iso: string, locale: string, t: TranslateFn) => {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "nyligen";
+  if (Number.isNaN(date.getTime())) return t("explore.recently");
 
   const diffMs = date.getTime() - Date.now();
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -598,7 +602,7 @@ const formatRelativeTime = (iso: string) => {
     ["minute", 1000 * 60],
   ];
 
-  const rtf = new Intl.RelativeTimeFormat("sv", { numeric: "auto" });
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
 
   for (const [unit, unitMs] of units) {
     if (Math.abs(diffMs) >= unitMs || unit === "minute") {
@@ -607,7 +611,7 @@ const formatRelativeTime = (iso: string) => {
     }
   }
 
-  return "nyligen";
+  return t("explore.recently");
 };
 
 const fetchRecentScans = async (): Promise<ScanRow[]> =>
@@ -757,6 +761,8 @@ type ExploreScanListProps = {
   onStartNewScan: () => void;
   onNavigateToLogin: () => void;
   onRetryScans: () => void;
+  t: TranslateFn;
+  locale: string;
 };
 
 const ExploreScanList = memo(
@@ -774,6 +780,8 @@ const ExploreScanList = memo(
     onStartNewScan,
     onNavigateToLogin,
     onRetryScans,
+    t,
+    locale,
   }: ExploreScanListProps) => (
     <div className="mt-6 space-y-4">
       {showSkeleton && (
@@ -790,20 +798,20 @@ const ExploreScanList = memo(
             key={`${scan.source}-${scan.id}`}
             role="button"
             tabIndex={0}
-            aria-label={`Öppna ${scan.title}`}
+            aria-label={t("explore.openScan", { title: scan.title })}
             onClick={() => onScanOpen(scan)}
             onKeyDown={(event) => onScanKeyDown(event, scan)}
             className="flex cursor-pointer flex-col gap-4 rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] p-4 outline-none transition hover:border-[hsl(var(--color-accent)/0.5)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent)/0.6)] sm:flex-row sm:items-center"
           >
             <div className="flex w-full flex-1 flex-col gap-1">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-theme-secondary/60">
-                <span>{scan.source === "mine" ? "Min skanning" : "Kuraterat"}</span>
+                <span>{scan.source === "mine" ? t("explore.myScan") : t("explore.curated")}</span>
                 <span>•</span>
-                <span>{formatRelativeTime(scan.createdAt)}</span>
+                <span>{formatRelativeTime(scan.createdAt, locale, t)}</span>
               </div>
               <h3 className="text-lg font-semibold text-theme-primary">{scan.title}</h3>
               <p className="text-sm text-theme-secondary/80">
-                {[scan.producer, scan.region].filter(Boolean).join(" • ") || "Okänt ursprung"}
+                {[scan.producer, scan.region].filter(Boolean).join(" • ") || t("explore.unknownOrigin")}
               </p>
               {scan.notes && <p className="text-sm text-theme-secondary/70">{scan.notes}</p>}
             </div>
@@ -821,9 +829,9 @@ const ExploreScanList = memo(
       {showEmptyState && (
         <Banner
           type="info"
-          title="Inga flaskor matchar filtret"
-          text="Justera sökningen eller nollställ filtren för att få fler träffar."
-          ctaLabel="Rensa filter"
+          title={t("explore.noMatchTitle")}
+          text={t("explore.noMatchText")}
+          ctaLabel={t("explore.clearFilters")}
           onCta={onClearFilters}
           className="border-dashed"
         />
@@ -832,9 +840,9 @@ const ExploreScanList = memo(
       {showFirstScanHint && (
         <Banner
           type="info"
-          title="Gör en första skanning"
-          text="Vi visar redaktionens favoriter tills du fotar din första etikett. Då blir Explore personligt anpassad."
-          ctaLabel="Starta skanning"
+          title={t("explore.firstScanTitle")}
+          text={t("explore.firstScanText")}
+          ctaLabel={t("explore.startScan")}
           onCta={onStartNewScan}
         />
       )}
@@ -842,9 +850,9 @@ const ExploreScanList = memo(
       {showLoginPrompt && (
         <Banner
           type="info"
-          title="Logga in för att låsa upp historiken"
-          text="Kuraterade tips visas alltid, men dina egna skanningar kräver ett konto."
-          ctaLabel="Till inloggning"
+          title={t("explore.loginPromptTitle")}
+          text={t("explore.loginPromptText")}
+          ctaLabel={t("explore.goToLogin")}
           onCta={onNavigateToLogin}
         />
       )}
@@ -852,9 +860,9 @@ const ExploreScanList = memo(
       {showScanErrorBanner && (
         <Banner
           type="error"
-          title="Kan inte läsa dina skanningar"
-          text="Din uppkoppling verkar svaja. Vi visar tills vidare kuraterade flaskor."
-          ctaLabel={isRetryingScans ? "Försöker igen..." : "Försök igen"}
+          title={t("explore.scanErrorTitle")}
+          text={t("explore.scanErrorText")}
+          ctaLabel={isRetryingScans ? t("explore.retrying") : t("common.retry")}
           onCta={onRetryScans}
         />
       )}
@@ -873,7 +881,9 @@ const ExploreScanList = memo(
     prev.onClearFilters === next.onClearFilters &&
     prev.onStartNewScan === next.onStartNewScan &&
     prev.onNavigateToLogin === next.onNavigateToLogin &&
-    prev.onRetryScans === next.onRetryScans,
+    prev.onRetryScans === next.onRetryScans &&
+    prev.t === next.t &&
+    prev.locale === next.locale,
 );
 
 ExploreScanList.displayName = "ExploreScanList";
@@ -882,7 +892,7 @@ const Explore = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const sessionIdRef = useRef<string>();
   const exploreOpenedRef = useRef(false);
 
@@ -923,7 +933,7 @@ const Explore = () => {
     staleTime: 1000 * 60 * 60 * 24,
   });
 
-  const personalScans = useMemo(() => (scanRows ?? []).map((row) => normalizeScanRow(row)), [scanRows]);
+  const personalScans = useMemo(() => (scanRows ?? []).map((row) => normalizeScanRow(row, t)), [scanRows, t]);
 
   const cardSeedLibrary = useMemo(
     () =>
@@ -966,18 +976,18 @@ const Explore = () => {
   const defaultQuickFilter = availableFilters[0] ?? FALLBACK_QUICK_FILTERS[0]!;
 
   const trendItems = useMemo(() => {
-    const trends = deriveTrendingRegions(personalScans);
+    const trends = deriveTrendingRegions(personalScans, t);
     if (trends.length > 0) return trends;
     if (serverTrends.length > 0) return serverTrends;
     return FALLBACK_TRENDS;
-  }, [personalScans, serverTrends]);
+  }, [personalScans, serverTrends, t]);
 
   const styleItems = useMemo(() => {
-    const styles = derivePopularStyles(personalScans);
+    const styles = derivePopularStyles(personalScans, t, locale);
     if (styles.length > 0) return styles;
     if (serverStyles.length > 0) return serverStyles;
     return FALLBACK_STYLES;
-  }, [personalScans, serverStyles]);
+  }, [personalScans, serverStyles, t, locale]);
 
   const selectedFilterId = searchParams.get("filter");
 
@@ -1237,10 +1247,10 @@ const Explore = () => {
         <Button
           className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
           onClick={handleStartNewScan}
-          aria-label="Starta ny skanning"
+          aria-label={t("explore.startNewScan")}
         >
           <Camera className="h-4 w-4" />
-          Ny skanning
+          {t("explore.newScan")}
         </Button>
       </div>
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-10 px-4 pb-24 pt-20 sm:px-6 lg:px-8">
@@ -1272,16 +1282,16 @@ const Explore = () => {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex flex-col gap-2">
-              <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Druva</Label>
+              <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">{t("explore.grapeLabel")}</Label>
               <Select
                 value={effectiveFilters.grape ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("grape", value)}
               >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
-                  <SelectValue placeholder="Alla druvor" />
+                  <SelectValue placeholder={t("explore.allGrapes")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={FILTER_EMPTY_VALUE}>Alla druvor</SelectItem>
+                  <SelectItem value={FILTER_EMPTY_VALUE}>{t("explore.allGrapes")}</SelectItem>
                   {grapeOptions.map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
@@ -1292,16 +1302,16 @@ const Explore = () => {
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Region</Label>
+              <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">{t("explore.regionLabel")}</Label>
               <Select
                 value={effectiveFilters.region ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("region", value)}
               >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
-                  <SelectValue placeholder="Alla regioner" />
+                  <SelectValue placeholder={t("explore.allRegions")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={FILTER_EMPTY_VALUE}>Alla regioner</SelectItem>
+                  <SelectItem value={FILTER_EMPTY_VALUE}>{t("explore.allRegions")}</SelectItem>
                   {regionOptions.map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
@@ -1312,16 +1322,16 @@ const Explore = () => {
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Stil</Label>
+              <Label className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">{t("explore.styleLabel")}</Label>
               <Select
                 value={effectiveFilters.style ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("style", value)}
               >
                 <SelectTrigger className="h-11 rounded-2xl border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.2)] text-left text-sm text-theme-secondary">
-                  <SelectValue placeholder="Alla stilar" />
+                  <SelectValue placeholder={t("explore.allStyles")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={FILTER_EMPTY_VALUE}>Alla stilar</SelectItem>
+                  <SelectItem value={FILTER_EMPTY_VALUE}>{t("explore.allStyles")}</SelectItem>
                   {styleOptions.map((option) => (
                     <SelectItem key={option} value={option}>
                       {option}
@@ -1335,7 +1345,7 @@ const Explore = () => {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-theme-secondary/60">
               <Grip className="h-4 w-4" aria-hidden="true" />
-              Indexerade flaskor
+              {t("explore.indexedBottles")}
               <span className="rounded-full bg-[hsl(var(--color-surface)/0.3)] px-2 py-0.5 text-[10px] text-theme-secondary/80">
                 {wineIndex.length}
               </span>
@@ -1346,7 +1356,7 @@ const Explore = () => {
               onClick={handleClearFilters}
               className="self-start rounded-full border border-transparent text-theme-secondary hover:border-[hsl(var(--color-border)/0.4)] hover:bg-[hsl(var(--color-surface)/0.2)]"
             >
-              Rensa filter
+              {t("explore.clearFilters")}
             </Button>
           </div>
         </div>
@@ -1356,11 +1366,11 @@ const Explore = () => {
             <div className="flex items-center gap-3">
               <Flame className="h-5 w-5 text-theme-primary" aria-hidden="true" />
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Trendar</p>
-                <p className="text-base text-theme-secondary/80">Mest skannade druvor just nu</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">{t("explore.trendingLabel")}</p>
+                <p className="text-base text-theme-secondary/80">{t("explore.trendingSubtitle")}</p>
               </div>
             </div>
-            <Badge className="bg-[hsl(var(--color-surface-alt)/0.6)] text-theme-primary">Live från dina senaste skanningar</Badge>
+            <Badge className="bg-[hsl(var(--color-surface-alt)/0.6)] text-theme-primary">{t("explore.trendingBadge")}</Badge>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {trendItems.map((trend) => (
@@ -1372,7 +1382,7 @@ const Explore = () => {
                 onClick={() => logExploreCardOpened("trend")}
                 onKeyDown={(event) => handleExploreCardKeyDown(event, "trend")}
               >
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Druva</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">{t("explore.grapeLabel")}</p>
                 <h3 className="mt-2 text-2xl font-semibold text-theme-primary">{trend.label}</h3>
                 <p className="text-sm text-theme-secondary/70">{trend.detail}</p>
               </div>
@@ -1384,8 +1394,8 @@ const Explore = () => {
           <div className="mb-6 flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-theme-primary" aria-hidden="true" />
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Populära stilar</p>
-              <p className="text-base text-theme-secondary/80">Kuraterade inspel från redaktionen</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">{t("explore.stylesLabel")}</p>
+              <p className="text-base text-theme-secondary/80">{t("explore.stylesSubtitle")}</p>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1398,7 +1408,7 @@ const Explore = () => {
                 onClick={() => logExploreCardOpened("style")}
                 onKeyDown={(event) => handleExploreCardKeyDown(event, "style")}
               >
-                <p className="text-xs uppercase tracking-[0.3em] text-theme-secondary/60">Stil</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-theme-secondary/60">{t("explore.styleLabel")}</p>
                 <h3 className="mt-1 text-lg font-semibold text-theme-primary">{style.label}</h3>
                 <p className="text-sm text-theme-secondary/70">{style.detail}</p>
               </div>
@@ -1412,12 +1422,12 @@ const Explore = () => {
               <div className="flex items-center gap-3">
                 <Filter className="h-5 w-5 text-theme-primary" aria-hidden="true" />
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">Snabbfilter</p>
-                  <p className="text-base text-theme-secondary/80">Välj ett fokus för listan</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/60">{t("explore.quickFiltersLabel")}</p>
+                  <p className="text-base text-theme-secondary/80">{t("explore.quickFiltersSubtitle")}</p>
                 </div>
               </div>
               <span className="text-sm text-theme-secondary/70">
-                Visar {combinedResults.length} {pluralize(combinedResults.length, "flaska", "flaskor")}
+                {t("explore.showingCount", { count: combinedResults.length, unit: pluralize(combinedResults.length, "explore.bottle", "explore.bottles", t) })}
               </span>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -1461,6 +1471,8 @@ const Explore = () => {
             onStartNewScan={handleStartNewScan}
             onNavigateToLogin={handleNavigateToLogin}
             onRetryScans={handleRetryScans}
+            t={t}
+            locale={locale}
           />
         </section>
       </div>
