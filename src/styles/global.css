@@ -7,6 +7,9 @@
   --bg-canvas: 262 52% 6%;
   --bg-surface: 262 45% 10%;
   --surface-elevated: 261 42% 16%;
+  --surface-base: 36 20% 5%;
+  --surface-canvas: 34 17% 8%;
+  --surface-card: 36 17% 11%;
   --text-primary: 259 56% 95%;
   --text-secondary: 260 28% 78%;
   --accent-primary: 271 86% 67%;
@@ -23,27 +26,27 @@ body,
 /* Aktiveras från main.tsx */
 body.app-theme {
   color: hsl(var(--color-text));
-  background-color: hsl(var(--color-background));
+  background-color: hsl(var(--surface-base));
   background-image:
     radial-gradient(120% 120% at 15% 10%, hsl(var(--color-accent) / 0.18), transparent),
     radial-gradient(120% 120% at 85% 90%, hsl(var(--color-accent) / 0.12), transparent),
-    radial-gradient(140% 140% at 50% -20%, hsl(var(--color-surface) / 0.65), transparent);
+    radial-gradient(140% 140% at 50% -20%, hsl(var(--surface-canvas) / 0.65), transparent);
   background-attachment: fixed;
-  --bottom-nav-bg: hsl(var(--color-surface));
+  --bottom-nav-bg: hsl(var(--surface-canvas));
   --bottom-nav-border: hsl(var(--color-border) / 0.6);
   --bottom-nav-inactive: hsl(var(--color-text-muted) / 0.88);
   --bottom-nav-active: hsl(var(--color-accent));
 }
 
 body.app-theme.theme-dark {
-  --bottom-nav-bg: hsl(var(--color-surface) / 0.92);
+  --bottom-nav-bg: hsl(var(--surface-canvas) / 0.92);
   --bottom-nav-border: hsl(var(--color-border) / 0.75);
   --bottom-nav-inactive: hsl(var(--color-text-muted) / 0.82);
   --bottom-nav-active: hsl(var(--color-accent) / 0.92);
 }
 
 body.app-theme.theme-light {
-  --bottom-nav-bg: hsl(var(--color-surface) / 0.96);
+  --bottom-nav-bg: hsl(var(--surface-canvas) / 0.96);
   --bottom-nav-border: hsl(var(--color-border) / 0.6);
   --bottom-nav-inactive: hsl(var(--color-text-muted) / 0.78);
   --bottom-nav-active: hsl(var(--color-accent));
@@ -65,19 +68,31 @@ body.app-theme .text-theme-secondary {
 
 /* ========= Utility helpers ========= */
 body.app-theme .bg-theme-canvas {
-  background-color: hsl(var(--color-background));
+  background-color: hsl(var(--surface-base));
 }
 
 body.app-theme .bg-theme-surface {
-  background-color: hsl(var(--color-surface));
+  background-color: hsl(var(--surface-canvas));
 }
 
 body.app-theme .bg-theme-surface-alt {
-  background-color: hsl(var(--color-surface-alt));
+  background-color: hsl(var(--surface-card));
 }
 
 body.app-theme .bg-theme-elevated {
-  background-color: hsl(var(--color-surface-alt));
+  background-color: hsl(var(--surface-card));
+}
+
+body.app-theme .bg-surface-base {
+  background-color: hsl(var(--surface-base));
+}
+
+body.app-theme .bg-surface-canvas {
+  background-color: hsl(var(--surface-canvas));
+}
+
+body.app-theme .bg-surface-card {
+  background-color: hsl(var(--surface-card));
 }
 
 body.app-theme .text-theme-primary {

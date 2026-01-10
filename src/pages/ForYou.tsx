@@ -236,7 +236,7 @@ const ForYou = () => {
   const recentEntries = useMemo(() => history.slice(0, 4), [history]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
+    <div className="relative min-h-screen overflow-hidden bg-surface-base text-theme-secondary">
       <AmbientBackground />
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-4 pb-16 pt-12 sm:px-6 lg:px-10">
         <AppHeader
@@ -245,7 +245,7 @@ const ForYou = () => {
           subtitle={t("forYou.subtitle")}
           rightActions={(
             <div className="flex flex-col gap-4 sm:items-end">
-              <span className="inline-flex items-center gap-2 self-start rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.6)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/80 sm:self-end">
+              <span className="inline-flex items-center gap-2 self-start rounded-full border border-[hsl(var(--color-border)/0.4)] bg-surface-canvas px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/80 sm:self-end">
                 <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
                 {t("forYou.badge")}
               </span>
@@ -273,7 +273,7 @@ const ForYou = () => {
         />
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-[hsl(var(--color-surface-alt)/0.8)] p-6 shadow-theme-card backdrop-blur">
+          <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-surface-canvas p-6 shadow-theme-card backdrop-blur">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-theme-secondary/70">{t("forYou.latestScans")}</p>
@@ -306,7 +306,7 @@ const ForYou = () => {
                   return (
                     <div
                       key={entry.key}
-                      className="flex gap-4 rounded-2xl border border-theme-card bg-theme-elevated/70 p-4 shadow-inner shadow-black/20"
+                      className="flex gap-4 rounded-2xl border border-theme-card bg-surface-card p-4 shadow-inner shadow-black/20"
                     >
                       <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-theme-card bg-black/30 text-xs text-theme-secondary">
                         {entry.imageData ? (
@@ -340,7 +340,7 @@ const ForYou = () => {
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-theme-card bg-theme-elevated/70 p-6 text-left">
+              <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-theme-card bg-surface-card p-6 text-left">
                 <p className="text-lg font-semibold text-theme-primary">{t("forYou.emptyHistoryTitle")}</p>
                 <p className="text-sm text-theme-secondary">{t("forYou.emptyHistorySubtitle")}</p>
                 <Button
@@ -353,7 +353,7 @@ const ForYou = () => {
             )}
           </section>
 
-          <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-[hsl(var(--color-surface-alt)/0.8)] p-6 shadow-theme-card backdrop-blur">
+          <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-surface-canvas p-6 shadow-theme-card backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-theme-secondary/70">{t("forYou.suggestions")}</p>
@@ -379,7 +379,7 @@ const ForYou = () => {
               </Button>
             </div>
 
-            <div className="rounded-2xl border border-dashed border-theme-card bg-theme-elevated/60 p-4">
+            <div className="rounded-2xl border border-dashed border-theme-card bg-surface-card p-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
@@ -394,7 +394,7 @@ const ForYou = () => {
                   <Button
                     key={action.key}
                     variant="outline"
-                    className="group flex h-full items-center justify-between gap-3 bg-theme-elevated px-4 py-3 text-left transition hover:border-theme-primary/60 hover:bg-[hsl(var(--color-surface)/0.65)]"
+                    className="group flex h-full items-center justify-between gap-3 bg-surface-card px-4 py-3 text-left transition hover:border-theme-primary/60 hover:bg-surface-card"
                     onClick={() => void handleScenarioSelect(action.key)}
                   >
                     <div className="flex items-center gap-3">
@@ -413,7 +413,7 @@ const ForYou = () => {
             </div>
 
             {cards.length === 0 && loadingCards ? (
-              <div className="rounded-2xl border border-theme-card bg-theme-elevated/70 p-6 text-sm text-theme-secondary">
+              <div className="rounded-2xl border border-theme-card bg-surface-card p-6 text-sm text-theme-secondary">
                 {t("common.loading")}
               </div>
             ) : cards.length > 0 ? (
@@ -421,7 +421,7 @@ const ForYou = () => {
                 {cards.map((card) => (
                   <div
                     key={card.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-theme-elevated/70 p-5 shadow-inner shadow-black/20"
+                    className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-surface-card p-5 shadow-inner shadow-black/20"
                     onClick={() => handleCardClick(card)}
                   >
                     <div className="flex flex-wrap items-center gap-2">
@@ -460,7 +460,7 @@ const ForYou = () => {
       <Sheet open={scenarioOpen} onOpenChange={setScenarioOpen}>
         <SheetContent
           side="bottom"
-          className="max-h-[80vh] overflow-y-auto rounded-t-3xl border-theme-card bg-[hsl(var(--color-surface-alt)/0.95)] text-theme-primary sm:left-1/2 sm:max-w-3xl sm:-translate-x-1/2"
+          className="max-h-[80vh] overflow-y-auto rounded-t-3xl border-theme-card bg-surface-canvas text-theme-primary sm:left-1/2 sm:max-w-3xl sm:-translate-x-1/2"
         >
           <SheetHeader className="space-y-2 text-left">
             <SheetTitle className="flex items-center gap-2 text-xl">
@@ -488,7 +488,7 @@ const ForYou = () => {
             ) : null}
 
             {scenarioLoading ? (
-              <div className="rounded-2xl border border-theme-card bg-theme-elevated/70 p-5 text-sm text-theme-secondary">
+              <div className="rounded-2xl border border-theme-card bg-surface-card p-5 text-sm text-theme-secondary">
                 {t("forYou.scenario.loading")}
               </div>
             ) : scenarioCards.length > 0 ? (
@@ -496,7 +496,7 @@ const ForYou = () => {
                 {scenarioCards.map((card) => (
                   <div
                     key={card.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-theme-elevated/80 p-5 shadow-inner shadow-black/20 transition hover:border-theme-primary/60"
+                    className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-surface-card p-5 shadow-inner shadow-black/20 transition hover:border-theme-primary/60"
                     onClick={() => handleScenarioCardClick(card)}
                   >
                     <div className="flex flex-wrap items-center gap-2">
@@ -519,7 +519,7 @@ const ForYou = () => {
                 ))}
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-theme-card bg-theme-elevated/70 p-5 text-sm text-theme-secondary">
+              <div className="rounded-2xl border border-dashed border-theme-card bg-surface-card p-5 text-sm text-theme-secondary">
                 {t("forYou.scenario.empty")}
               </div>
             )}

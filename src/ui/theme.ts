@@ -2,6 +2,9 @@ export type ThemeTokens = {
   bgCanvas: string;
   bgSurface: string;
   surfaceElevated: string;
+  surfaceBase: string;
+  surfaceCanvas: string;
+  surfaceCard: string;
   textPrimary: string;
   textSecondary: string;
   accentPrimary: string;
@@ -27,6 +30,9 @@ export const darkTheme: ThemeTokens = {
   bgCanvas: "262 52% 6%",
   bgSurface: "262 45% 10%",
   surfaceElevated: "261 42% 16%",
+  surfaceBase: "36 20% 5%",
+  surfaceCanvas: "34 17% 8%",
+  surfaceCard: "36 17% 11%",
   textPrimary: "259 56% 95%",
   textSecondary: "260 28% 78%",
   accentPrimary: "271 86% 67%",
@@ -49,6 +55,9 @@ export const lightTheme: ThemeTokens = {
   bgCanvas: "0 0% 100%",
   bgSurface: "258 60% 97%",
   surfaceElevated: "260 40% 92%",
+  surfaceBase: "45 22% 96%",
+  surfaceCanvas: "0 0% 100%",
+  surfaceCard: "38 24% 93%",
   textPrimary: "261 40% 18%",
   textSecondary: "262 20% 38%",
   accentPrimary: "268 85% 58%",
