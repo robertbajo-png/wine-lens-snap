@@ -494,7 +494,7 @@ const Me = () => {
               </Avatar>
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <Button
-                  className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
+                  className="gap-2"
                   onClick={() => navigate("/scan")}
                   aria-label={t("me.newScan")}
                 >
@@ -502,8 +502,7 @@ const Me = () => {
                   {t("me.newScan")}
                 </Button>
                 <Button
-                  variant="outline"
-                  className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
+                  variant="secondary"
                   onClick={() => navigate("/me/wines")}
                   aria-label={t("me.myWines")}
                 >
@@ -578,7 +577,7 @@ const Me = () => {
                         <Button
                           type="button"
                           variant="outline"
-                          className="gap-2 border-dashed border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
+                          className="gap-2 border-dashed bg-theme-elevated"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={savingProfile}
                         >
@@ -602,7 +601,7 @@ const Me = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
+                      className="bg-theme-elevated"
                       disabled={savingProfile}
                     >
                       {t("me.cancel")}
@@ -610,7 +609,7 @@ const Me = () => {
                   </DialogClose>
                   <Button
                     type="submit"
-                    className="gap-2 bg-theme-accent text-theme-on-accent shadow-theme-card"
+                    className="gap-2"
                     disabled={savingProfile}
                   >
                       {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : null}

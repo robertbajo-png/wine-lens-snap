@@ -1256,7 +1256,7 @@ const Explore = () => {
                 {t("explore.badge")}
               </span>
               <Button
-                className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
+                className="gap-2"
                 onClick={handleStartNewScan}
                 aria-label={t("explore.startNewScan")}
               >
@@ -1438,13 +1438,10 @@ const Explore = () => {
                 return (
                   <Button
                     key={filter.id}
-                    variant={isActive ? "default" : "outline"}
+                    variant={isActive ? "primary" : "outline"}
                     onClick={() => handleSelectFilter(filter.id)}
-                    className={`rounded-full px-4 ${
-                      isActive
-                        ? "bg-theme-accent text-theme-on-accent shadow-theme-card"
-                        : "border-[hsl(var(--color-border)/0.5)] bg-[hsl(var(--color-surface)/0.6)] text-theme-secondary/80"
-                    }`}
+                    size="sm"
+                    className="px-4 text-left"
                     aria-pressed={isActive}
                   >
                     <div className="flex flex-col text-left">

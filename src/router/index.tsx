@@ -69,10 +69,10 @@ const LoginPrompt = ({ to }: { to: string }) => {
         <p className="text-theme-secondary">{t("router.loginRequiredDesc")}</p>
       </div>
       <div className="flex flex-wrap justify-center gap-3">
-        <Button asChild className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] px-6 text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]">
+        <Button asChild size="lg">
           <a href={to}>{t("router.login")}</a>
         </Button>
-        <Button asChild variant="ghost" className="rounded-full border border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80">
+        <Button asChild variant="secondary" size="lg">
           <a href="/scan">{t("router.continueToScan")}</a>
         </Button>
       </div>

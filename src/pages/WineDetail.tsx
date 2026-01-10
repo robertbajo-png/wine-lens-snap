@@ -86,15 +86,15 @@ const WineDetail = () => {
         <div className="flex flex-wrap justify-center gap-3">
           <Button
             onClick={handleBack}
-            variant="ghost"
-            className="gap-2 rounded-full border border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+            variant="secondary"
+            className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
             {t("wineDetail.back")}
           </Button>
           <Button
             onClick={handleNewScan}
-            className="rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] px-6 text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+            size="lg"
           >
             {t("wineDetail.scanNewWine")}
           </Button>
@@ -122,9 +122,9 @@ const WineDetail = () => {
       <div className="fixed left-4 top-4 z-50">
         <Button
           onClick={handleBack}
-          variant="ghost"
+          variant="secondary"
           size="icon"
-          className="h-10 w-10 rounded-full border border-theme-card bg-theme-elevated/90 text-theme-primary backdrop-blur-sm hover:bg-theme-elevated"
+          className="backdrop-blur-sm"
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
@@ -220,7 +220,8 @@ const WineDetail = () => {
         <div className="flex justify-center pt-4">
           <Button
             onClick={handleNewScan}
-            className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] px-8 py-3 text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+            size="lg"
+            className="gap-2"
           >
             <Camera className="h-5 w-5" />
             {t("wineDetail.scanNew")}

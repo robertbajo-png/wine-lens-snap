@@ -252,15 +252,16 @@ const ForYou = () => {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <Button
                   size="lg"
-                  className="group inline-flex items-center gap-2 rounded-full bg-theme-accent px-6 text-theme-on-accent shadow-theme-card transition hover:opacity-90"
+                  className="group inline-flex items-center gap-2"
                   onClick={() => navigate("/scan")}
                 >
                   <Camera className="h-4 w-4 transition group-hover:-translate-y-0.5" aria-hidden="true" />
                   {t("forYou.scanWineBottle")}
                 </Button>
                 <Button
-                  variant="outline"
-                  className="gap-2 rounded-full border-theme-card bg-theme-elevated px-5 py-2 text-sm font-semibold text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2"
                   onClick={() => navigate("/me/wines")}
                 >
                   {t("forYou.viewHistory")}
@@ -280,7 +281,8 @@ const ForYou = () => {
               </div>
               <Button
                 variant="ghost"
-                className="gap-2 rounded-full px-3 py-2 text-theme-primary hover:bg-[hsl(var(--color-surface)/0.6)]"
+                size="sm"
+                className="gap-2"
                 onClick={() => navigate("/me/wines")}
               >
                 {t("forYou.viewHistory")}
@@ -325,7 +327,7 @@ const ForYou = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="gap-2 rounded-full px-3 text-theme-primary hover:bg-[hsl(var(--color-surface)/0.7)]"
+                            className="gap-2"
                             onClick={() => navigate(`/wine/${entry.key}`)}
                           >
                             {t("forYou.viewWine")}
@@ -342,7 +344,7 @@ const ForYou = () => {
                 <p className="text-lg font-semibold text-theme-primary">{t("forYou.emptyHistoryTitle")}</p>
                 <p className="text-sm text-theme-secondary">{t("forYou.emptyHistorySubtitle")}</p>
                 <Button
-                  className="mt-1 rounded-full bg-theme-accent text-theme-on-accent"
+                  className="mt-1"
                   onClick={() => navigate("/scan")}
                 >
                   {t("forYou.tryScan")}
@@ -365,7 +367,7 @@ const ForYou = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="gap-2 rounded-full px-3 py-2 text-theme-primary hover:bg-[hsl(var(--color-surface)/0.6)]"
+                className="gap-2"
                 onClick={() => void refreshCards({ force: true })}
                 disabled={loadingCards}
               >
@@ -392,7 +394,7 @@ const ForYou = () => {
                   <Button
                     key={action.key}
                     variant="outline"
-                    className="group flex h-full items-center justify-between gap-3 rounded-2xl border-theme-card bg-theme-elevated px-4 py-3 text-left text-theme-primary transition hover:border-theme-primary/60 hover:bg-[hsl(var(--color-surface)/0.65)]"
+                    className="group flex h-full items-center justify-between gap-3 bg-theme-elevated px-4 py-3 text-left transition hover:border-theme-primary/60 hover:bg-[hsl(var(--color-surface)/0.65)]"
                     onClick={() => void handleScenarioSelect(action.key)}
                   >
                     <div className="flex items-center gap-3">
