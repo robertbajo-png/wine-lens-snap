@@ -64,8 +64,11 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        surface: "hsl(var(--surface) / <alpha-value>)",
-        surface2: "hsl(var(--surface-2) / <alpha-value>)",
+        surface: {
+          base: "hsl(var(--surface-base) / <alpha-value>)",
+          canvas: "hsl(var(--surface-canvas) / <alpha-value>)",
+          card: "hsl(var(--surface-card) / <alpha-value>)",
+        },
         outline: "hsl(var(--outline) / <alpha-value>)",
         text: {
           DEFAULT: "hsl(var(--text) / <alpha-value>)",

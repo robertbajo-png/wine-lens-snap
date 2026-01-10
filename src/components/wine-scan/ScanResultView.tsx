@@ -25,7 +25,7 @@ const ServingCard = lazy(() => import("@/components/result/ServingCard"));
 
 const LazySectionFallback = ({ className = "" }: { className?: string }) => (
   <div
-    className={`w-full min-h-[120px] rounded-2xl border border-theme-card bg-theme-elevated/60 animate-pulse ${className}`}
+    className={`w-full min-h-[120px] rounded-2xl border border-theme-card bg-surface-card animate-pulse ${className}`}
   />
 );
 
@@ -140,7 +140,7 @@ export const ScanResultView = ({
   return (
     <>
       <Dialog open={isRefineDialogOpen} onOpenChange={setIsRefineDialogOpen}>
-        <DialogContent className="border-theme-card bg-theme-elevated text-theme-primary">
+        <DialogContent className="border-theme-card bg-surface-card text-theme-primary">
           <DialogHeader>
             <DialogTitle>Förfina resultat</DialogTitle>
             <DialogDescription className="text-theme-secondary">
@@ -149,7 +149,7 @@ export const ScanResultView = ({
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="rounded-2xl border border-theme-card bg-theme-elevated/50 p-3">
+            <div className="rounded-2xl border border-theme-card bg-surface-card p-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-semibold text-theme-primary">Ta en ny bild</p>
@@ -177,7 +177,7 @@ export const ScanResultView = ({
                   value={refineVintage}
                   onChange={(event) => setRefineVintage(event.target.value)}
                   placeholder="t.ex. 2019"
-                  className="border-theme-card bg-theme-canvas text-theme-primary"
+                  className="border-theme-card bg-surface-canvas text-theme-primary"
                 />
               </div>
               <div className="space-y-2">
@@ -187,7 +187,7 @@ export const ScanResultView = ({
                   value={refineStyle}
                   onChange={(event) => setRefineStyle(event.target.value)}
                   placeholder="t.ex. Chianti Classico"
-                  className="border-theme-card bg-theme-canvas text-theme-primary"
+                  className="border-theme-card bg-surface-canvas text-theme-primary"
                 />
                 {styleSuggestions.length > 0 && (
                   <div className="flex flex-wrap gap-2 text-xs text-theme-secondary">
@@ -213,7 +213,7 @@ export const ScanResultView = ({
                 value={refineGrape}
                 onChange={(event) => setRefineGrape(event.target.value)}
                 placeholder="t.ex. Sangiovese"
-                className="border-theme-card bg-theme-canvas text-theme-primary"
+                className="border-theme-card bg-surface-canvas text-theme-primary"
               />
               {grapeSuggestions.length > 0 && (
                 <div className="flex flex-wrap gap-2 text-xs text-theme-secondary">
@@ -246,7 +246,7 @@ export const ScanResultView = ({
         </DialogContent>
       </Dialog>
 
-      <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
+      <div className="relative min-h-screen overflow-hidden bg-surface-base text-theme-secondary">
         <AmbientBackground />
 
         <div className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-32 pt-10 sm:pt-16">
@@ -306,7 +306,7 @@ export const ScanResultView = ({
                 size="sm"
                 onClick={onChangeImage}
                 disabled={isProcessing}
-                className="text-theme-primary hover:bg-theme-elevated"
+                className="text-theme-primary hover:bg-surface-card"
               >
                 <ImageUp className="mr-2 h-4 w-4" />
                 Byt bild
@@ -364,7 +364,7 @@ export const ScanResultView = ({
                   isPersistingScan={isPersistingScan}
                 />
               ) : (
-                <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
+                <Card className="border-theme-card/80 bg-surface-card backdrop-blur">
                   <CardContent className="flex flex-col gap-3 text-sm text-theme-secondary sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="font-semibold text-theme-primary">Logga in för att spara vinet</p>
@@ -387,7 +387,7 @@ export const ScanResultView = ({
                 isLoggedIn={isLoggedIn}
               />
 
-              <section className="rounded-2xl border border-border bg-card p-4">
+              <section className="rounded-2xl border border-border bg-surface-card p-4">
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Smakprofil</h3>
@@ -455,7 +455,7 @@ export const ScanResultView = ({
 
             {previewImage && (
               <aside className="lg:sticky lg:top-24">
-                <div className="overflow-hidden rounded-3xl border border-theme-card bg-black/40 shadow-xl backdrop-blur">
+                <div className="overflow-hidden rounded-3xl border border-theme-card bg-surface-card shadow-xl backdrop-blur">
                   <img src={previewImage} alt="Skannad vinetikett" className="h-full w-full object-cover" />
                 </div>
               </aside>
