@@ -33,6 +33,7 @@ import type { ThemePreference } from "@/ui/theme";
 import { Camera, Globe, Laptop, Loader2, LogOut, Moon, PenLine, SunMedium, UploadCloud } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useSettings } from "@/settings/SettingsContext";
+import { AppHeader } from "@/components/layout/AppHeader";
 
 const Me = () => {
   const navigate = useNavigate();
@@ -478,40 +479,41 @@ const Me = () => {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-12 sm:px-8">
-      <header className="mb-10 flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16 border border-[hsl(var(--color-border))] bg-theme-elevated">
-            {avatarUrl ? <AvatarImage src={avatarUrl} alt={t("me.profileImage")} className="object-cover" /> : null}
-            <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
-              {initials || "WS"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold text-theme-primary">{displayName}</h1>
-            {email ? <p className="text-sm text-theme-secondary">{email}</p> : null}
-          </div>
-        </div>
-        <div className="flex flex-col items-stretch gap-3 sm:items-end">
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-            <Button
-              className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
-              onClick={() => navigate("/scan")}
-              aria-label={t("me.newScan")}
-            >
-              <Camera className="h-4 w-4" />
-              {t("me.newScan")}
-            </Button>
-            <Button
-              variant="outline"
-              className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
-              onClick={() => navigate("/me/wines")}
-              aria-label={t("me.myWines")}
-            >
-              {t("me.myWines")}
-            </Button>
-          </div>
-        </div>
-      </header>
+      <div className="mb-10">
+        <AppHeader
+          variant="compact"
+          title={displayName}
+          subtitle={email ?? undefined}
+          rightActions={(
+            <div className="flex flex-col items-start gap-4 sm:items-end">
+              <Avatar className="h-14 w-14 border border-[hsl(var(--color-border))] bg-theme-elevated">
+                {avatarUrl ? <AvatarImage src={avatarUrl} alt={t("me.profileImage")} className="object-cover" /> : null}
+                <AvatarFallback className="bg-theme-elevated text-lg font-semibold text-theme-primary">
+                  {initials || "WS"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <Button
+                  className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
+                  onClick={() => navigate("/scan")}
+                  aria-label={t("me.newScan")}
+                >
+                  <Camera className="h-4 w-4" />
+                  {t("me.newScan")}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
+                  onClick={() => navigate("/me/wines")}
+                  aria-label={t("me.myWines")}
+                >
+                  {t("me.myWines")}
+                </Button>
+              </div>
+            </div>
+          )}
+        />
+      </div>
 
       <div className="space-y-6">
         {/* Premium section temporarily hidden for RC */}

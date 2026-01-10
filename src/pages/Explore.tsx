@@ -26,6 +26,7 @@ import { withTimeoutFallback } from "@/lib/fallback";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { TranslationKey } from "@/lib/translations";
+import { AppHeader } from "@/components/layout/AppHeader";
 
 type TranslateFn = (key: TranslationKey, params?: Record<string, string | number>) => string;
 
@@ -1243,27 +1244,28 @@ const Explore = () => {
   return (
     <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
       <AmbientBackground />
-      <div className="absolute right-4 top-6 z-20">
-        <Button
-          className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
-          onClick={handleStartNewScan}
-          aria-label={t("explore.startNewScan")}
-        >
-          <Camera className="h-4 w-4" />
-          {t("explore.newScan")}
-        </Button>
-      </div>
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-10 px-4 pb-24 pt-20 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-3 text-center">
-          <span className="mx-auto inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
-            <Compass className="h-4 w-4 text-theme-primary" aria-hidden="true" />
-            {t("explore.badge")}
-          </span>
-          <h1 className="text-3xl font-semibold text-theme-primary sm:text-4xl">{t("explore.title")}</h1>
-          <p className="mx-auto max-w-2xl text-sm text-theme-secondary/80 sm:text-base">
-            {t("explore.subtitle")}
-          </p>
-        </div>
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-10 px-4 pb-24 pt-12 sm:px-6 lg:px-8">
+        <AppHeader
+          variant="hero"
+          title={t("explore.title")}
+          subtitle={t("explore.subtitle")}
+          rightActions={(
+            <div className="flex flex-col gap-3 sm:items-end">
+              <span className="inline-flex items-center gap-2 self-start rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--color-surface)/0.2)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/70 sm:self-end">
+                <Compass className="h-4 w-4 text-theme-primary" aria-hidden="true" />
+                {t("explore.badge")}
+              </span>
+              <Button
+                className="gap-2 rounded-full bg-theme-accent text-theme-on-accent shadow-theme-card"
+                onClick={handleStartNewScan}
+                aria-label={t("explore.startNewScan")}
+              >
+                <Camera className="h-4 w-4" />
+                {t("explore.newScan")}
+              </Button>
+            </div>
+          )}
+        />
 
         <div className="flex flex-col gap-6 rounded-3xl border border-[hsl(var(--color-border)/0.6)] bg-[hsl(var(--color-surface-alt)/0.8)] p-8 shadow-theme-card backdrop-blur">
           <label className="flex flex-col gap-2 text-left">
