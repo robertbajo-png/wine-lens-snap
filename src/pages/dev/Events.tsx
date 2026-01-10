@@ -103,10 +103,10 @@ const DevEventsPage = () => {
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={fetchEvents}
               disabled={loading}
-              className="gap-2 rounded-full border-theme-card bg-theme-elevated text-theme-primary"
+              className="gap-2"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Uppdatera

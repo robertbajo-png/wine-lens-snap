@@ -140,7 +140,9 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
             <Button
               type="button"
               onClick={handleOpenDetails}
-              className="gap-2 rounded-full bg-theme-elevated px-4 py-2 text-sm font-semibold text-theme-primary shadow-sm transition hover:bg-[hsl(var(--surface-elevated)/0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B095FF] focus-visible:ring-offset-2 focus-visible:ring-offset-theme-elevated"
+              variant="secondary"
+              size="sm"
+              className="gap-2"
             >
               <ExternalLink className="h-4 w-4" aria-hidden="true" />
               {t("wineCard.open")}
@@ -150,7 +152,8 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
               type="button"
               variant="outline"
               onClick={() => onShare(entry)}
-              className="gap-2 rounded-full border-theme-card bg-theme-elevated px-4 py-2 text-sm font-semibold text-theme-primary transition hover:bg-[hsl(var(--surface-elevated)/0.85)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B095FF] focus-visible:ring-offset-2 focus-visible:ring-offset-theme-elevated"
+              size="sm"
+              className="gap-2"
             >
               <Share2 className="h-4 w-4" aria-hidden="true" />
               {t("wineCard.share")}
@@ -160,7 +163,8 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
               type="button"
               variant="outline"
               onClick={() => onRemove(entry.key)}
-              className="gap-2 rounded-full border-destructive/60 bg-theme-elevated px-4 py-2 text-sm font-semibold text-destructive transition hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 focus-visible:ring-offset-theme-elevated"
+              size="sm"
+              className="gap-2 border-destructive/60 text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               {t("wineCard.deleteLocally")}

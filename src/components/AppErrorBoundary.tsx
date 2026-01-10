@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode, useCallback } from "react";
 import { DEFAULT_ERROR_MESSAGE, useErrorHandling } from "@/contexts/ErrorHandlingContext";
 import { logError } from "@/lib/errorLogger";
+import { Button } from "@/components/ui/button";
 
 class ErrorBoundaryInner extends Component<{
   onError: (error: Error, errorInfo: ErrorInfo) => void;
@@ -36,20 +37,12 @@ class ErrorBoundaryInner extends Component<{
               Appen stötte på ett oväntat fel. Försök igen eller starta om appen.
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                className="rounded-xl bg-theme-accent px-4 py-2 text-sm font-semibold text-theme-on-accent shadow-theme-card transition hover:opacity-90"
-                onClick={this.handleRestart}
-              >
+              <Button type="button" onClick={this.handleRestart}>
                 Starta om appen
-              </button>
-              <button
-                type="button"
-                className="rounded-xl border border-theme-card px-4 py-2 text-sm font-semibold text-theme-secondary transition hover:text-theme-primary"
-                onClick={this.handleTryAgain}
-              >
+              </Button>
+              <Button type="button" variant="outline" onClick={this.handleTryAgain}>
                 Försök igen
-              </button>
+              </Button>
             </div>
           </div>
         </div>

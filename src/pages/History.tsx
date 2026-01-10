@@ -328,9 +328,9 @@ const History = () => {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant="ghost"
+              variant="secondary"
               onClick={() => navigate(-1)}
-              className="gap-2 rounded-full border border-theme-card bg-theme-elevated px-4 text-theme-primary shadow-lg shadow-purple-900/20 backdrop-blur transition hover:bg-theme-elevated"
+              className="gap-2 shadow-lg shadow-purple-900/20 backdrop-blur"
               aria-label={t("common.goBack")}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -347,9 +347,8 @@ const History = () => {
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={handleRefresh}
-              className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
               aria-label={t("history.refresh")}
             >
               {t("history.refresh")}
@@ -358,7 +357,7 @@ const History = () => {
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="gap-2 rounded-full border-dashed border-theme-card bg-theme-elevated text-theme-primary shadow-sm backdrop-blur transition hover:bg-[hsl(var(--surface-elevated)/0.85)]"
+                  className="gap-2 border-dashed bg-theme-elevated shadow-sm backdrop-blur transition hover:bg-[hsl(var(--surface-elevated)/0.85)]"
                   aria-label={t("history.testTools")}
                 >
                   <Wand2 className="h-4 w-4" />
@@ -380,7 +379,7 @@ const History = () => {
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <Button
                       onClick={handleSeedDemo}
-                      className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)] sm:flex-1"
+                      className="gap-2 sm:flex-1"
                       aria-label={t("history.fillWithDemo")}
                     >
                       <Wand2 className="h-4 w-4" />
@@ -389,7 +388,7 @@ const History = () => {
                     <Button
                       variant="outline"
                       onClick={handleClearAll}
-                      className="gap-2 rounded-full border-destructive/60 bg-theme-elevated text-destructive hover:bg-destructive/10 sm:flex-1"
+                      className="gap-2 border-destructive/60 text-destructive hover:bg-destructive/10 sm:flex-1"
                       aria-label={t("history.clearHistory")}
                     >
                       <Eraser className="h-4 w-4" />
@@ -402,7 +401,7 @@ const History = () => {
             </Dialog>
             <Button
               onClick={() => navigate("/scan")}
-              className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF] text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)]"
+              className="gap-2"
               aria-label={t("history.newScan")}
             >
               <Camera className="h-4 w-4" />
@@ -438,7 +437,7 @@ const History = () => {
             <CardContent className="flex flex-col items-center gap-4 pb-10">
               <Button
                 onClick={() => navigate("/scan")}
-                className="gap-2 rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary shadow-[0_18px_45px_-20px_rgba(123,63,228,1)]"
+                className="gap-2"
                 aria-label={t("history.scanWine")}
               >
                 <Camera className="h-4 w-4" />
@@ -447,7 +446,7 @@ const History = () => {
               <Button
                 variant="outline"
                 onClick={() => setDevDialogOpen(true)}
-                className="gap-2 rounded-full border-dashed border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
+                className="gap-2 border-dashed bg-theme-elevated"
                 aria-label={t("history.showTestTools")}
               >
                 <Wand2 className="h-4 w-4" />

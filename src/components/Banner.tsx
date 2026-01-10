@@ -91,7 +91,7 @@ export const Banner = ({
           size="sm"
           variant="outline"
           onClick={onCta}
-          className="ml-auto inline-flex items-center justify-center rounded-full border-theme-card bg-transparent px-4 text-xs font-semibold text-theme-primary hover:bg-[hsl(var(--surface-elevated)/0.85)]"
+          className="ml-auto inline-flex items-center justify-center px-4 text-xs font-semibold"
           style={{ borderColor: variant.border, color: variant.iconColor }}
         >
           {ctaLabel}

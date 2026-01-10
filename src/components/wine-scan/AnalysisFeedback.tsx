@@ -79,15 +79,13 @@ export const AnalysisFeedback = ({
         </p>
         <div className="flex flex-wrap gap-2">
           <Button
-            className="rounded-full bg-theme-accent text-theme-on-accent"
             disabled={disabled}
             onClick={() => submitFeedback(true)}
           >
             Stämmer
           </Button>
           <Button
-            variant="outline"
-            className="rounded-full border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
+            variant="secondary"
             disabled={disabled}
             onClick={() => setShowDialog(true)}
           >
@@ -127,7 +125,6 @@ export const AnalysisFeedback = ({
             <Button
               onClick={() => submitFeedback(false, trimmedComment)}
               disabled={isSubmitting || hasSubmitted}
-              className="bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary"
             >
               {isSubmitting ? "Skickar..." : "Skicka"}
             </Button>

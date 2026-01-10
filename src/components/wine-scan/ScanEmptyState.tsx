@@ -75,9 +75,8 @@ export const ScanEmptyState = ({
                 Profil
               </Button>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
-                className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
                 onClick={onNavigateHistory}
               >
                 Historik
@@ -111,11 +110,10 @@ export const ScanEmptyState = ({
           <Badge variant={statusTone}>{statusLabel}</Badge>
           <div className="flex flex-wrap gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={onRetryScan}
               disabled={isProcessing}
-              className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
             >
               <RefreshCcw className="mr-2 h-4 w-4" />
               Starta om
@@ -157,15 +155,13 @@ export const ScanEmptyState = ({
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={onRetryScan}
-                  className="bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary"
                 >
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   Starta om skanning
                 </Button>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={onChangeImage}
-                  className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
                 >
                   <ImageUp className="mr-2 h-4 w-4" />
                   Byt bild
@@ -188,8 +184,8 @@ export const ScanEmptyState = ({
           <div className="w-full space-y-4">
             <Button
               onClick={onTakePhoto}
-              className="h-14 w-full rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold shadow-[0_20px_45px_-22px_rgba(123,63,228,0.95)]"
               size="lg"
+              className="w-full"
               disabled={isProcessing}
             >
               <Camera className="mr-2 h-5 w-5" />
@@ -220,9 +216,9 @@ export const ScanEmptyState = ({
         <div className="absolute right-4 top-4 z-10">
           <Button
             onClick={onInstall}
-            variant="outline"
+            variant="secondary"
             size="sm"
-            className="border-theme-card bg-theme-elevated text-theme-primary shadow-lg backdrop-blur hover:bg-theme-elevated"
+            className="shadow-lg backdrop-blur"
           >
             <Download className="mr-2 h-4 w-4" />
             Installera app

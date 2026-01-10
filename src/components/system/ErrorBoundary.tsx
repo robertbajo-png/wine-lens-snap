@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { logEvent } from "@/lib/logger";
+import { Button } from "@/components/ui/button";
 
 type ErrorBoundaryProps = {
   children: ReactNode;
@@ -39,13 +40,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <div className="w-full max-w-md rounded-2xl border border-theme-card bg-theme-surface p-6 text-center shadow-theme-card">
             <h1 className="text-2xl font-semibold">Something went wrong</h1>
             <p className="mt-2 text-theme-secondary">Reload to get back to the app.</p>
-            <button
-              type="button"
-              className="mt-6 w-full rounded-xl bg-theme-accent px-4 py-2 text-sm font-semibold text-theme-on-accent shadow-theme-card transition hover:opacity-90"
-              onClick={this.handleReload}
-            >
+            <Button type="button" className="mt-6 w-full" onClick={this.handleReload}>
               Reload
-            </button>
+            </Button>
           </div>
         </div>
       );

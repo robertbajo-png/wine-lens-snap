@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import {
   addScanToList,
   createWineList,
@@ -270,13 +269,8 @@ export const WineListsPanel = ({ scanId, ensureScanId, isPersistingScan }: WineL
               return (
                 <Button
                   key={list.id}
-                  variant={isSelected ? "default" : "outline"}
-                  className={cn(
-                    "gap-2 rounded-full border-theme-card",
-                    isSelected
-                      ? "bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#B095FF]"
-                      : "bg-transparent text-theme-primary hover:bg-theme-elevated/80",
-                  )}
+                  variant={isSelected ? "primary" : "outline"}
+                  className="gap-2"
                   onClick={() => (disabled ? null : void handleToggle(list.id))}
                   disabled={disabled}
                 >

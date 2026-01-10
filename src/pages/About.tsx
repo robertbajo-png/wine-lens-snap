@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Camera, Brain, Database, Shield, Wine } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AmbientBackground } from "@/components/AmbientBackground";
+import { Button } from "@/components/ui/button";
 
 export default function About() {
   return (
@@ -98,18 +99,12 @@ export default function About() {
 
         {/* CTA */}
         <footer className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            to="/"
-            className="inline-flex h-12 items-center justify-center rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] px-6 font-semibold text-theme-primary shadow-[0_20px_40px_-22px_rgba(123,63,228,0.95)] hover:opacity-95"
-          >
-            Starta skanning
-          </Link>
-          <Link
-            to="/me/wines"
-            className="inline-flex h-12 items-center justify-center rounded-full border border-theme-card bg-theme-elevated px-6 font-medium text-theme-primary hover:bg-theme-elevated"
-          >
-            Öppna historiken
-          </Link>
+          <Button asChild size="lg">
+            <Link to="/">Starta skanning</Link>
+          </Button>
+          <Button asChild size="lg" variant="secondary">
+            <Link to="/me/wines">Öppna historiken</Link>
+          </Button>
         </footer>
       </div>
     </main>

@@ -156,12 +156,11 @@ export const ScanResultView = ({
                   <p className="text-sm text-theme-secondary">Fota etiketten igen för att få fler källor.</p>
                 </div>
                 <Button
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => {
                     setIsRefineDialogOpen(false);
                     onRetryScan();
                   }}
-                  className="border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
                 >
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   Starta ny skanning
@@ -239,7 +238,7 @@ export const ScanResultView = ({
               <Button variant="ghost" onClick={() => setIsRefineDialogOpen(false)} className="text-theme-primary">
                 Avbryt
               </Button>
-              <Button onClick={handleApplyRefinements} className="bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-theme-primary">
+              <Button onClick={handleApplyRefinements}>
                 Spara detaljer
               </Button>
             </div>
@@ -267,18 +266,16 @@ export const ScanResultView = ({
                     Profil
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
-                    className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
                     onClick={onNavigateHistory}
                   >
                     Historik
                   </Button>
                   {showInstallCTA && (
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
-                      className="rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated"
                       onClick={onInstall}
                     >
                       <Download className="mr-2 h-4 w-4" />
@@ -296,11 +293,10 @@ export const ScanResultView = ({
             <Badge variant={statusTone}>{statusLabel}</Badge>
             <div className="flex flex-wrap gap-2">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={onRetryScan}
                 disabled={isProcessing}
-                className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
               >
                 <RefreshCcw className="mr-2 h-4 w-4" />
                 Starta om
@@ -339,24 +335,25 @@ export const ScanResultView = ({
               />
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Button
+                onClick={onSaveWine}
+                disabled={isSaved || isSaving || !currentCacheKey}
+                size="lg"
+                className="w-full justify-center sm:w-auto sm:min-w-[220px]"
+              >
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookmarkPlus className="mr-2 h-4 w-4" />}
+                {isSaved ? "Sparat" : "Spara till mina viner"}
+              </Button>
+              {isSaved ? (
                 <Button
-                  onClick={onSaveWine}
-                  disabled={isSaved || isSaving || !currentCacheKey}
-                  className="h-12 w-full justify-center rounded-full bg-gradient-to-r from-[#7B3FE4] via-[#8451ED] to-[#9C5CFF] text-base font-semibold text-theme-primary shadow-[0_18px_45px_-18px_rgba(123,63,228,1)] disabled:from-[#7B3FE4]/40 disabled:via-[#8451ED]/40 disabled:to-[#9C5CFF]/40 sm:w-auto sm:min-w-[220px]"
+                  variant="outline"
+                  onClick={onRemoveWine}
+                  disabled={isRemoving}
+                  className="w-full justify-center sm:w-auto"
                 >
-                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookmarkPlus className="mr-2 h-4 w-4" />}
-                  {isSaved ? "Sparat" : "Spara till mina viner"}
+                  {isRemoving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                  Ta bort ur mina viner
                 </Button>
-                {isSaved ? (
-                  <Button
-                    variant="outline"
-                    onClick={onRemoveWine}
-                    disabled={isRemoving}
-                    className="h-12 w-full justify-center rounded-full border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80 sm:w-auto"
-                  >
-                    {isRemoving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                    Ta bort ur mina viner
-                  </Button>
                 ) : null}
               </div>
 
@@ -374,8 +371,7 @@ export const ScanResultView = ({
                       <p>Skapa listor som Favoriter, Köp igen och Gästlista med ditt konto.</p>
                     </div>
                     <Button
-                      variant="outline"
-                      className="border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80"
+                      variant="secondary"
                       onClick={onLogin}
                     >
                       Logga in
