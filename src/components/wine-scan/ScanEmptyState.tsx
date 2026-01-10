@@ -197,15 +197,31 @@ export const ScanEmptyState = ({
           </div>
         )}
 
-        <div className="w-full rounded-3xl border border-theme-card bg-theme-elevated p-5 text-left text-sm text-theme-secondary">
+        <div className="w-full rounded-3xl border border-theme-card bg-theme-elevated p-5 text-left text-base leading-relaxed text-theme-secondary">
           <p className="font-semibold text-theme-primary">Så funkar skanningen</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            {["Justera flaskan tills guidelinjen blir grön.", "Vi kör OCR och AI-analys i bakgrunden.", "Spara själv när du vill lägga till vinet i historiken."].map((tip, idx) => (
-              <div key={tip} className="rounded-2xl border border-theme-card bg-black/25 p-3">
-                <span className="mb-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-theme-elevated text-xs font-semibold text-theme-primary">
+          <div className="mt-4 space-y-3">
+            {[
+              {
+                tip: "Justera flaskan tills guidelinjen blir grön.",
+                Icon: Camera,
+              },
+              {
+                tip: "Vi kör OCR och AI-analys i bakgrunden.",
+                Icon: Sparkles,
+              },
+              {
+                tip: "Spara själv när du vill lägga till vinet i historiken.",
+                Icon: Wine,
+              },
+            ].map(({ tip, Icon }, idx) => (
+              <div key={tip} className="flex items-start gap-3 rounded-2xl border border-theme-card bg-black/25 p-4">
+                <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-theme-primary text-sm font-semibold text-white shadow-sm">
                   {idx + 1}
                 </span>
-                <p>{tip}</p>
+                <div className="flex flex-1 items-start gap-3">
+                  <Icon className="mt-0.5 h-5 w-5 text-theme-primary" />
+                  <p className="flex-1 text-base leading-relaxed text-theme-secondary">{tip}</p>
+                </div>
               </div>
             ))}
           </div>
