@@ -309,7 +309,7 @@ const ForYou = () => {
                   return (
                     <div
                       key={entry.key}
-                      className="flex gap-4 rounded-2xl border border-theme-card bg-surface-card p-4 shadow-inner shadow-black/20"
+                      className="flex gap-4 rounded-2xl border border-theme-card/50 bg-surface-card px-4 py-5 shadow-inner shadow-black/10"
                     >
                       <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-theme-card bg-black/30 text-xs text-theme-secondary">
                         {entry.imageData ? (
@@ -318,9 +318,9 @@ const ForYou = () => {
                           <span>{t("forYou.noImage")}</span>
                         )}
                       </div>
-                      <div className="flex flex-1 flex-col justify-between">
+                      <div className="flex flex-1 flex-col">
                         <div className="space-y-1">
-                          <Label className="text-sm tracking-[0.2em]">
+                          <Label className="text-sm font-semibold tracking-[0.2em] text-theme-primary/90">
                             {formatDate(entry.timestamp)}
                           </Label>
                           <H2 asChild className="text-lg">
@@ -328,11 +328,11 @@ const ForYou = () => {
                           </H2>
                           {subtitle && <Body className="text-sm">{subtitle}</Body>}
                         </div>
-                        <div className="flex gap-2">
+                        <div className="mt-auto flex gap-2 pt-3">
                           <Button
-                            variant="ghost"
+                            variant="secondary"
                             size="sm"
-                            className="gap-2 transition duration-150 ease-out active:scale-[0.98]"
+                            className="gap-2 rounded-full transition duration-150 ease-out active:scale-[0.98]"
                             onClick={() => navigate(`/wine/${entry.key}`)}
                           >
                             {t("forYou.viewWine")}
