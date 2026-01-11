@@ -30,6 +30,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { WineListsSection } from "@/components/profile/WineListsSection";
 import { useTheme } from "@/ui/ThemeProvider";
 import type { ThemePreference } from "@/ui/theme";
+import { AmbientBackground } from "@/components/AmbientBackground";
 import { Camera, Globe, Laptop, Loader2, LogOut, Moon, PenLine, SunMedium, UploadCloud } from "lucide-react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useSettings } from "@/settings/SettingsContext";
@@ -478,260 +479,262 @@ const Me = () => {
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-12 sm:px-8">
-      <div className="mb-10">
-        <AppHeader
-          variant="compact"
-          title={displayName}
-          subtitle={email ?? undefined}
-          rightActions={(
-            <div className="flex flex-col items-start gap-4 sm:items-end">
-              <Avatar className="h-14 w-14 border border-[hsl(var(--color-border))] bg-theme-elevated">
-                {avatarUrl ? <AvatarImage src={avatarUrl} alt={t("me.profileImage")} className="object-cover" /> : null}
-                <AvatarFallback className="bg-theme-elevated text-lg font-semibold text-theme-primary">
-                  {initials || "WS"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                <Button
-                  className="gap-2"
-                  onClick={() => navigate("/scan")}
-                  aria-label={t("me.newScan")}
-                >
-                  <Camera className="h-4 w-4" />
-                  {t("me.newScan")}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => navigate("/me/wines")}
-                  aria-label={t("me.myWines")}
-                >
-                  {t("me.myWines")}
-                </Button>
+    <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
+      <AmbientBackground />
+      <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-24 pt-12 sm:px-8">
+        <div className="mb-10">
+          <AppHeader
+            variant="compact"
+            title={displayName}
+            subtitle={email ?? undefined}
+            rightActions={(
+              <div className="flex flex-col items-start gap-4 sm:items-end">
+                <Avatar className="h-14 w-14 border border-[hsl(var(--color-border))] bg-theme-elevated">
+                  {avatarUrl ? <AvatarImage src={avatarUrl} alt={t("me.profileImage")} className="object-cover" /> : null}
+                  <AvatarFallback className="bg-theme-elevated text-lg font-semibold text-theme-primary">
+                    {initials || "WS"}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <Button
+                    className="gap-2"
+                    onClick={() => navigate("/scan")}
+                    aria-label={t("me.newScan")}
+                  >
+                    <Camera className="h-4 w-4" />
+                    {t("me.newScan")}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => navigate("/me/wines")}
+                    aria-label={t("me.myWines")}
+                  >
+                    {t("me.myWines")}
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
-        />
-      </div>
+            )}
+          />
+        </div>
 
-      <div className="space-y-6">
-        {/* Premium section temporarily hidden for RC */}
+        <div className="space-y-6">
+          {/* Premium section temporarily hidden for RC */}
 
-        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
-          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-theme-primary">{t("me.yourProfile")}</CardTitle>
-              <CardDescription className="text-theme-secondary">
-                {t("me.profileSubtitle")}
-              </CardDescription>
-            </div>
-            <Dialog open={isEditOpen} onOpenChange={handleDialogOpenChange}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="gap-2 border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
-                  disabled={profileLoading}
-                >
-                  <PenLine className="h-4 w-4" />
-                  {t("me.editProfile")}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-lg border-[hsl(var(--color-border)/0.8)] bg-theme-elevated text-left text-theme-primary">
-                <DialogHeader>
-                  <DialogTitle>{t("me.editProfileTitle")}</DialogTitle>
-                  <DialogDescription>
-                    {t("me.editProfileSubtitle")}
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleProfileSubmit} className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="display-name" className="text-theme-primary">
-                      {t("me.displayName")}
-                    </Label>
-                    <Input
-                      id="display-name"
-                      value={formDisplayName}
-                      onChange={(event) => {
-                        setFormDisplayName(event.target.value);
-                        if (formNameError) {
-                          setFormNameError(null);
-                        }
-                      }}
-                      placeholder={t("me.yourName")}
-                      className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary"
-                      maxLength={80}
-                    />
-                    {formNameError ? <p className="text-sm text-destructive">{formNameError}</p> : null}
-                  </div>
+          <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <CardTitle className="text-theme-primary">{t("me.yourProfile")}</CardTitle>
+                <CardDescription className="text-theme-secondary">
+                  {t("me.profileSubtitle")}
+                </CardDescription>
+              </div>
+              <Dialog open={isEditOpen} onOpenChange={handleDialogOpenChange}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="gap-2 border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary hover:bg-[hsl(var(--color-surface-alt)/0.8)]"
+                    disabled={profileLoading}
+                  >
+                    <PenLine className="h-4 w-4" />
+                    {t("me.editProfile")}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg border-[hsl(var(--color-border)/0.8)] bg-theme-elevated text-left text-theme-primary">
+                  <DialogHeader>
+                    <DialogTitle>{t("me.editProfileTitle")}</DialogTitle>
+                    <DialogDescription>
+                      {t("me.editProfileSubtitle")}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleProfileSubmit} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="display-name" className="text-theme-primary">
+                        {t("me.displayName")}
+                      </Label>
+                      <Input
+                        id="display-name"
+                        value={formDisplayName}
+                        onChange={(event) => {
+                          setFormDisplayName(event.target.value);
+                          if (formNameError) {
+                            setFormNameError(null);
+                          }
+                        }}
+                        placeholder={t("me.yourName")}
+                        className="border-[hsl(var(--color-border))] bg-theme-elevated text-theme-primary"
+                        maxLength={80}
+                      />
+                      {formNameError ? <p className="text-sm text-destructive">{formNameError}</p> : null}
+                    </div>
 
-                  <div className="space-y-3">
-                    <Label className="text-theme-primary">{t("me.profileImage")}</Label>
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-16 w-16 border border-[hsl(var(--color-border))] bg-theme-elevated">
-                        {avatarPreview ? <AvatarImage src={avatarPreview} alt={t("me.profileImage")} className="object-cover" /> : null}
-                        <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
-                          {previewInitials || "WS"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="space-y-2 text-sm text-theme-secondary">
+                    <div className="space-y-3">
+                      <Label className="text-theme-primary">{t("me.profileImage")}</Label>
+                      <div className="flex items-center gap-4">
+                        <Avatar className="h-16 w-16 border border-[hsl(var(--color-border))] bg-theme-elevated">
+                          {avatarPreview ? <AvatarImage src={avatarPreview} alt={t("me.profileImage")} className="object-cover" /> : null}
+                          <AvatarFallback className="bg-theme-elevated text-xl font-semibold text-theme-primary">
+                            {previewInitials || "WS"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="space-y-2 text-sm text-theme-secondary">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="gap-2 border-dashed bg-theme-elevated"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={savingProfile}
+                          >
+                            <UploadCloud className="h-4 w-4" />
+                            {t("me.chooseImage")}
+                          </Button>
+                          <p>{t("me.imageRequirements")}</p>
+                        </div>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        className="hidden"
+                        onChange={handleAvatarChange}
+                      />
+                    </div>
+
+                    <DialogFooter>
+                      <DialogClose asChild>
                         <Button
                           type="button"
                           variant="outline"
-                          className="gap-2 border-dashed bg-theme-elevated"
-                          onClick={() => fileInputRef.current?.click()}
+                          className="bg-theme-elevated"
                           disabled={savingProfile}
                         >
-                          <UploadCloud className="h-4 w-4" />
-                          {t("me.chooseImage")}
+                          {t("me.cancel")}
                         </Button>
-                        <p>{t("me.imageRequirements")}</p>
-                      </div>
-                    </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg,image/webp"
-                      className="hidden"
-                      onChange={handleAvatarChange}
-                    />
-                  </div>
-
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="bg-theme-elevated"
-                      disabled={savingProfile}
-                    >
-                      {t("me.cancel")}
-                    </Button>
-                  </DialogClose>
-                  <Button
-                    type="submit"
-                    className="gap-2"
-                    disabled={savingProfile}
-                  >
-                      {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      {t("me.saveChanges")}
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm text-theme-secondary">
-            <div>
-              <p className="font-medium text-theme-primary">{t("me.name")}</p>
-              <p>{displayName}</p>
-            </div>
-            {email ? (
+                      </DialogClose>
+                      <Button
+                        type="submit"
+                        className="gap-2"
+                        disabled={savingProfile}
+                      >
+                        {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        {t("me.saveChanges")}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm text-theme-secondary">
               <div>
-                <p className="font-medium text-theme-primary">{t("me.email")}</p>
-                <p>{email}</p>
+                <p className="font-medium text-theme-primary">{t("me.name")}</p>
+                <p>{displayName}</p>
               </div>
-            ) : null}
-          </CardContent>
-        </Card>
+              {email ? (
+                <div>
+                  <p className="font-medium text-theme-primary">{t("me.email")}</p>
+                  <p>{email}</p>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
 
-        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
-          <CardHeader>
-            <CardTitle className="text-theme-primary">{t("me.appearance")}</CardTitle>
-            <CardDescription className="text-theme-secondary">
-              {t("me.appearanceSubtitle")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <RadioGroup
-              value={themePreference}
-              onValueChange={handleThemeValueChange}
-              className="grid gap-3 sm:grid-cols-3"
-            >
-              {themeOptions.map(({ value, title, description, Icon }) => (
-                <label
-                  key={value}
-                  htmlFor={`theme-${value}`}
-                  className={`flex cursor-pointer items-start gap-3 rounded-xl border border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] p-3 transition hover:border-[hsl(var(--color-border))] ${themeSaving ? "opacity-70" : ""}`}
-                >
-                  <RadioGroupItem
-                    id={`theme-${value}`}
-                    value={value}
-                    disabled={themeSaving}
-                    className="mt-1 text-theme-primary"
-                  />
-                  <div className="space-y-1 text-left">
-                    <div className="flex items-center gap-2 text-theme-primary">
-                      <Icon className="h-4 w-4" />
-                      <span className="font-medium">{title}</span>
+          <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
+            <CardHeader>
+              <CardTitle className="text-theme-primary">{t("me.appearance")}</CardTitle>
+              <CardDescription className="text-theme-secondary">
+                {t("me.appearanceSubtitle")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RadioGroup
+                value={themePreference}
+                onValueChange={handleThemeValueChange}
+                className="grid gap-3 sm:grid-cols-3"
+              >
+                {themeOptions.map(({ value, title, description, Icon }) => (
+                  <label
+                    key={value}
+                    htmlFor={`theme-${value}`}
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl border border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] p-3 transition hover:border-[hsl(var(--color-border))] ${themeSaving ? "opacity-70" : ""}`}
+                  >
+                    <RadioGroupItem
+                      id={`theme-${value}`}
+                      value={value}
+                      disabled={themeSaving}
+                      className="mt-1 text-theme-primary"
+                    />
+                    <div className="space-y-1 text-left">
+                      <div className="flex items-center gap-2 text-theme-primary">
+                        <Icon className="h-4 w-4" />
+                        <span className="font-medium">{title}</span>
+                      </div>
+                      <p className="text-sm text-theme-secondary">{description}</p>
                     </div>
-                    <p className="text-sm text-theme-secondary">{description}</p>
-                  </div>
-                </label>
-              ))}
-            </RadioGroup>
-            {themeSaving ? <p className="text-sm text-theme-secondary">{t("me.savingTheme")}</p> : null}
-          </CardContent>
-        </Card>
+                  </label>
+                ))}
+              </RadioGroup>
+              {themeSaving ? <p className="text-sm text-theme-secondary">{t("me.savingTheme")}</p> : null}
+            </CardContent>
+          </Card>
 
-        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-theme-primary">
-              <Globe className="h-5 w-5" />
-              {t("me.language")}
-            </CardTitle>
-            <CardDescription className="text-theme-secondary">
-              {t("me.languageSubtitle")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <RadioGroup
-              value={lang.startsWith("en") ? "en-US" : "sv-SE"}
-              onValueChange={handleLanguageChange}
-              className="grid gap-3 sm:grid-cols-2"
-            >
-              {languageOptions.map(({ value, label, flag }) => (
-                <label
-                  key={value}
-                  htmlFor={`lang-${value}`}
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl border border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] p-3 transition hover:border-[hsl(var(--color-border))] ${langSaving ? "opacity-70" : ""}`}
-                >
-                  <RadioGroupItem
-                    id={`lang-${value}`}
-                    value={value}
-                    disabled={langSaving}
-                    className="text-theme-primary"
-                  />
-                  <span className="text-xl">{flag}</span>
-                  <span className="font-medium text-theme-primary">{label}</span>
-                </label>
-              ))}
-            </RadioGroup>
-            {langSaving ? <p className="text-sm text-theme-secondary">{t("me.savingTheme")}</p> : null}
-          </CardContent>
-        </Card>
+          <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-theme-primary">
+                <Globe className="h-5 w-5" />
+                {t("me.language")}
+              </CardTitle>
+              <CardDescription className="text-theme-secondary">
+                {t("me.languageSubtitle")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RadioGroup
+                value={lang.startsWith("en") ? "en-US" : "sv-SE"}
+                onValueChange={handleLanguageChange}
+                className="grid gap-3 sm:grid-cols-2"
+              >
+                {languageOptions.map(({ value, label, flag }) => (
+                  <label
+                    key={value}
+                    htmlFor={`lang-${value}`}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] p-3 transition hover:border-[hsl(var(--color-border))] ${langSaving ? "opacity-70" : ""}`}
+                  >
+                    <RadioGroupItem
+                      id={`lang-${value}`}
+                      value={value}
+                      disabled={langSaving}
+                      className="text-theme-primary"
+                    />
+                    <span className="text-xl">{flag}</span>
+                    <span className="font-medium text-theme-primary">{label}</span>
+                  </label>
+                ))}
+              </RadioGroup>
+              {langSaving ? <p className="text-sm text-theme-secondary">{t("me.savingTheme")}</p> : null}
+            </CardContent>
+          </Card>
 
-        <WineListsSection />
+          <WineListsSection />
 
-        <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
-          <CardHeader>
-            <CardTitle className="text-theme-primary">{t("me.manageAccount")}</CardTitle>
-            <CardDescription className="text-theme-secondary">
-              {t("me.manageAccountSubtitle")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              variant="ghost"
-              className="flex items-center gap-2 text-theme-secondary hover:text-theme-primary"
-              onClick={handleSignOut}
-            >
-              <LogOut className="h-4 w-4" />
-              {t("me.signOut")}
-            </Button>
-          </CardContent>
-        </Card>
+          <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
+            <CardHeader>
+              <CardTitle className="text-theme-primary">{t("me.manageAccount")}</CardTitle>
+              <CardDescription className="text-theme-secondary">
+                {t("me.manageAccountSubtitle")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="ghost"
+                className="flex items-center gap-2 text-theme-secondary hover:text-theme-primary"
+                onClick={handleSignOut}
+              >
+                <LogOut className="h-4 w-4" />
+                {t("me.signOut")}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-
     </div>
   );
 };

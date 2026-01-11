@@ -805,7 +805,7 @@ const ExploreScanList = memo(
             className="flex cursor-pointer flex-col gap-4 rounded-2xl border border-[hsl(var(--color-border)/0.4)] bg-surface-card p-4 outline-none transition hover:border-[hsl(var(--color-accent)/0.5)] focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent)/0.6)] sm:flex-row sm:items-center"
           >
             <div className="flex w-full flex-1 flex-col gap-1">
-              <Label asChild className="text-theme-secondary/60">
+              <Label asChild className="text-theme-secondary/70">
                 <div className="flex items-center gap-2">
                   <span>{scan.source === "mine" ? t("explore.myScan") : t("explore.curated")}</span>
                   <span>•</span>
@@ -1273,7 +1273,7 @@ const Explore = () => {
 
         <div className="flex flex-col gap-6 rounded-3xl border border-[hsl(var(--color-border)/0.6)] bg-surface-canvas p-8 shadow-theme-card backdrop-blur">
           <label className="flex flex-col gap-2 text-left">
-            <Label asChild className="tracking-[0.28em] text-theme-secondary/60">
+            <Label asChild className="tracking-[0.28em] text-theme-secondary/70">
               <span>{t("explore.searchLabel")}</span>
             </Label>
             <div className="relative">
@@ -1290,7 +1290,7 @@ const Explore = () => {
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div className="flex flex-col gap-2">
-              <Label className="text-theme-secondary/60">{t("explore.grapeLabel")}</Label>
+              <Label className="text-theme-secondary/70">{t("explore.grapeLabel")}</Label>
               <Select
                 value={effectiveFilters.grape ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("grape", value)}
@@ -1310,7 +1310,7 @@ const Explore = () => {
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label className="text-theme-secondary/60">{t("explore.regionLabel")}</Label>
+              <Label className="text-theme-secondary/70">{t("explore.regionLabel")}</Label>
               <Select
                 value={effectiveFilters.region ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("region", value)}
@@ -1330,7 +1330,7 @@ const Explore = () => {
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label className="text-theme-secondary/60">{t("explore.styleLabel")}</Label>
+              <Label className="text-theme-secondary/70">{t("explore.styleLabel")}</Label>
               <Select
                 value={effectiveFilters.style ?? FILTER_EMPTY_VALUE}
                 onValueChange={(value) => handleSearchFilterChange("style", value)}
@@ -1351,7 +1351,7 @@ const Explore = () => {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Label asChild className="text-theme-secondary/60">
+            <Label asChild className="text-theme-secondary/70">
               <div className="flex items-center gap-2">
                 <Grip className="h-4 w-4" aria-hidden="true" />
                 {t("explore.indexedBottles")}
@@ -1364,7 +1364,7 @@ const Explore = () => {
               variant="ghost"
               size="sm"
               onClick={handleClearFilters}
-              className="self-start rounded-full border border-transparent text-theme-secondary hover:border-[hsl(var(--color-border)/0.4)] hover:bg-surface-card"
+              className="self-start rounded-full border border-transparent text-theme-secondary/80 hover:border-[hsl(var(--color-border)/0.4)] hover:bg-surface-card hover:text-theme-primary"
             >
               {t("explore.clearFilters")}
             </Button>
@@ -1376,7 +1376,7 @@ const Explore = () => {
             <div className="flex items-center gap-3">
               <Flame className="h-5 w-5 text-theme-primary" aria-hidden="true" />
               <div>
-                <Label className="text-theme-secondary/60">{t("explore.trendingLabel")}</Label>
+                <Label className="text-theme-secondary/70">{t("explore.trendingLabel")}</Label>
                 <Body className="text-base text-theme-secondary/80">{t("explore.trendingSubtitle")}</Body>
               </div>
             </div>
@@ -1392,7 +1392,7 @@ const Explore = () => {
                 onClick={() => logExploreCardOpened("trend")}
                 onKeyDown={(event) => handleExploreCardKeyDown(event, "trend")}
               >
-                <Label className="text-theme-secondary/60">{t("explore.grapeLabel")}</Label>
+                <Label className="text-theme-secondary/70">{t("explore.grapeLabel")}</Label>
                 <H2 asChild className="mt-2">
                   <h3>{trend.label}</h3>
                 </H2>
@@ -1406,7 +1406,7 @@ const Explore = () => {
           <div className="mb-6 flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-theme-primary" aria-hidden="true" />
             <div>
-              <Label className="text-theme-secondary/60">{t("explore.stylesLabel")}</Label>
+              <Label className="text-theme-secondary/70">{t("explore.stylesLabel")}</Label>
               <Body className="text-base text-theme-secondary/80">{t("explore.stylesSubtitle")}</Body>
             </div>
           </div>
@@ -1420,7 +1420,7 @@ const Explore = () => {
                 onClick={() => logExploreCardOpened("style")}
                 onKeyDown={(event) => handleExploreCardKeyDown(event, "style")}
               >
-                <Label className="text-theme-secondary/60">{t("explore.styleLabel")}</Label>
+                <Label className="text-theme-secondary/70">{t("explore.styleLabel")}</Label>
                 <H2 asChild className="mt-1 text-lg">
                   <h3>{style.label}</h3>
                 </H2>
@@ -1436,7 +1436,7 @@ const Explore = () => {
               <div className="flex items-center gap-3">
                 <Filter className="h-5 w-5 text-theme-primary" aria-hidden="true" />
                 <div>
-                  <Label className="text-theme-secondary/60">{t("explore.quickFiltersLabel")}</Label>
+                  <Label className="text-theme-secondary/70">{t("explore.quickFiltersLabel")}</Label>
                   <Body className="text-base text-theme-secondary/80">{t("explore.quickFiltersSubtitle")}</Body>
                 </div>
               </div>
@@ -1453,7 +1453,7 @@ const Explore = () => {
                     variant={isActive ? "primary" : "outline"}
                     onClick={() => handleSelectFilter(filter.id)}
                     size="sm"
-                    className="px-4 text-left"
+                    className="h-auto items-start justify-start px-4 text-left"
                     aria-pressed={isActive}
                   >
                     <div className="flex flex-col text-left">

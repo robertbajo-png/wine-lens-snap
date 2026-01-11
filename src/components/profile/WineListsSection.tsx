@@ -184,11 +184,11 @@ export const WineListsSection = () => {
                               <span>{t("forYou.noImage")}</span>
                             )}
                           </div>
-                          <div className="flex flex-1 flex-col gap-2">
+                          <div className="flex min-w-0 flex-1 flex-col gap-2">
                             <div>
-                              <p className="text-sm font-semibold text-theme-primary">{wine?.vin ?? t("wineLists.unknownWine")}</p>
-                              <p className="text-xs text-theme-secondary">{wine?.producent ?? t("wineLists.missingProducer")}</p>
-                              <p className="text-xs text-theme-secondary">{wine?.land_region ?? t("wineLists.missingRegion")}</p>
+                              <p className="break-words text-sm font-semibold text-theme-primary">{wine?.vin ?? t("wineLists.unknownWine")}</p>
+                              <p className="break-words text-xs text-theme-secondary">{wine?.producent ?? t("wineLists.missingProducer")}</p>
+                              <p className="break-words text-xs text-theme-secondary">{wine?.land_region ?? t("wineLists.missingRegion")}</p>
                             </div>
                             <div className="flex items-center justify-between text-xs text-theme-secondary">
                               <span>{formatRelativeTime(item.createdAt, locale, t("history.unknownTime"))}</span>
