@@ -131,11 +131,31 @@ export const ScanResultView = ({
   detectedLanguage,
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
+  const sectionTitleClassName = "text-xs font-semibold uppercase tracking-wide text-theme-primary";
 
   const labelHash = useMemo(
     () => computeLabelHash(ocrText ?? results.originaltext ?? results.vin ?? null),
     [ocrText, results.originaltext, results.vin],
   );
+
+  const hasKeyFacts = [
+    results.druvor,
+    results.färgtyp,
+    results.klassificering,
+    results.alkoholhalt,
+    results.volym,
+    results.sockerhalt,
+    results.syra,
+  ].some((value) => Boolean(value && value !== "–"));
+  const hasCharacter = Boolean(results.karaktär && results.karaktär !== "–");
+  const hasTaste = Boolean(results.smak && results.smak !== "–");
+  const hasTasteNotes = hasCharacter || hasTaste;
+  const hasPairings = Array.isArray(pairings) && pairings.some((item) => Boolean(item && item.trim()));
+  const hasServing = Boolean(results.servering && results.servering !== "–");
+  const hasEvidence =
+    Boolean(ocrText && ocrText !== "–") ||
+    (Array.isArray(evidenceLinks) && evidenceLinks.some(Boolean)) ||
+    Boolean(results.källa && results.källa !== "–");
 
   return (
     <>
@@ -387,70 +407,114 @@ export const ScanResultView = ({
                 isLoggedIn={isLoggedIn}
               />
 
-              <section className="rounded-2xl border border-border bg-surface-card p-4">
-                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Smakprofil</h3>
+              <Card className="border-theme-card/80 bg-surface-card/80 backdrop-blur">
+                <CardContent className="space-y-8 p-6">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-theme-card/60 pb-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className={sectionTitleClassName}>Smakprofil</h3>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 text-right">
+                        <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          Källa: {sourceLabel}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">{sourceDescription}</span>
+                      </div>
+                    </div>
+                    {showVerifiedMeters ? (
+                      <MetersRow
+                        meters={results.meters}
+                        estimated={metersAreEstimated || results?._meta?.meters_source === "derived"}
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Smakprofil saknas för detta vin.</p>
+                    )}
                   </div>
-                  <div className="flex flex-col items-end gap-1 text-right">
-                    <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Källa: {sourceLabel}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">{sourceDescription}</span>
-                  </div>
-                </div>
-                {showVerifiedMeters ? (
-                  <MetersRow
-                    meters={results.meters}
-                    estimated={metersAreEstimated || results?._meta?.meters_source === "derived"}
-                  />
-                ) : (
-                  <p className="text-sm text-muted-foreground">Smakprofil saknas för detta vin.</p>
-                )}
-              </section>
 
-              <Suspense fallback={<LazySectionFallback className="min-h-[180px]" />}>
-                <KeyFacts
-                  druvor={results.druvor}
-                  fargtyp={results.färgtyp}
-                  klassificering={results.klassificering}
-                  alkoholhalt={results.alkoholhalt}
-                  volym={results.volym}
-                  sockerhalt={results.sockerhalt}
-                  syra={results.syra}
-                  evidenceItems={evidenceLinks}
-                  sourceType={sourceType}
-                />
-              </Suspense>
+                  {hasKeyFacts && (
+                    <Suspense fallback={<LazySectionFallback className="min-h-[160px]" />}>
+                      <KeyFacts
+                        druvor={results.druvor}
+                        fargtyp={results.färgtyp}
+                        klassificering={results.klassificering}
+                        alkoholhalt={results.alkoholhalt}
+                        volym={results.volym}
+                        sockerhalt={results.sockerhalt}
+                        syra={results.syra}
+                        evidenceItems={evidenceLinks}
+                        sourceType={sourceType}
+                        variant="embedded"
+                        titleClassName={sectionTitleClassName}
+                      />
+                    </Suspense>
+                  )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ClampTextCard titleKey="wineDetail.character" text={results.karaktär} />
-                <ClampTextCard titleKey="wineDetail.taste" text={results.smak} />
-              </div>
+                  {hasTasteNotes && (
+                    <div className="grid gap-6 sm:grid-cols-2">
+                      <ClampTextCard
+                        titleKey="wineDetail.character"
+                        text={results.karaktär}
+                        variant="embedded"
+                        titleClassName={sectionTitleClassName}
+                      />
+                      <ClampTextCard
+                        titleKey="wineDetail.taste"
+                        text={results.smak}
+                        variant="embedded"
+                        titleClassName={sectionTitleClassName}
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-              <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
-                <Pairings items={pairings} />
-              </Suspense>
+              {(hasPairings || hasServing) && (
+                <Card className="border-theme-card/80 bg-surface-card/80 backdrop-blur">
+                  <CardContent className="space-y-6 p-6">
+                    {hasPairings && (
+                      <Suspense fallback={<LazySectionFallback className="min-h-[120px]" />}>
+                        <Pairings items={pairings} variant="embedded" titleClassName={sectionTitleClassName} />
+                      </Suspense>
+                    )}
 
-              <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
-                <ServingCard servering={results.servering} />
-              </Suspense>
-
-              <Suspense fallback={<LazySectionFallback className="min-h-[160px]" />}>
-                <EvidenceAccordion
-                  ocr={ocrText}
-                  hits={evidenceLinks}
-                  primary={results.källa}
-                />
-              </Suspense>
-
-              {detectedLanguage && (
-                <p className="text-xs text-theme-secondary opacity-80">Upptäckt språk: {detectedLanguage.toUpperCase()}</p>
+                    {hasServing && (
+                      <Suspense fallback={<LazySectionFallback className="min-h-[120px]" />}>
+                        <ServingCard servering={results.servering} variant="embedded" titleClassName={sectionTitleClassName} />
+                      </Suspense>
+                    )}
+                  </CardContent>
+                </Card>
               )}
 
-              <p className="text-xs text-theme-secondary opacity-80">
-                Spara profilen för att lägga till den i dina viner. Osparade skanningar rensas när du lämnar sidan.
-              </p>
+              <Card className="border-theme-card/80 bg-surface-card/80 backdrop-blur">
+                <CardContent className="space-y-6 p-6">
+                  {hasEvidence && (
+                    <Suspense fallback={<LazySectionFallback className="min-h-[140px]" />}>
+                      <EvidenceAccordion
+                        ocr={ocrText}
+                        hits={evidenceLinks}
+                        primary={results.källa}
+                        variant="embedded"
+                        titleClassName={sectionTitleClassName}
+                      />
+                    </Suspense>
+                  )}
+
+                  <div className="space-y-3">
+                    <div className="border-b border-theme-card/60 pb-3">
+                      <h3 className={sectionTitleClassName}>Noteringar</h3>
+                    </div>
+                    {detectedLanguage && (
+                      <p className="text-xs text-theme-secondary opacity-80">
+                        Upptäckt språk: {detectedLanguage.toUpperCase()}
+                      </p>
+                    )}
+                    <p className="text-xs text-theme-secondary opacity-80">
+                      Spara profilen för att lägga till den i dina viner. Osparade skanningar rensas när du lämnar sidan.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
 
             {previewImage && (
