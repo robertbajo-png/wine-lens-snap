@@ -127,12 +127,15 @@ const BottomNav = () => {
                   <button
                     type="button"
                     onClick={() => handleNavigate(tab)}
-                    className="group relative -translate-y-4 transform rounded-full border-[3px] border-[var(--bottom-nav-bg)] bg-[var(--bottom-nav-accent)] p-3 text-[hsl(var(--color-on-accent))] shadow-[0_16px_36px_-18px_var(--bottom-nav-accent)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-on-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bottom-nav-bg)]"
+                    className="group relative -translate-y-4 transform rounded-full border-[3px] border-[var(--bottom-nav-bg)] bg-[var(--bottom-nav-accent)] p-3 text-[hsl(var(--color-on-accent))] shadow-[0_16px_36px_-18px_var(--bottom-nav-accent)] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-on-accent))] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bottom-nav-bg)] motion-reduce:transition-none"
                     aria-label={scanAriaLabel}
                   >
                     {showProcessingIndicator && (
                       <span className="absolute inset-0 -m-1.5 flex items-center justify-center">
-                        <span className="h-12 w-12 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+                        <span
+                          className="h-12 w-12 animate-spin rounded-full border-2 border-white/40 border-t-white motion-reduce:animate-none"
+                          aria-hidden="true"
+                        />
                       </span>
                     )}
                     <Icon className="h-6 w-6" aria-hidden="true" />
@@ -151,14 +154,14 @@ const BottomNav = () => {
                   onClick={() => handleNavigate(tab)}
                   aria-label={label}
                   className={cn(
-                    "flex flex-col items-center gap-1 rounded-full px-3 py-2 text-[0.8rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent))]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bottom-nav-bg)]",
+                    "flex flex-col items-center gap-1 rounded-full px-3 py-2 text-[0.8125rem] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--color-accent))]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bottom-nav-bg)] motion-reduce:transition-none",
                     isActive
                       ? "text-[var(--bottom-nav-active)]"
                       : "text-[var(--bottom-nav-inactive)] hover:text-[var(--bottom-nav-active)]",
                   )}
                 >
                   <span className="relative inline-flex">
-                    <Icon className="h-5 w-5" aria-hidden="true" />
+                    <Icon className="h-6 w-6" aria-hidden="true" />
                   </span>
                   <span>{label}</span>
                 </button>
