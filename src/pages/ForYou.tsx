@@ -275,8 +275,8 @@ const ForYou = () => {
           )}
         />
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-surface-canvas p-6 shadow-theme-card backdrop-blur">
+        <div className="grid grid-cols-1 items-stretch gap-x-6 gap-y-6 lg:grid-cols-2">
+          <section className="flex h-full flex-col gap-4 rounded-3xl border border-theme-card bg-surface-canvas p-6 shadow-theme-card backdrop-blur">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <Label className="tracking-[0.25em]">{t("forYou.latestScans")}</Label>
@@ -360,7 +360,7 @@ const ForYou = () => {
             )}
           </section>
 
-          <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-surface-canvas p-6 shadow-theme-card backdrop-blur">
+          <section className="flex h-full flex-col gap-4 rounded-3xl border border-theme-card bg-surface-canvas p-6 shadow-theme-card backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <Label className="tracking-[0.25em]">{t("forYou.suggestions")}</Label>
