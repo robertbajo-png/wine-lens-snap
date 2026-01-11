@@ -4,7 +4,7 @@ import { Banner } from "@/components/Banner";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Sparkles, Camera, ArrowRight, RefreshCcw, MoonStar, Utensils, Loader2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/auth/AuthProvider";
 import { logEvent } from "@/lib/logger";
@@ -308,9 +308,10 @@ const ForYou = () => {
                     });
                   };
                   return (
-                    <div
+                    <Link
                       key={entry.key}
-                      className="flex gap-4 rounded-2xl border border-theme-card/50 bg-surface-card px-4 py-5 shadow-inner shadow-black/10"
+                      to={`/wine/${entry.key}`}
+                      className="group flex gap-4 rounded-2xl border border-theme-card/50 bg-surface-card px-4 py-5 shadow-inner shadow-black/10 transition duration-150 ease-out hover:border-theme-primary/40 hover:bg-theme-elevated/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-theme-primary/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
                     >
                       <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl border border-theme-card bg-black/30 text-xs text-theme-secondary">
                         {entry.imageData ? (
@@ -329,19 +330,11 @@ const ForYou = () => {
                           </H2>
                           {subtitle && <Body className="text-sm">{subtitle}</Body>}
                         </div>
-                        <div className="mt-auto flex gap-2 pt-3">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="gap-2 rounded-full transition duration-150 ease-out active:scale-[0.98]"
-                            onClick={() => navigate(`/wine/${entry.key}`)}
-                          >
-                            {t("forYou.viewWine")}
-                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                        </div>
                       </div>
-                    </div>
+                      <span className="flex h-10 w-10 items-center justify-center self-center rounded-full border border-[hsl(var(--accent-primary)/0.35)] bg-[hsl(var(--accent-primary)/0.08)] text-[hsl(var(--accent-primary))] transition group-hover:border-[hsl(var(--accent-primary)/0.6)] group-hover:bg-[hsl(var(--accent-primary)/0.16)]">
+                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                    </Link>
                   );
                 })}
               </div>
