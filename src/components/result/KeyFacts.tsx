@@ -59,7 +59,7 @@ const Row = ({
   if (!value || value === "–") return null;
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3 transition-colors hover:bg-white/10">
+    <div className="flex items-center gap-3 overflow-visible rounded-xl border border-white/10 bg-white/5 p-3 transition-colors hover:bg-white/10">
       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/20 text-primary">
         <Icon className="h-4 w-4" />
       </div>
@@ -98,8 +98,8 @@ export default function KeyFacts({ variant = "card", titleClassName, ...props }:
     <section
       className={
         isEmbedded
-          ? "space-y-3"
-          : "rounded-2xl border border-border bg-card p-4"
+          ? "space-y-3 overflow-visible"
+          : "rounded-2xl border border-border bg-card p-4 overflow-visible"
       }
     >
       <div className={isEmbedded ? "border-b border-theme-card/60 pb-3" : undefined}>

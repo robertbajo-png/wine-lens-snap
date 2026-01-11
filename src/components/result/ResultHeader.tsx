@@ -24,7 +24,7 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ, evi
   const fallbackSource = sourceType ?? "label";
 
   return (
-    <header className="space-y-3">
+    <header className="space-y-3 overflow-visible">
       <h1 className="text-2xl font-bold leading-tight text-foreground sm:text-3xl">
         {hasVin ? vin : t("wineDetail.unknownWine")}
         {hasYear && (
@@ -35,7 +35,7 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ, evi
       </h1>
 
       {(hasProducent || hasRegion) && (
-        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 overflow-visible text-sm text-muted-foreground">
           {hasProducent && (
             <div className="flex items-center gap-1.5">
               <Building2 className="h-4 w-4 text-primary" />
@@ -61,7 +61,7 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ, evi
       )}
 
       {hasTyp && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 overflow-visible">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
             <Wine className="h-3.5 w-3.5" />
             {typ}

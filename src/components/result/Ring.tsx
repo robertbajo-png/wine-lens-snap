@@ -73,7 +73,7 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
       </span>
       
       {/* Pie chart circle with tooltip */}
-      <TooltipProvider delayDuration={200}>
+      <TooltipProvider delayDuration={300}>
         <Tooltip>
           <TooltipTrigger asChild>
             <svg 
