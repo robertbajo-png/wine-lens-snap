@@ -21,6 +21,8 @@ export type ThemeTokens = {
   colorOnAccent: string;
   shadowCard: string;
   shadowBottomNav: string;
+  navActive: string;
+  navInactive: string;
 };
 
 export type ThemeName = "dark" | "light";
@@ -49,6 +51,8 @@ export const darkTheme: ThemeTokens = {
   colorOnAccent: "0 0% 100%",
   shadowCard: "0 10px 30px rgba(0, 0, 0, 0.35)",
   shadowBottomNav: "0 -4px 20px rgba(0, 0, 0, 0.45)",
+  navActive: "271 86% 67%",
+  navInactive: "260 40% 94%",
 };
 
 export const lightTheme: ThemeTokens = {
@@ -74,6 +78,8 @@ export const lightTheme: ThemeTokens = {
   colorOnAccent: "0 0% 100%",
   shadowCard: "0 10px 30px rgba(31, 27, 22, 0.08)",
   shadowBottomNav: "0 -4px 20px rgba(31, 27, 22, 0.12)",
+  navActive: "268 85% 58%",
+  navInactive: "262 20% 26%",
 };
 
 export const themeTokensByName: Record<ThemeName, ThemeTokens> = {
