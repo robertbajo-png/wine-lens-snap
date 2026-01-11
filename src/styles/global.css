@@ -144,78 +144,78 @@ body.app-theme .bg-theme-danger-soft {
 }
 
 /* ========= Override light utilities to match dark theme ========= */
-body.app-theme .bg-white,
-body.app-theme .bg-gray-50,
-body.app-theme .bg-slate-50,
-body.app-theme .bg-neutral-50,
-body.app-theme .bg-card,
-body.app-theme .bg-white\/5,
-body.app-theme .bg-white\/10,
-body.app-theme .bg-white\/15,
-body.app-theme .bg-white\/20,
-body.app-theme .bg-white\/30,
-body.app-theme .bg-white\/40,
-body.app-theme .bg-white\/50,
-body.app-theme .bg-white\/60,
-body.app-theme .bg-white\/70,
-body.app-theme .bg-white\/80,
-body.app-theme .bg-white\/90,
-body.app-theme .bg-white\/\[0\.04\],
-body.app-theme .bg-slate-100\/20,
-body.app-theme .bg-zinc-100\/20 {
+body.app-theme.theme-dark .bg-white,
+body.app-theme.theme-dark .bg-gray-50,
+body.app-theme.theme-dark .bg-slate-50,
+body.app-theme.theme-dark .bg-neutral-50,
+body.app-theme.theme-dark .bg-card,
+body.app-theme.theme-dark .bg-white\/5,
+body.app-theme.theme-dark .bg-white\/10,
+body.app-theme.theme-dark .bg-white\/15,
+body.app-theme.theme-dark .bg-white\/20,
+body.app-theme.theme-dark .bg-white\/30,
+body.app-theme.theme-dark .bg-white\/40,
+body.app-theme.theme-dark .bg-white\/50,
+body.app-theme.theme-dark .bg-white\/60,
+body.app-theme.theme-dark .bg-white\/70,
+body.app-theme.theme-dark .bg-white\/80,
+body.app-theme.theme-dark .bg-white\/90,
+body.app-theme.theme-dark .bg-white\/\[0\.04\],
+body.app-theme.theme-dark .bg-slate-100\/20,
+body.app-theme.theme-dark .bg-zinc-100\/20 {
   background-color: hsl(var(--surface-elevated)) !important;
 }
 
-body.app-theme .text-slate-900,
-body.app-theme .text-gray-900,
-body.app-theme .text-black,
-body.app-theme .text-slate-800,
-body.app-theme .text-gray-800,
-body.app-theme .text-neutral-900,
-body.app-theme .text-neutral-800,
-body.app-theme .text-white {
+body.app-theme.theme-dark .text-slate-900,
+body.app-theme.theme-dark .text-gray-900,
+body.app-theme.theme-dark .text-black,
+body.app-theme.theme-dark .text-slate-800,
+body.app-theme.theme-dark .text-gray-800,
+body.app-theme.theme-dark .text-neutral-900,
+body.app-theme.theme-dark .text-neutral-800,
+body.app-theme.theme-dark .text-white {
   color: hsl(var(--text-primary)) !important;
 }
 
-body.app-theme .text-slate-600,
-body.app-theme .text-slate-500,
-body.app-theme .text-gray-600,
-body.app-theme .text-gray-500,
-body.app-theme .text-neutral-600,
-body.app-theme .text-neutral-500,
-body.app-theme .text-slate-300,
-body.app-theme .text-slate-200,
-body.app-theme .text-slate-100,
-body.app-theme .text-gray-300,
-body.app-theme .text-gray-200,
-body.app-theme .text-gray-100 {
+body.app-theme.theme-dark .text-slate-600,
+body.app-theme.theme-dark .text-slate-500,
+body.app-theme.theme-dark .text-gray-600,
+body.app-theme.theme-dark .text-gray-500,
+body.app-theme.theme-dark .text-neutral-600,
+body.app-theme.theme-dark .text-neutral-500,
+body.app-theme.theme-dark .text-slate-300,
+body.app-theme.theme-dark .text-slate-200,
+body.app-theme.theme-dark .text-slate-100,
+body.app-theme.theme-dark .text-gray-300,
+body.app-theme.theme-dark .text-gray-200,
+body.app-theme.theme-dark .text-gray-100 {
   color: hsl(var(--text-secondary)) !important;
 }
 
-body.app-theme .border,
-body.app-theme .border-slate-200,
-body.app-theme .border-gray-200,
-body.app-theme .divide-slate-200,
-body.app-theme .divide-gray-200,
-body.app-theme .border-white\/10,
-body.app-theme .border-white\/15,
-body.app-theme .border-white\/20 {
+body.app-theme.theme-dark .border,
+body.app-theme.theme-dark .border-slate-200,
+body.app-theme.theme-dark .border-gray-200,
+body.app-theme.theme-dark .divide-slate-200,
+body.app-theme.theme-dark .divide-gray-200,
+body.app-theme.theme-dark .border-white\/10,
+body.app-theme.theme-dark .border-white\/15,
+body.app-theme.theme-dark .border-white\/20 {
   border-color: hsl(var(--card-border) / 0.65) !important;
 }
 
-body.app-theme .ring-1,
-body.app-theme .ring {
+body.app-theme.theme-dark .ring-1,
+body.app-theme.theme-dark .ring {
   --tw-ring-color: hsl(var(--card-border) / 0.5) !important;
 }
 
-body.app-theme .hover\:bg-white\/10:hover {
+body.app-theme.theme-dark .hover\:bg-white\/10:hover {
   background-color: hsl(var(--surface-elevated) / 0.95) !important;
 }
 
-body.app-theme .hover\:bg-white\/15:hover {
+body.app-theme.theme-dark .hover\:bg-white\/15:hover {
   background-color: hsl(var(--surface-elevated) / 0.85) !important;
 }
 
-body.app-theme .hover\:bg-white\/20:hover {
+body.app-theme.theme-dark .hover\:bg-white\/20:hover {
   background-color: hsl(var(--surface-elevated) / 0.75) !important;
 }
