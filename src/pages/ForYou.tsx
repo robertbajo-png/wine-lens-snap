@@ -421,25 +421,31 @@ const ForYou = () => {
                 {cards.map((card) => (
                   <div
                     key={card.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-surface-card p-5 shadow-inner shadow-black/20"
+                    className="flex min-h-[220px] flex-col justify-between gap-4 rounded-2xl border border-theme-card border-l-4 border-l-theme-primary/60 bg-surface-card p-5 shadow-inner shadow-black/20"
                     onClick={() => handleCardClick(card)}
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-theme-accent/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-theme-primary">
-                        {card.type}
-                      </span>
+                    <div className="flex flex-1 flex-col gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-theme-primary/30 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-theme-primary">
+                          {card.type}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-lg font-semibold text-theme-primary">{card.title}</p>
+                        {card.subtitle && <p className="text-sm text-theme-secondary/80">{card.subtitle}</p>}
+                        {card.items?.length ? (
+                          <ul className="list-disc space-y-1 pl-5 text-sm text-theme-secondary/80">
+                            {card.items.map((item, index) => (
+                              <li key={`${card.id}-item-${index}`}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-lg font-semibold text-theme-primary">{card.title}</p>
-                      {card.subtitle && <p className="text-sm text-theme-secondary/80">{card.subtitle}</p>}
-                      {card.items?.length ? (
-                        <ul className="list-disc space-y-1 pl-5 text-sm text-theme-secondary/80">
-                          {card.items.map((item, index) => (
-                            <li key={`${card.id}-item-${index}`}>{item}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
+                    <Button variant="ghost" size="sm" className="w-fit gap-2">
+                      {t("forYou.cardCta")}
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Button>
                   </div>
                 ))}
                 {loadingCards ? (
@@ -496,25 +502,31 @@ const ForYou = () => {
                 {scenarioCards.map((card) => (
                   <div
                     key={card.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-theme-card bg-surface-card p-5 shadow-inner shadow-black/20 transition hover:border-theme-primary/60"
+                    className="flex min-h-[220px] flex-col justify-between gap-4 rounded-2xl border border-theme-card border-l-4 border-l-theme-primary/60 bg-surface-card p-5 shadow-inner shadow-black/20 transition hover:border-theme-primary/60"
                     onClick={() => handleScenarioCardClick(card)}
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-theme-accent/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-theme-primary">
-                        {card.type}
-                      </span>
+                    <div className="flex flex-1 flex-col gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-theme-primary/30 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-theme-primary">
+                          {card.type}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-lg font-semibold text-theme-primary">{card.title}</p>
+                        {card.subtitle && <p className="text-sm text-theme-secondary/80">{card.subtitle}</p>}
+                        {card.items?.length ? (
+                          <ul className="list-disc space-y-1 pl-5 text-sm text-theme-secondary/80">
+                            {card.items.map((item, index) => (
+                              <li key={`${card.id}-item-${index}`}>{item}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-lg font-semibold text-theme-primary">{card.title}</p>
-                      {card.subtitle && <p className="text-sm text-theme-secondary/80">{card.subtitle}</p>}
-                      {card.items?.length ? (
-                        <ul className="list-disc space-y-1 pl-5 text-sm text-theme-secondary/80">
-                          {card.items.map((item, index) => (
-                            <li key={`${card.id}-item-${index}`}>{item}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
+                    <Button variant="ghost" size="sm" className="w-fit gap-2">
+                      {t("forYou.cardCta")}
+                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                    </Button>
                   </div>
                 ))}
               </div>
