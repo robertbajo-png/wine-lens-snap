@@ -117,9 +117,9 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
               {classificationTags.map((tag) => (
                 <span
                   key={tag.label}
-                  className="inline-flex items-center gap-2 rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-xs text-[#D4C5FF]"
+                  className="inline-flex items-center gap-2 rounded-full border border-theme-card bg-theme-elevated px-3 py-1 text-xs text-theme-secondary"
                 >
-                  <span className="text-[10px] uppercase tracking-[0.35em] text-[#B095FF]/70">{tag.label}</span>
+                  <span className="text-[10px] uppercase tracking-[0.35em] text-theme-secondary/80">{tag.label}</span>
                   <span className="font-semibold text-theme-primary">{tag.value}</span>
                 </span>
               ))}

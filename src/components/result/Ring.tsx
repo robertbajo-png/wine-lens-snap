@@ -68,7 +68,7 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
       }`}
     >
       {/* Label above - Systembolaget style */}
-      <span className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-white/50 transition-colors duration-200 group-hover:text-white/70">
+      <span className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.15em] text-muted-foreground transition-colors duration-200 group-hover:text-foreground">
         {label}
       </span>
       
@@ -139,7 +139,7 @@ export function Ring({ label, value, estimated, delay = 0 }: RingProps) {
       
       {/* Estimated indicator below */}
       {estimated && (
-        <span className="mt-0.5 text-[8px] text-white/40">uppsk.</span>
+        <span className="mt-0.5 text-[8px] text-muted-foreground/80">uppsk.</span>
       )}
     </div>
   );
