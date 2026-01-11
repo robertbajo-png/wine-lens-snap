@@ -192,8 +192,8 @@ export const WineListsPanel = ({ scanId, ensureScanId, isPersistingScan }: WineL
   return (
     <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <CardTitle className="flex items-center gap-2 text-theme-primary">
+        <div className="min-w-0">
+          <CardTitle className="flex flex-wrap items-center gap-2 text-theme-primary">
             <ListChecks className="h-4 w-4" />
             Mina listor
           </CardTitle>
