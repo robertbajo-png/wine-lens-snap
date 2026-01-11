@@ -404,16 +404,16 @@ const ForYou = () => {
                   <Button
                     key={action.key}
                     variant="outline"
-                    className="group flex h-full max-w-full items-center justify-between gap-3 overflow-hidden bg-surface-card px-4 py-3 text-left transition duration-150 ease-out hover:border-theme-primary/60 hover:bg-surface-card active:scale-[0.98]"
+                    className="group flex h-full w-full items-center justify-between gap-3 bg-surface-card px-4 py-3 text-left transition duration-150 ease-out hover:border-theme-primary/60 hover:bg-surface-card active:scale-[0.98]"
                     onClick={() => void handleScenarioSelect(action.key)}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <span className="grid h-10 w-10 place-items-center rounded-full bg-theme-accent/15 text-theme-primary">
                         {action.icon}
                       </span>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="truncate text-sm font-semibold">{action.label}</span>
-                        <span className="break-words text-xs text-theme-secondary/80">{action.description}</span>
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="text-sm font-semibold leading-snug text-theme-primary">{action.label}</span>
+                        <span className="text-xs text-theme-secondary/80">{action.description}</span>
                       </div>
                     </div>
                     <ArrowRight
