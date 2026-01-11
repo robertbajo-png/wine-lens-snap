@@ -326,7 +326,7 @@ const History = () => {
         )}
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Button
               variant="secondary"
               onClick={() => navigate(-1)}
@@ -336,7 +336,7 @@ const History = () => {
               <ArrowLeft className="h-4 w-4" />
               {t("history.back")}
             </Button>
-            <Badge variant="outline" className="rounded-full border-theme-card bg-theme-elevated text-xs uppercase tracking-[0.25em] text-theme-secondary">
+            <Badge variant="outline" className="rounded-full border-theme-card bg-theme-elevated text-xs uppercase tracking-[0.25em] text-theme-secondary/80">
               {isLoading
                 ? t("history.loadingHistory")
                 : entries.length === 0
