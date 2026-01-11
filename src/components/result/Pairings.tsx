@@ -29,7 +29,15 @@ function getIconForFood(food: string): React.ElementType {
   return Utensils;
 }
 
-export default function Pairings({ items }: { items?: string[] }) {
+export default function Pairings({
+  items,
+  variant = "card",
+  titleClassName,
+}: {
+  items?: string[];
+  variant?: "card" | "embedded";
+  titleClassName?: string;
+}) {
   const { t } = useTranslation();
   
   if (!Array.isArray(items) || items.length === 0) return null;
@@ -37,11 +45,32 @@ export default function Pairings({ items }: { items?: string[] }) {
   const chips = items.filter(Boolean).slice(0, 8);
   if (chips.length === 0) return null;
 
+  const isEmbedded = variant === "embedded";
+
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-      <div className="mb-3 flex items-center gap-2">
+    <section
+      className={
+        isEmbedded
+          ? "space-y-3"
+          : "rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
+      }
+    >
+      <div
+        className={
+          isEmbedded
+            ? "flex items-center gap-2 border-b border-theme-card/60 pb-3"
+            : "mb-3 flex items-center gap-2"
+        }
+      >
         <Utensils className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold text-white">{t("pairings.title")}</h3>
+        <h3
+          className={
+            titleClassName ??
+            (isEmbedded ? "text-xs font-semibold uppercase tracking-wide text-theme-primary" : "text-sm font-semibold text-white")
+          }
+        >
+          {t("pairings.title")}
+        </h3>
       </div>
       <div className="flex flex-wrap gap-2">
         {chips.map((item, index) => {

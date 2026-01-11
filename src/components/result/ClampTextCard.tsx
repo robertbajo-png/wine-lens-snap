@@ -7,6 +7,8 @@ type ClampTextCardProps = {
   titleKey: TranslationKey;
   text?: string;
   lines?: 2 | 3 | 4 | 5 | 6;
+  variant?: "card" | "embedded";
+  titleClassName?: string;
 };
 
 const clampClassMap: Record<NonNullable<ClampTextCardProps["lines"]>, string> = {
@@ -17,7 +19,13 @@ const clampClassMap: Record<NonNullable<ClampTextCardProps["lines"]>, string> = 
   6: "line-clamp-6",
 };
 
-export default function ClampTextCard({ titleKey, text, lines = 4 }: ClampTextCardProps) {
+export default function ClampTextCard({
+  titleKey,
+  text,
+  lines = 4,
+  variant = "card",
+  titleClassName,
+}: ClampTextCardProps) {
   const { t } = useTranslation();
   const [open, setOpen] = React.useState(false);
   const textRef = React.useRef<HTMLParagraphElement>(null);
@@ -31,9 +39,26 @@ export default function ClampTextCard({ titleKey, text, lines = 4 }: ClampTextCa
 
   if (!text || text === "–") return null;
 
+  const isEmbedded = variant === "embedded";
+
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-      <h3 className="text-sm font-semibold text-white/60">{t(titleKey)}</h3>
+    <section
+      className={
+        isEmbedded
+          ? "space-y-3"
+          : "rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
+      }
+    >
+      <h3
+        className={
+          titleClassName ??
+          (isEmbedded
+            ? "border-b border-theme-card/60 pb-3 text-xs font-semibold uppercase tracking-wide text-theme-primary"
+            : "text-sm font-semibold text-white/60")
+        }
+      >
+        {t(titleKey)}
+      </h3>
       <p 
         ref={textRef}
         className={`mt-2 text-sm text-white ${open ? "" : clampClassMap[lines] ?? clampClassMap[4]}`}

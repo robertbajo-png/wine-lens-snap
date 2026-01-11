@@ -7,6 +7,8 @@ interface EvidenceAccordionProps {
   ocr?: string;
   hits?: EvidenceItem[];
   primary?: string;
+  variant?: "card" | "embedded";
+  titleClassName?: string;
 }
 
 const FIELD_LABEL_KEYS: Record<string, TranslationKey> = {
@@ -48,8 +50,15 @@ const groupByField = (items: EvidenceItem[]) => {
   }, {});
 };
 
-export default function EvidenceAccordion({ ocr, hits, primary }: EvidenceAccordionProps) {
+export default function EvidenceAccordion({
+  ocr,
+  hits,
+  primary,
+  variant = "card",
+  titleClassName,
+}: EvidenceAccordionProps) {
   const { t } = useTranslation();
+  const isEmbedded = variant === "embedded";
   
   const formatFieldLabel = (field: string): string => {
     if (field === "_other") return t("evidence.other");
@@ -103,17 +112,34 @@ export default function EvidenceAccordion({ ocr, hits, primary }: EvidenceAccord
   ];
 
   return (
-    <section className="rounded-2xl border border-theme-card bg-theme-elevated">
+    <section
+      className={
+        isEmbedded
+          ? "space-y-3"
+          : "rounded-2xl border border-theme-card bg-theme-elevated"
+      }
+    >
       <button
         type="button"
-        className="flex w-full items-center justify-between px-4 py-3"
+        className={
+          isEmbedded
+            ? "flex w-full items-center justify-between border-b border-theme-card/60 pb-3"
+            : "flex w-full items-center justify-between px-4 py-3"
+        }
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="text-sm font-semibold text-theme-primary">{t("evidence.title")}</span>
+        <span
+          className={
+            titleClassName ??
+            (isEmbedded ? "text-xs font-semibold uppercase tracking-wide text-theme-primary" : "text-sm font-semibold text-theme-primary")
+          }
+        >
+          {t("evidence.title")}
+        </span>
         <span className="text-xs text-theme-secondary">{open ? t("evidence.close") : t("evidence.show")}</span>
       </button>
       {open && (
-        <div className="space-y-4 px-4 pb-4">
+        <div className={isEmbedded ? "space-y-4 pt-4" : "space-y-4 px-4 pb-4"}>
           {hasPrimary && (
             <p className="text-xs text-theme-secondary">
               {t("evidence.primarySource")}: <span className="underline">{primary}</span>

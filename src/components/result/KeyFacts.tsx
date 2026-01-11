@@ -17,6 +17,8 @@ interface Props {
   syra?: string;
   evidenceItems?: EvidenceItem[] | null;
   sourceType?: SourceKind;
+  variant?: "card" | "embedded";
+  titleClassName?: string;
 }
 
 type FactFieldKey = Exclude<keyof Props, "evidenceItems" | "sourceType">;
@@ -83,17 +85,33 @@ const Row = ({
   );
 };
 
-export default function KeyFacts(props: Props) {
+export default function KeyFacts({ variant = "card", titleClassName, ...props }: Props) {
   const { t } = useTranslation();
   const visibleFacts = facts.filter(f => props[f.key] && props[f.key] !== "–");
   
   if (visibleFacts.length === 0) return null;
 
   const evidenceFields = new Set(["druvor", "fargtyp"]);
+  const isEmbedded = variant === "embedded";
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-4">
-      <h3 className="mb-4 text-sm font-semibold text-foreground">{t("keyFacts.title")}</h3>
+    <section
+      className={
+        isEmbedded
+          ? "space-y-3"
+          : "rounded-2xl border border-border bg-card p-4"
+      }
+    >
+      <div className={isEmbedded ? "border-b border-theme-card/60 pb-3" : undefined}>
+        <h3
+          className={
+            titleClassName ??
+            (isEmbedded ? "text-xs font-semibold uppercase tracking-wide text-theme-primary" : "text-sm font-semibold text-foreground")
+          }
+        >
+          {t("keyFacts.title")}
+        </h3>
+      </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {visibleFacts.map((fact) => (
           <Row
