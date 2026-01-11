@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { BadgeProps } from "@/components/ui/badge";
+import { Body, H1, H2, Label, Muted } from "@/components/ui/typography";
 import { Camera, Download, ImageUp, RefreshCcw, Sparkles, Wine } from "lucide-react";
 import { ReactNode } from "react";
 
@@ -100,10 +101,10 @@ export const ScanEmptyState = ({
             <Sparkles className="h-4 w-4" />
             Klar för nästa skanning
           </p>
-          <h1 className="text-3xl font-semibold text-theme-primary">Din digitala sommelier</h1>
-          <p className="text-base text-theme-secondary">
+          <H1>Din digitala sommelier</H1>
+          <Body>
             Fota etiketten och låt AI:n skapa en komplett vinprofil med smaknoter, serveringstips och matmatchningar – sparat lokalt för nästa gång.
-          </p>
+          </Body>
         </div>
 
         <div className="flex w-full flex-wrap items-center gap-3">
@@ -147,11 +148,13 @@ export const ScanEmptyState = ({
             <CardContent className="space-y-3 p-4">
               <div className="flex items-center gap-2 text-theme-primary">
                 <Wine className="h-5 w-5" />
-                <p className="font-semibold">Något gick snett</p>
+                <H2 asChild className="text-base">
+                  <p>Något gick snett</p>
+                </H2>
               </div>
-              <p className="text-sm text-theme-secondary">
+              <Muted className="text-sm">
                 Kontrollera ljuset och prova igen. Du kan starta om eller välja en annan bild utan att ladda om sidan.
-              </p>
+              </Muted>
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={onRetryScan}
@@ -191,14 +194,16 @@ export const ScanEmptyState = ({
               <Camera className="mr-2 h-5 w-5" />
               Fota vinflaska
             </Button>
-            <p className="text-sm text-theme-secondary">
+            <Muted className="text-sm">
               Bäst resultat när etiketten fyller rutan och du fotar i mjukt ljus.
-            </p>
+            </Muted>
           </div>
         )}
 
         <div className="w-full rounded-3xl border border-theme-card bg-theme-elevated p-5 text-left text-base leading-relaxed text-theme-secondary">
-          <p className="font-semibold text-theme-primary">Så funkar skanningen</p>
+          <H2 asChild className="text-base">
+            <p>Så funkar skanningen</p>
+          </H2>
           <div className="mt-4 space-y-3">
             {[
               {
@@ -220,7 +225,7 @@ export const ScanEmptyState = ({
                 </span>
                 <div className="flex flex-1 items-start gap-3">
                   <Icon className="mt-0.5 h-5 w-5 text-theme-primary" />
-                  <p className="flex-1 text-base leading-relaxed text-theme-secondary">{tip}</p>
+                  <Body className="flex-1 leading-relaxed">{tip}</Body>
                 </div>
               </div>
             ))}

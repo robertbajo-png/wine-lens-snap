@@ -13,11 +13,13 @@ import ImageModal from "@/components/common/ImageModal";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label as FormLabel } from "@/components/ui/label";
+import { H2, Label, Muted, typography } from "@/components/ui/typography";
 import { BookmarkPlus, Download, ImageUp, Loader2, RefreshCcw, Trash2 } from "lucide-react";
 import type { BadgeProps } from "@/components/ui/badge";
 import { computeLabelHash, type EvidenceItem, type WineAnalysisResult } from "@/lib/wineCache";
 import { ReactNode, Suspense, lazy, useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 
 const KeyFacts = lazy(() => import("@/components/result/KeyFacts"));
 const EvidenceAccordion = lazy(() => import("@/components/result/EvidenceAccordion"));
@@ -132,7 +134,7 @@ export const ScanResultView = ({
   detectedLanguage,
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
-  const sectionTitleClassName = "text-xs font-semibold uppercase tracking-wide text-theme-primary";
+  const sectionTitleClassName = cn(typography.label, "text-theme-primary");
 
   const labelHash = useMemo(
     () => computeLabelHash(ocrText ?? results.originaltext ?? results.vin ?? null),
@@ -164,8 +166,8 @@ export const ScanResultView = ({
       <Dialog open={isRefineDialogOpen} onOpenChange={setIsRefineDialogOpen}>
         <DialogContent className="border-theme-card bg-surface-card text-theme-primary">
           <DialogHeader>
-            <DialogTitle>Förfina resultat</DialogTitle>
-            <DialogDescription className="text-theme-secondary">
+            <DialogTitle className={typography.h2}>Förfina resultat</DialogTitle>
+            <DialogDescription className={typography.muted}>
               Hjälp oss säkra analysen genom att lägga till detaljer eller skanna etiketten igen.
             </DialogDescription>
           </DialogHeader>
@@ -174,8 +176,10 @@ export const ScanResultView = ({
             <div className="rounded-2xl border border-theme-card bg-surface-card p-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-semibold text-theme-primary">Ta en ny bild</p>
-                  <p className="text-sm text-theme-secondary">Fota etiketten igen för att få fler källor.</p>
+                  <H2 asChild className="text-base">
+                    <p>Ta en ny bild</p>
+                  </H2>
+                  <Muted className="text-sm">Fota etiketten igen för att få fler källor.</Muted>
                 </div>
                 <Button
                   variant="secondary"
@@ -192,7 +196,7 @@ export const ScanResultView = ({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="refineVintage">Årgång (valfritt)</Label>
+                <FormLabel htmlFor="refineVintage">Årgång (valfritt)</FormLabel>
                 <Input
                   id="refineVintage"
                   inputMode="numeric"
@@ -203,7 +207,7 @@ export const ScanResultView = ({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="refineStyle">Stil</Label>
+                <FormLabel htmlFor="refineStyle">Stil</FormLabel>
                 <Input
                   id="refineStyle"
                   value={refineStyle}
@@ -229,7 +233,7 @@ export const ScanResultView = ({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="refineGrape">Druva</Label>
+              <FormLabel htmlFor="refineGrape">Druva</FormLabel>
               <Input
                 id="refineGrape"
                 value={refineGrape}
@@ -255,7 +259,7 @@ export const ScanResultView = ({
           </div>
 
           <DialogFooter className="mt-4 flex items-center gap-2 sm:justify-between">
-            <p className="text-xs text-theme-secondary">Vi sparar dina manuella justeringar tillsammans med etiketten.</p>
+            <Muted className="text-xs">Vi sparar dina manuella justeringar tillsammans med etiketten.</Muted>
             <div className="flex gap-2">
               <Button variant="ghost" onClick={() => setIsRefineDialogOpen(false)} className="text-theme-primary">
                 Avbryt
@@ -406,8 +410,10 @@ export const ScanResultView = ({
                 <Card className="border-theme-card/80 bg-surface-card backdrop-blur">
                   <CardContent className="flex flex-col gap-3 text-sm text-theme-secondary sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="font-semibold text-theme-primary">Logga in för att spara vinet</p>
-                      <p>Skapa listor som Favoriter, Köp igen och Gästlista med ditt konto.</p>
+                      <H2 asChild className="text-base">
+                        <p>Logga in för att spara vinet</p>
+                      </H2>
+                      <Body className="text-sm">Skapa listor som Favoriter, Köp igen och Gästlista med ditt konto.</Body>
                     </div>
                     <Button
                       variant="secondary"
@@ -431,7 +437,7 @@ export const ScanResultView = ({
                   <div className="space-y-4">
                     <div className="flex flex-wrap items-start justify-between gap-3 border-b border-theme-card/60 pb-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className={sectionTitleClassName}>Smakprofil</h3>
+                        <Label className="text-theme-primary">Smakprofil</Label>
                       </div>
                       <div className="flex flex-col items-end gap-1 text-right">
                         <span className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -521,16 +527,16 @@ export const ScanResultView = ({
 
                   <div className="space-y-3">
                     <div className="border-b border-theme-card/60 pb-3">
-                      <h3 className={sectionTitleClassName}>Noteringar</h3>
+                      <Label className="text-theme-primary">Noteringar</Label>
                     </div>
                     {detectedLanguage && (
-                      <p className="text-xs text-theme-secondary opacity-80">
+                      <Muted className="text-xs opacity-80">
                         Upptäckt språk: {detectedLanguage.toUpperCase()}
-                      </p>
+                      </Muted>
                     )}
-                    <p className="text-xs text-theme-secondary opacity-80">
+                    <Muted className="text-xs opacity-80">
                       Spara profilen för att lägga till den i dina viner. Osparade skanningar rensas när du lämnar sidan.
-                    </p>
+                    </Muted>
                   </div>
                 </CardContent>
               </Card>

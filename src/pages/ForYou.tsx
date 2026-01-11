@@ -9,6 +9,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/auth/AuthProvider";
 import { logEvent } from "@/lib/logger";
 import { AppHeader } from "@/components/layout/AppHeader";
+import { Body, H2, Label, Muted } from "@/components/ui/typography";
 import {
   ForYouScenarioMode,
   getCachedForYouCards,
@@ -276,8 +277,8 @@ const ForYou = () => {
           <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-surface-canvas p-6 shadow-theme-card backdrop-blur">
             <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-theme-secondary/70">{t("forYou.latestScans")}</p>
-                <h2 className="text-2xl font-semibold text-theme-primary">{t("forYou.latestScansTitle")}</h2>
+                <Label className="tracking-[0.25em]">{t("forYou.latestScans")}</Label>
+                <H2>{t("forYou.latestScansTitle")}</H2>
               </div>
               <Button
                 variant="ghost"
@@ -317,11 +318,13 @@ const ForYou = () => {
                       </div>
                       <div className="flex flex-1 flex-col justify-between">
                         <div className="space-y-1">
-                          <p className="text-sm uppercase tracking-[0.2em] text-theme-secondary/70">
+                          <Label className="text-sm tracking-[0.2em]">
                             {formatDate(entry.timestamp)}
-                          </p>
-                          <h3 className="text-lg font-semibold text-theme-primary">{title}</h3>
-                          {subtitle && <p className="text-sm text-theme-secondary">{subtitle}</p>}
+                          </Label>
+                          <H2 asChild className="text-lg">
+                            <h3>{title}</h3>
+                          </H2>
+                          {subtitle && <Body className="text-sm">{subtitle}</Body>}
                         </div>
                         <div className="flex gap-2">
                           <Button
@@ -341,8 +344,10 @@ const ForYou = () => {
               </div>
             ) : (
               <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-theme-card bg-surface-card p-6 text-left">
-                <p className="text-lg font-semibold text-theme-primary">{t("forYou.emptyHistoryTitle")}</p>
-                <p className="text-sm text-theme-secondary">{t("forYou.emptyHistorySubtitle")}</p>
+                <H2 asChild className="text-lg">
+                  <p>{t("forYou.emptyHistoryTitle")}</p>
+                </H2>
+                <Body className="text-sm">{t("forYou.emptyHistorySubtitle")}</Body>
                 <Button
                   className="mt-1"
                   onClick={() => navigate("/scan")}
@@ -356,12 +361,12 @@ const ForYou = () => {
           <section className="flex flex-col gap-4 rounded-3xl border border-theme-card bg-surface-canvas p-6 shadow-theme-card backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-theme-secondary/70">{t("forYou.suggestions")}</p>
-                <h2 className="text-2xl font-semibold text-theme-primary">{t("forYou.suggestionsTitle")}</h2>
+                <Label className="tracking-[0.25em]">{t("forYou.suggestions")}</Label>
+                <H2>{t("forYou.suggestionsTitle")}</H2>
                 {formattedCardsUpdatedAt ? (
-                  <p className="text-xs text-theme-secondary/70">
+                  <Muted className="text-xs">
                     {t("forYou.lastUpdated", { timestamp: formattedCardsUpdatedAt })}
-                  </p>
+                  </Muted>
                 ) : null}
               </div>
               <Button
@@ -382,11 +387,13 @@ const ForYou = () => {
             <div className="rounded-2xl border border-dashed border-theme-card bg-surface-card p-4">
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.25em] text-theme-secondary/70">
+                  <Label className="tracking-[0.25em]">
                     {t("forYou.scenario.badge")}
-                  </p>
-                  <h3 className="text-lg font-semibold text-theme-primary">{t("forYou.scenario.title")}</h3>
-                  <p className="text-sm text-theme-secondary/80">{t("forYou.scenario.subtitle")}</p>
+                  </Label>
+                  <H2 asChild className="text-lg">
+                    <h3>{t("forYou.scenario.title")}</h3>
+                  </H2>
+                  <Body className="text-sm text-theme-secondary/80">{t("forYou.scenario.subtitle")}</Body>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -431,8 +438,10 @@ const ForYou = () => {
                         </span>
                       </div>
                       <div className="space-y-2">
-                        <p className="text-lg font-semibold text-theme-primary">{card.title}</p>
-                        {card.subtitle && <p className="text-sm text-theme-secondary/80">{card.subtitle}</p>}
+                        <H2 asChild className="text-lg">
+                          <p>{card.title}</p>
+                        </H2>
+                        {card.subtitle && <Muted className="text-sm text-theme-secondary/80">{card.subtitle}</Muted>}
                         {card.items?.length ? (
                           <ul className="list-disc space-y-1 pl-5 text-sm text-theme-secondary/80">
                             {card.items.map((item, index) => (
@@ -449,7 +458,7 @@ const ForYou = () => {
                   </div>
                 ))}
                 {loadingCards ? (
-                  <p className="text-xs text-theme-secondary/70">{t("forYou.refreshing")}</p>
+                  <Muted className="text-xs">{t("forYou.refreshing")}</Muted>
                 ) : null}
               </div>
             ) : (
@@ -478,9 +487,9 @@ const ForYou = () => {
                 : t("forYou.scenario.sheetSubtitle")}
             </SheetDescription>
             {scenarioUpdatedLabel ? (
-              <p className="text-xs text-theme-secondary/70">
+              <Muted className="text-xs">
                 {t("forYou.scenario.generatedAt", { timestamp: scenarioUpdatedLabel })}
-              </p>
+              </Muted>
             ) : null}
           </SheetHeader>
 
@@ -512,8 +521,10 @@ const ForYou = () => {
                         </span>
                       </div>
                       <div className="space-y-2">
-                        <p className="text-lg font-semibold text-theme-primary">{card.title}</p>
-                        {card.subtitle && <p className="text-sm text-theme-secondary/80">{card.subtitle}</p>}
+                        <H2 asChild className="text-lg">
+                          <p>{card.title}</p>
+                        </H2>
+                        {card.subtitle && <Muted className="text-sm text-theme-secondary/80">{card.subtitle}</Muted>}
                         {card.items?.length ? (
                           <ul className="list-disc space-y-1 pl-5 text-sm text-theme-secondary/80">
                             {card.items.map((item, index) => (
