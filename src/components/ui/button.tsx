@@ -12,6 +12,8 @@ const buttonVariants = cva(
         primary:
           "bg-[hsl(var(--accent-primary))] text-theme-on-accent shadow-sm hover:bg-[hsl(var(--accent-primary)/0.9)]",
         secondary: "border border-theme-card bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80",
+        secondaryCta:
+          "border border-[hsl(var(--accent-primary)/0.35)] bg-[hsl(var(--accent-primary)/0.08)] text-[hsl(var(--accent-primary))] shadow-sm hover:border-[hsl(var(--accent-primary)/0.6)] hover:bg-[hsl(var(--accent-primary)/0.16)]",
         outline: "border border-theme-card bg-transparent text-theme-primary hover:bg-theme-elevated/60",
         ghost: "bg-transparent text-theme-primary hover:bg-theme-elevated/60",
       },
