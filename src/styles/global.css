@@ -34,22 +34,25 @@ body.app-theme {
   background-attachment: fixed;
   --bottom-nav-bg: hsl(var(--surface-canvas));
   --bottom-nav-border: hsl(var(--color-border) / 0.6);
-  --bottom-nav-inactive: hsl(var(--color-text-muted) / 0.95);
-  --bottom-nav-active: hsl(var(--color-accent));
+  --bottom-nav-inactive: hsl(var(--text-secondary));
+  --bottom-nav-active: hsl(var(--accent-primary));
+  --bottom-nav-accent: hsl(var(--accent-primary));
 }
 
 body.app-theme.theme-dark {
   --bottom-nav-bg: hsl(var(--surface-canvas) / 0.92);
   --bottom-nav-border: hsl(var(--color-border) / 0.75);
-  --bottom-nav-inactive: hsl(var(--color-text-muted) / 0.9);
-  --bottom-nav-active: hsl(var(--color-accent));
+  --bottom-nav-inactive: hsl(var(--text-secondary));
+  --bottom-nav-active: hsl(var(--accent-primary));
+  --bottom-nav-accent: hsl(var(--accent-primary));
 }
 
 body.app-theme.theme-light {
   --bottom-nav-bg: hsl(var(--surface-canvas) / 0.96);
   --bottom-nav-border: hsl(var(--color-border) / 0.6);
-  --bottom-nav-inactive: hsl(var(--color-text-muted) / 0.9);
-  --bottom-nav-active: hsl(var(--color-accent));
+  --bottom-nav-inactive: hsl(var(--text-secondary));
+  --bottom-nav-active: hsl(var(--accent-primary));
+  --bottom-nav-accent: hsl(var(--accent-primary));
 }
 
 body.app-theme h1,
