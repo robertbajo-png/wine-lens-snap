@@ -404,19 +404,22 @@ const ForYou = () => {
                   <Button
                     key={action.key}
                     variant="outline"
-                    className="group flex h-full items-center justify-between gap-3 bg-surface-card px-4 py-3 text-left transition duration-150 ease-out hover:border-theme-primary/60 hover:bg-surface-card active:scale-[0.98]"
+                    className="group flex h-full max-w-full items-center justify-between gap-3 overflow-hidden bg-surface-card px-4 py-3 text-left transition duration-150 ease-out hover:border-theme-primary/60 hover:bg-surface-card active:scale-[0.98]"
                     onClick={() => void handleScenarioSelect(action.key)}
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
                       <span className="grid h-10 w-10 place-items-center rounded-full bg-theme-accent/15 text-theme-primary">
                         {action.icon}
                       </span>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold">{action.label}</span>
-                        <span className="text-xs text-theme-secondary/80">{action.description}</span>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate text-sm font-semibold">{action.label}</span>
+                        <span className="break-words text-xs text-theme-secondary/80">{action.description}</span>
                       </div>
                     </div>
-                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" aria-hidden="true" />
+                    <ArrowRight
+                      className="h-4 w-4 shrink-0 transition group-hover:translate-x-1"
+                      aria-hidden="true"
+                    />
                   </Button>
                 ))}
               </div>
