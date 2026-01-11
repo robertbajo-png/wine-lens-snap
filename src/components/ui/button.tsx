@@ -9,7 +9,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-theme-accent text-theme-on-accent shadow-sm hover:bg-theme-accent/90",
+        primary:
+          "bg-[hsl(var(--accent-primary))] text-theme-on-accent shadow-sm hover:bg-[hsl(var(--accent-primary)/0.9)]",
         secondary: "bg-theme-elevated text-theme-primary hover:bg-theme-elevated/80",
         outline: "border border-theme-card bg-transparent text-theme-primary hover:bg-theme-elevated/60",
         ghost: "bg-transparent text-theme-primary hover:bg-theme-elevated/60",
