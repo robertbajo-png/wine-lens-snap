@@ -3,11 +3,11 @@ import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 export const typography = {
-  h1: "text-3xl font-semibold text-theme-primary",
-  h2: "text-2xl font-semibold text-theme-primary",
-  label: "text-xs font-semibold uppercase tracking-[0.3em] text-theme-secondary/70",
-  body: "text-base text-theme-secondary/90",
-  muted: "text-sm text-theme-secondary/70",
+  h1: "text-2xl font-semibold leading-tight text-theme-primary text-wrap-balance text-avoid-break sm:text-3xl md:text-4xl",
+  h2: "text-xl font-semibold leading-tight text-theme-primary text-wrap-balance text-avoid-break sm:text-2xl md:text-3xl",
+  label: "text-[11px] font-semibold uppercase tracking-[0.24em] text-theme-secondary/70 text-avoid-break sm:text-xs sm:tracking-[0.26em]",
+  body: "text-sm text-theme-secondary/90 text-avoid-break sm:text-base",
+  muted: "text-xs text-theme-secondary/70 text-avoid-break sm:text-sm",
 };
 
 type TypographyHeadingProps = React.HTMLAttributes<HTMLHeadingElement> & { asChild?: boolean };

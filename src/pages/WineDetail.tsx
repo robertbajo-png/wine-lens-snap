@@ -73,13 +73,13 @@ const WineDetail = () => {
     return (
       <div className="mx-auto flex min-h-[50vh] max-w-xl flex-col items-center justify-center gap-4 px-4 text-center">
         <div className="space-y-2">
-          <p className="text-sm uppercase tracking-[0.2em] text-theme-secondary">
+          <p className="text-sm uppercase tracking-[0.2em] text-theme-secondary text-avoid-break sm:text-base">
             {t("wineDetail.notFoundLabel")}
           </p>
-          <h1 className="text-2xl font-semibold text-theme-primary">
+          <h1 className="text-2xl font-semibold text-theme-primary text-wrap-balance text-avoid-break sm:text-3xl md:text-4xl">
             {t("wineDetail.notFoundTitle")}
           </h1>
-          <p className="text-theme-secondary">
+          <p className="text-theme-secondary text-avoid-break sm:text-lg">
             {t("wineDetail.notFoundDesc")}
           </p>
         </div>

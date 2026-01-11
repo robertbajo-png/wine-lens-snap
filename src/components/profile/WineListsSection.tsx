@@ -118,7 +118,7 @@ export const WineListsSection = () => {
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle className="break-words text-theme-primary">{t("wineLists.myLists")}</CardTitle>
+            <CardTitle className="text-theme-primary text-wrap-balance text-avoid-break">{t("wineLists.myLists")}</CardTitle>
           </div>
           <CardDescription className="text-theme-secondary">
             {t("wineLists.onlyShowNonEmpty")}
@@ -153,8 +153,8 @@ export const WineListsSection = () => {
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="break-words text-base font-semibold text-theme-primary">{list.name}</p>
-                      <p className="text-sm text-theme-secondary">{t("history.savedWines", { count: list.itemCount })}</p>
+                      <p className="text-base font-semibold text-theme-primary text-line-clamp-2 text-avoid-break sm:text-lg">{list.name}</p>
+                      <p className="text-sm text-theme-secondary text-avoid-break sm:text-base">{t("history.savedWines", { count: list.itemCount })}</p>
                     </div>
                     <Badge
                       variant="outline"
@@ -186,9 +186,9 @@ export const WineListsSection = () => {
                           </div>
                           <div className="flex min-w-0 flex-1 flex-col gap-2">
                             <div>
-                              <p className="break-words text-sm font-semibold text-theme-primary">{wine?.vin ?? t("wineLists.unknownWine")}</p>
-                              <p className="break-words text-xs text-theme-secondary">{wine?.producent ?? t("wineLists.missingProducer")}</p>
-                              <p className="break-words text-xs text-theme-secondary">{wine?.land_region ?? t("wineLists.missingRegion")}</p>
+                              <p className="text-sm font-semibold text-theme-primary text-line-clamp-2 text-avoid-break sm:text-base">{wine?.vin ?? t("wineLists.unknownWine")}</p>
+                              <p className="text-xs text-theme-secondary text-avoid-break sm:text-sm">{wine?.producent ?? t("wineLists.missingProducer")}</p>
+                              <p className="text-xs text-theme-secondary text-avoid-break sm:text-sm">{wine?.land_region ?? t("wineLists.missingRegion")}</p>
                             </div>
                             <div className="flex items-center justify-between text-xs text-theme-secondary">
                               <span>{formatRelativeTime(item.createdAt, locale, t("history.unknownTime"))}</span>
