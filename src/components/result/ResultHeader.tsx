@@ -25,21 +25,21 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ, evi
 
   return (
     <header className="space-y-3 overflow-visible">
-      <h1 className="text-2xl font-bold leading-tight text-foreground sm:text-3xl">
+      <h1 className="text-2xl font-bold leading-tight text-foreground text-wrap-balance text-avoid-break sm:text-3xl md:text-4xl">
         {hasVin ? vin : t("wineDetail.unknownWine")}
         {hasYear && (
-          <span className="ml-2 text-xl font-normal text-muted-foreground">
+          <span className="ml-2 text-xl font-normal text-muted-foreground text-avoid-break sm:text-2xl">
             {ar}
           </span>
         )}
       </h1>
 
       {(hasProducent || hasRegion) && (
-        <div className="flex flex-wrap items-center gap-3 overflow-visible text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 overflow-visible text-sm text-muted-foreground text-avoid-break sm:text-base">
           {hasProducent && (
             <div className="flex items-center gap-1.5">
               <Building2 className="h-4 w-4 text-primary" />
-              <span>{producent}</span>
+              <span className="text-avoid-break">{producent}</span>
             </div>
           )}
           {hasProducent && hasRegion && (
@@ -48,7 +48,7 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ, evi
           {hasRegion && (
             <div className="flex items-center gap-1.5">
               <MapPin className="h-4 w-4 text-primary" />
-              <span>{land_region}</span>
+              <span className="text-avoid-break">{land_region}</span>
               <FieldEvidenceTooltip
                 field="land_region"
                 label={t("resultHeader.region")}
@@ -62,7 +62,7 @@ export default function ResultHeader({ vin, ar, producent, land_region, typ, evi
 
       {hasTyp && (
         <div className="flex flex-wrap items-center gap-2 overflow-visible">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary text-avoid-break sm:text-sm">
             <Wine className="h-3.5 w-3.5" />
             {typ}
           </span>

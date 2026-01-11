@@ -98,11 +98,11 @@ const WineCard = ({ entry, formatDate, formatRelativeTime, onShare, onRemove }: 
         <div className="flex-1 space-y-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 space-y-1">
-              <h3 className="break-words text-2xl font-semibold leading-tight text-theme-primary" title={displayTitle}>
+              <h3 className="text-2xl font-semibold leading-tight text-theme-primary text-wrap-balance text-avoid-break sm:text-3xl" title={displayTitle}>
                 {displayTitle}
               </h3>
               {displaySubtitle && (
-                <p className="break-words text-sm text-theme-secondary" title={displaySubtitle}>
+                <p className="text-sm text-theme-secondary text-line-clamp-2 text-avoid-break sm:text-base" title={displaySubtitle}>
                   {displaySubtitle}
                 </p>
               )}

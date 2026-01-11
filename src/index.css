@@ -96,3 +96,24 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .text-wrap-balance {
+    text-wrap: balance;
+  }
+
+  .text-line-clamp-2 {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .text-avoid-break {
+    overflow-wrap: normal;
+    word-break: keep-all;
+    hyphens: none;
+  }
+}
