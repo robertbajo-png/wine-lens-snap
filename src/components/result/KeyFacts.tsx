@@ -65,10 +65,10 @@ const Row = ({
       </div>
       <div className="flex flex-1 items-start gap-2">
         <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-white/60">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             {label}
           </span>
-          <span className="truncate text-sm font-medium text-white">
+          <span className="truncate text-sm font-medium text-foreground">
             {value}
           </span>
         </div>

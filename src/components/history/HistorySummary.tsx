@@ -23,7 +23,7 @@ export const HistorySummarySkeleton = () => (
   <Card className="border border-theme-card bg-theme-elevated shadow-xl shadow-purple-900/10 backdrop-blur">
     <CardHeader className="space-y-4 pb-0">
       <div className="flex items-start gap-3">
-        <Skeleton className="h-10 w-10 rounded-2xl bg-[#B095FF]/20" />
+        <Skeleton className="h-10 w-10 rounded-2xl bg-theme-accent-soft/70" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-6 w-48 rounded-lg bg-white/10" />
           <Skeleton className="h-4 w-72 max-w-full rounded-lg bg-white/10" />
@@ -57,7 +57,7 @@ const HistorySummary = ({
     <Card className="border border-theme-card bg-theme-elevated shadow-xl shadow-purple-900/10 backdrop-blur">
       <CardHeader className="space-y-4 pb-0">
         <div className="flex items-start gap-4">
-          <div className="rounded-2xl border border-transparent bg-[#B095FF]/10 p-2 text-[#B095FF] shadow-inner shadow-purple-500/30">
+          <div className="rounded-2xl border border-transparent bg-theme-accent-soft/70 p-2 text-theme-accent shadow-inner shadow-purple-500/30">
             <Sparkles className="h-6 w-6" />
           </div>
           <div className="space-y-2">
