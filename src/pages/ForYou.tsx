@@ -275,7 +275,7 @@ const ForYou = () => {
           )}
         />
 
-        <div className="grid grid-cols-1 items-stretch gap-x-6 gap-y-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 items-stretch gap-x-6 gap-y-6 lg:grid-cols-2 lg:gap-x-8 lg:divide-x lg:divide-theme-card/50">
           <section className="flex h-full flex-col gap-4 rounded-3xl border border-theme-card bg-surface-canvas p-6 shadow-theme-card backdrop-blur">
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -294,7 +294,7 @@ const ForYou = () => {
             </div>
 
             {recentEntries.length > 0 ? (
-              <div className="flex flex-col gap-3">
+              <div className="grid auto-rows-fr gap-3">
                 {recentEntries.map((entry) => {
                   const title = entry.result.vin || t("wineDetail.unknownWine");
                   const subtitle = [entry.result.land_region, entry.result.årgång].filter(Boolean).join(" • ");
@@ -426,7 +426,7 @@ const ForYou = () => {
             </div>
 
             {cards.length === 0 && loadingCards ? (
-              <div className="space-y-3">
+              <div className="grid auto-rows-fr gap-3">
                 {suggestionSkeletons.map((index) => (
                   <div
                     key={`for-you-skeleton-${index}`}
@@ -445,7 +445,7 @@ const ForYou = () => {
                 ))}
               </div>
             ) : cards.length > 0 ? (
-              <div className="space-y-3">
+              <div className="grid auto-rows-fr gap-3">
                 {cards.map((card) => (
                   <div
                     key={card.id}
