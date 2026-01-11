@@ -9,6 +9,7 @@ import { ScanStatusBanner } from "@/components/wine-scan/ScanStatusBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import ImageModal from "@/components/common/ImageModal";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { BookmarkPlus, Download, ImageUp, Loader2, RefreshCcw, Trash2 } from "lucide-react";
 import type { BadgeProps } from "@/components/ui/badge";
 import { computeLabelHash, type EvidenceItem, type WineAnalysisResult } from "@/lib/wineCache";
-import { ReactNode, Suspense, lazy, useMemo } from "react";
+import { ReactNode, Suspense, lazy, useMemo, useState } from "react";
 
 const KeyFacts = lazy(() => import("@/components/result/KeyFacts"));
 const EvidenceAccordion = lazy(() => import("@/components/result/EvidenceAccordion"));
@@ -156,6 +157,7 @@ export const ScanResultView = ({
     Boolean(ocrText && ocrText !== "–") ||
     (Array.isArray(evidenceLinks) && evidenceLinks.some(Boolean)) ||
     Boolean(results.källa && results.källa !== "–");
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   return (
     <>
@@ -335,7 +337,24 @@ export const ScanResultView = ({
           </div>
 
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
-            <div className="space-y-6">
+            {previewImage && (
+              <aside className="lg:col-start-2 lg:row-start-1 lg:sticky lg:top-24">
+                <button
+                  type="button"
+                  onClick={() => setIsImageModalOpen(true)}
+                  className="group w-full overflow-hidden rounded-3xl border border-theme-card bg-surface-card shadow-xl backdrop-blur transition hover:border-theme-card/80"
+                  aria-label="Öppna etiketten i större vy"
+                >
+                  <img
+                    src={previewImage}
+                    alt="Skannad vinetikett"
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                  />
+                </button>
+              </aside>
+            )}
+
+            <div className="space-y-6 lg:col-start-1 lg:row-start-1">
               <ResultHeader
                 vin={results.vin}
                 ar={results.årgång}
@@ -516,15 +535,16 @@ export const ScanResultView = ({
                 </CardContent>
               </Card>
             </div>
-
-            {previewImage && (
-              <aside className="lg:sticky lg:top-24">
-                <div className="overflow-hidden rounded-3xl border border-theme-card bg-surface-card shadow-xl backdrop-blur">
-                  <img src={previewImage} alt="Skannad vinetikett" className="h-full w-full object-cover" />
-                </div>
-              </aside>
-            )}
           </div>
+
+          {previewImage && (
+            <ImageModal
+              open={isImageModalOpen}
+              onOpenChange={setIsImageModalOpen}
+              src={previewImage}
+              alt="Skannad vinetikett"
+            />
+          )}
         </div>
 
         {showDetailedSections && <ActionBar onNewScan={onStartNewScan} />}
