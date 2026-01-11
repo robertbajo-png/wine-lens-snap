@@ -255,7 +255,7 @@ const ForYou = () => {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <Button
                   size="lg"
-                  className="group inline-flex items-center gap-2 transition duration-150 ease-out active:scale-[0.98]"
+                  className="group inline-flex items-center gap-2 rounded-full transition duration-150 ease-out active:scale-[0.98]"
                   onClick={() => navigate("/scan")}
                 >
                   <Camera className="h-4 w-4 transition group-hover:-translate-y-0.5" aria-hidden="true" />
@@ -263,8 +263,8 @@ const ForYou = () => {
                 </Button>
                 <Button
                   variant="secondary"
-                  size="sm"
-                  className="gap-2 transition duration-150 ease-out active:scale-[0.98]"
+                  size="lg"
+                  className="gap-2 rounded-full transition duration-150 ease-out active:scale-[0.98]"
                   onClick={() => navigate("/me/wines")}
                 >
                   {t("forYou.viewHistory")}
