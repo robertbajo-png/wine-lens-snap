@@ -5,15 +5,15 @@
 /* ========= App Theme Tokens (Dark) ========= */
 :root {
   --bg-canvas: 262 52% 6%;
-  --bg-surface: 262 45% 10%;
-  --surface-elevated: 261 42% 16%;
+  --bg-surface: 262 45% 11%;
+  --surface-elevated: 261 42% 20%;
   --surface-base: 36 20% 5%;
-  --surface-canvas: 34 17% 8%;
-  --surface-card: 36 17% 11%;
-  --text-primary: 259 56% 95%;
-  --text-secondary: 260 30% 86%;
+  --surface-canvas: 34 17% 10%;
+  --surface-card: 36 17% 14%;
+  --text-primary: 259 56% 96%;
+  --text-secondary: 260 34% 90%;
   --accent-primary: 271 86% 67%;
-  --card-border: 262 38% 32%;
+  --card-border: 262 36% 34%;
 }
 
 /* ========= Global Dark Background ========= */
@@ -83,7 +83,7 @@ body.app-theme .bg-theme-surface-alt {
 }
 
 body.app-theme .bg-theme-elevated {
-  background-color: hsl(var(--surface-card));
+  background-color: hsl(var(--surface-elevated));
 }
 
 body.app-theme .bg-surface-base {
@@ -151,7 +151,6 @@ body.app-theme.theme-dark .bg-white,
 body.app-theme.theme-dark .bg-gray-50,
 body.app-theme.theme-dark .bg-slate-50,
 body.app-theme.theme-dark .bg-neutral-50,
-body.app-theme.theme-dark .bg-card,
 body.app-theme.theme-dark .bg-white\/5,
 body.app-theme.theme-dark .bg-white\/10,
 body.app-theme.theme-dark .bg-white\/15,
@@ -167,6 +166,10 @@ body.app-theme.theme-dark .bg-white\/\[0\.04\],
 body.app-theme.theme-dark .bg-slate-100\/20,
 body.app-theme.theme-dark .bg-zinc-100\/20 {
   background-color: hsl(var(--surface-elevated)) !important;
+}
+
+body.app-theme.theme-dark .bg-card {
+  background-color: hsl(var(--surface-card)) !important;
 }
 
 body.app-theme.theme-dark .text-slate-900,

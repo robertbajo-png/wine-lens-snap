@@ -116,9 +116,9 @@ export const WineListsSection = () => {
   return (
     <Card className="border-theme-card/80 bg-theme-elevated/80 backdrop-blur">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle className="text-theme-primary">{t("wineLists.myLists")}</CardTitle>
+            <CardTitle className="break-words text-theme-primary">{t("wineLists.myLists")}</CardTitle>
           </div>
           <CardDescription className="text-theme-secondary">
             {t("wineLists.onlyShowNonEmpty")}
@@ -152,11 +152,14 @@ export const WineListsSection = () => {
                   className="rounded-2xl border border-theme-card/80 bg-theme-canvas/40 p-4 shadow-sm"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-base font-semibold text-theme-primary">{list.name}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-base font-semibold text-theme-primary">{list.name}</p>
                       <p className="text-sm text-theme-secondary">{t("history.savedWines", { count: list.itemCount })}</p>
                     </div>
-                    <Badge variant="outline" className="border-theme-card bg-theme-elevated text-theme-secondary">
+                    <Badge
+                      variant="outline"
+                      className="whitespace-normal border-theme-card bg-theme-elevated text-theme-secondary"
+                    >
                       {list.itemCount} {t("wineLists.countSuffix")}
                     </Badge>
                   </div>
