@@ -41,7 +41,7 @@ export const ScanStatusBanner = ({
           <Button
             variant="outline"
             onClick={onRefine}
-            className="border-theme-card bg-theme-canvas text-theme-primary hover:bg-theme-elevated"
+            className="border-theme-card bg-theme-canvas text-theme-primary transition duration-150 ease-out hover:bg-theme-elevated active:scale-[0.98]"
           >
             Förfina resultat
           </Button>

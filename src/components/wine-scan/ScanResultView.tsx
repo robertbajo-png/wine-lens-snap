@@ -135,6 +135,7 @@ export const ScanResultView = ({
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
   const sectionTitleClassName = cn(typography.label, "text-theme-primary");
+  const buttonMotionClass = "transition duration-150 ease-out active:scale-[0.98]";
 
   const labelHash = useMemo(
     () => computeLabelHash(ocrText ?? results.originaltext ?? results.vin ?? null),
@@ -187,6 +188,7 @@ export const ScanResultView = ({
                     setIsRefineDialogOpen(false);
                     onRetryScan();
                   }}
+                  className={buttonMotionClass}
                 >
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   Starta ny skanning
@@ -221,7 +223,10 @@ export const ScanResultView = ({
                       <button
                         key={item}
                         type="button"
-                        className="rounded-full border border-theme-card px-3 py-1 text-theme-primary hover:border-theme-primary"
+                        className={cn(
+                          "rounded-full border border-theme-card px-3 py-1 text-theme-primary hover:border-theme-primary",
+                          buttonMotionClass,
+                        )}
                         onClick={() => setRefineStyle(item)}
                       >
                         {item}
@@ -247,7 +252,10 @@ export const ScanResultView = ({
                     <button
                       key={item}
                       type="button"
-                      className="rounded-full border border-theme-card px-3 py-1 text-theme-primary hover:border-theme-primary"
+                      className={cn(
+                        "rounded-full border border-theme-card px-3 py-1 text-theme-primary hover:border-theme-primary",
+                        buttonMotionClass,
+                      )}
                       onClick={() => setRefineGrape(item)}
                     >
                       {item}
@@ -261,10 +269,14 @@ export const ScanResultView = ({
           <DialogFooter className="mt-4 flex items-center gap-2 sm:justify-between">
             <Muted className="text-xs">Vi sparar dina manuella justeringar tillsammans med etiketten.</Muted>
             <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => setIsRefineDialogOpen(false)} className="text-theme-primary">
+              <Button
+                variant="ghost"
+                onClick={() => setIsRefineDialogOpen(false)}
+                className={cn("text-theme-primary", buttonMotionClass)}
+              >
                 Avbryt
               </Button>
-              <Button onClick={handleApplyRefinements}>
+              <Button onClick={handleApplyRefinements} className={buttonMotionClass}>
                 Spara detaljer
               </Button>
             </div>
@@ -286,7 +298,7 @@ export const ScanResultView = ({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-theme-secondary hover:text-theme-primary"
+                    className={cn("text-theme-secondary hover:text-theme-primary", buttonMotionClass)}
                     onClick={onNavigateProfile}
                   >
                     Profil
@@ -294,6 +306,7 @@ export const ScanResultView = ({
                   <Button
                     variant="secondary"
                     size="sm"
+                    className={buttonMotionClass}
                     onClick={onNavigateHistory}
                   >
                     Historik
@@ -302,6 +315,7 @@ export const ScanResultView = ({
                     <Button
                       variant="secondary"
                       size="sm"
+                      className={buttonMotionClass}
                       onClick={onInstall}
                     >
                       <Download className="mr-2 h-4 w-4" />
@@ -323,6 +337,7 @@ export const ScanResultView = ({
                 size="sm"
                 onClick={onRetryScan}
                 disabled={isProcessing}
+                className={buttonMotionClass}
               >
                 <RefreshCcw className="mr-2 h-4 w-4" />
                 Starta om
@@ -332,7 +347,7 @@ export const ScanResultView = ({
                 size="sm"
                 onClick={onChangeImage}
                 disabled={isProcessing}
-                className="text-theme-primary hover:bg-surface-card"
+                className={cn("text-theme-primary hover:bg-surface-card", buttonMotionClass)}
               >
                 <ImageUp className="mr-2 h-4 w-4" />
                 Byt bild
@@ -346,7 +361,10 @@ export const ScanResultView = ({
                 <button
                   type="button"
                   onClick={() => setIsImageModalOpen(true)}
-                  className="group w-full overflow-hidden rounded-3xl border border-theme-card bg-surface-card shadow-xl backdrop-blur transition hover:border-theme-card/80"
+                  className={cn(
+                    "group w-full overflow-hidden rounded-3xl border border-theme-card bg-surface-card shadow-xl backdrop-blur transition hover:border-theme-card/80",
+                    buttonMotionClass,
+                  )}
                   aria-label="Öppna etiketten i större vy"
                 >
                   <img
@@ -378,25 +396,25 @@ export const ScanResultView = ({
               />
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Button
-                onClick={onSaveWine}
-                disabled={isSaved || isSaving || !currentCacheKey}
-                size="lg"
-                className="w-full justify-center sm:w-auto sm:min-w-[220px]"
-              >
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookmarkPlus className="mr-2 h-4 w-4" />}
-                {isSaved ? "Sparat" : "Spara till mina viner"}
-              </Button>
-              {isSaved ? (
                 <Button
-                  variant="outline"
-                  onClick={onRemoveWine}
-                  disabled={isRemoving}
-                  className="w-full justify-center sm:w-auto"
+                  onClick={onSaveWine}
+                  disabled={isSaved || isSaving || !currentCacheKey}
+                  size="lg"
+                  className={cn("w-full justify-center sm:w-auto sm:min-w-[220px]", buttonMotionClass)}
                 >
-                  {isRemoving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                  Ta bort ur mina viner
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BookmarkPlus className="mr-2 h-4 w-4" />}
+                  {isSaved ? "Sparat" : "Spara till mina viner"}
                 </Button>
+                {isSaved ? (
+                  <Button
+                    variant="outline"
+                    onClick={onRemoveWine}
+                    disabled={isRemoving}
+                    className={cn("w-full justify-center sm:w-auto", buttonMotionClass)}
+                  >
+                    {isRemoving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                    Ta bort ur mina viner
+                  </Button>
                 ) : null}
               </div>
 
@@ -418,6 +436,7 @@ export const ScanResultView = ({
                     <Button
                       variant="secondary"
                       onClick={onLogin}
+                      className={buttonMotionClass}
                     >
                       Logga in
                     </Button>

@@ -64,13 +64,18 @@ export const ScanEmptyState = ({
           subtitle="Skanna vinetiketter med AI"
           rightActions={(
             <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
-              <Button variant="ghost" size="sm" className="text-theme-secondary hover:text-theme-primary" onClick={onNavigateHome}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-theme-secondary transition duration-150 ease-out hover:text-theme-primary active:scale-[0.98]"
+                onClick={onNavigateHome}
+              >
                 Hem
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-theme-secondary hover:text-theme-primary"
+                className="text-theme-secondary transition duration-150 ease-out hover:text-theme-primary active:scale-[0.98]"
                 onClick={onNavigateProfile}
               >
                 Profil
@@ -78,6 +83,7 @@ export const ScanEmptyState = ({
               <Button
                 variant="secondary"
                 size="sm"
+                className="transition duration-150 ease-out active:scale-[0.98]"
                 onClick={onNavigateHistory}
               >
                 Historik
@@ -115,6 +121,7 @@ export const ScanEmptyState = ({
               size="sm"
               onClick={onRetryScan}
               disabled={isProcessing}
+              className="transition duration-150 ease-out active:scale-[0.98]"
             >
               <RefreshCcw className="mr-2 h-4 w-4" />
               Starta om
@@ -124,7 +131,7 @@ export const ScanEmptyState = ({
               size="sm"
               onClick={onChangeImage}
               disabled={isProcessing}
-              className="text-theme-primary hover:bg-theme-elevated"
+              className="text-theme-primary transition duration-150 ease-out hover:bg-theme-elevated active:scale-[0.98]"
             >
               <ImageUp className="mr-2 h-4 w-4" />
               Byt bild
@@ -158,6 +165,7 @@ export const ScanEmptyState = ({
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={onRetryScan}
+                  className="transition duration-150 ease-out active:scale-[0.98]"
                 >
                   <RefreshCcw className="mr-2 h-4 w-4" />
                   Starta om skanning
@@ -165,6 +173,7 @@ export const ScanEmptyState = ({
                 <Button
                   variant="secondary"
                   onClick={onChangeImage}
+                  className="transition duration-150 ease-out active:scale-[0.98]"
                 >
                   <ImageUp className="mr-2 h-4 w-4" />
                   Byt bild
@@ -188,7 +197,7 @@ export const ScanEmptyState = ({
             <Button
               onClick={onTakePhoto}
               size="lg"
-              className="w-full"
+              className="w-full transition duration-150 ease-out active:scale-[0.98]"
               disabled={isProcessing}
             >
               <Camera className="mr-2 h-5 w-5" />
@@ -239,7 +248,7 @@ export const ScanEmptyState = ({
             onClick={onInstall}
             variant="secondary"
             size="sm"
-            className="shadow-lg backdrop-blur"
+            className="shadow-lg backdrop-blur transition duration-150 ease-out active:scale-[0.98]"
           >
             <Download className="mr-2 h-4 w-4" />
             Installera app

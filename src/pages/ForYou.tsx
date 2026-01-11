@@ -3,7 +3,7 @@ import { AmbientBackground } from "@/components/AmbientBackground";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Sparkles, Camera, ArrowRight, RefreshCcw, MoonStar, Utensils } from "lucide-react";
+import { Sparkles, Camera, ArrowRight, RefreshCcw, MoonStar, Utensils, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAuth } from "@/auth/AuthProvider";
@@ -19,6 +19,7 @@ import {
   type ForYouCard,
 } from "@/services/forYouAIService";
 import { getSavedAnalyses, WINE_CACHE_UPDATED_EVENT, type CachedWineAnalysisEntry } from "@/lib/wineCache";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // formatDate is now created inside the component to use locale
 
@@ -235,6 +236,7 @@ const ForYou = () => {
   );
 
   const recentEntries = useMemo(() => history.slice(0, 4), [history]);
+  const suggestionSkeletons = useMemo(() => Array.from({ length: 3 }, (_, index) => index), []);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-surface-base text-theme-secondary">
@@ -253,7 +255,7 @@ const ForYou = () => {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                 <Button
                   size="lg"
-                  className="group inline-flex items-center gap-2"
+                  className="group inline-flex items-center gap-2 transition duration-150 ease-out active:scale-[0.98]"
                   onClick={() => navigate("/scan")}
                 >
                   <Camera className="h-4 w-4 transition group-hover:-translate-y-0.5" aria-hidden="true" />
@@ -262,7 +264,7 @@ const ForYou = () => {
                 <Button
                   variant="secondary"
                   size="sm"
-                  className="gap-2"
+                  className="gap-2 transition duration-150 ease-out active:scale-[0.98]"
                   onClick={() => navigate("/me/wines")}
                 >
                   {t("forYou.viewHistory")}
@@ -283,7 +285,7 @@ const ForYou = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="gap-2"
+                className="gap-2 transition duration-150 ease-out active:scale-[0.98]"
                 onClick={() => navigate("/me/wines")}
               >
                 {t("forYou.viewHistory")}
@@ -330,7 +332,7 @@ const ForYou = () => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="gap-2"
+                            className="gap-2 transition duration-150 ease-out active:scale-[0.98]"
                             onClick={() => navigate(`/wine/${entry.key}`)}
                           >
                             {t("forYou.viewWine")}
@@ -349,7 +351,7 @@ const ForYou = () => {
                 </H2>
                 <Body className="text-sm">{t("forYou.emptyHistorySubtitle")}</Body>
                 <Button
-                  className="mt-1"
+                  className="mt-1 transition duration-150 ease-out active:scale-[0.98]"
                   onClick={() => navigate("/scan")}
                 >
                   {t("forYou.tryScan")}
@@ -372,14 +374,15 @@ const ForYou = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                className="gap-2"
+                className="min-w-[130px] gap-2 transition duration-150 ease-out active:scale-[0.98]"
                 onClick={() => void refreshCards({ force: true })}
                 disabled={loadingCards}
               >
-                <RefreshCcw
-                  className={`h-4 w-4 ${loadingCards ? "animate-spin" : ""}`}
-                  aria-hidden="true"
-                />
+                {loadingCards ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <RefreshCcw className="h-4 w-4" aria-hidden="true" />
+                )}
                 {loadingCards ? t("forYou.refreshing") : t("forYou.refresh")}
               </Button>
             </div>
@@ -401,7 +404,7 @@ const ForYou = () => {
                   <Button
                     key={action.key}
                     variant="outline"
-                    className="group flex h-full items-center justify-between gap-3 bg-surface-card px-4 py-3 text-left transition hover:border-theme-primary/60 hover:bg-surface-card"
+                    className="group flex h-full items-center justify-between gap-3 bg-surface-card px-4 py-3 text-left transition duration-150 ease-out hover:border-theme-primary/60 hover:bg-surface-card active:scale-[0.98]"
                     onClick={() => void handleScenarioSelect(action.key)}
                   >
                     <div className="flex items-center gap-3">
@@ -420,15 +423,30 @@ const ForYou = () => {
             </div>
 
             {cards.length === 0 && loadingCards ? (
-              <div className="rounded-2xl border border-theme-card bg-surface-card p-6 text-sm text-theme-secondary">
-                {t("common.loading")}
+              <div className="space-y-3">
+                {suggestionSkeletons.map((index) => (
+                  <div
+                    key={`for-you-skeleton-${index}`}
+                    className="flex min-h-[220px] flex-col justify-between gap-4 rounded-2xl border border-theme-card bg-surface-card p-5 shadow-inner shadow-black/20"
+                  >
+                    <div className="space-y-4">
+                      <Skeleton className="h-6 w-24 rounded-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-9 w-28 rounded-full" />
+                  </div>
+                ))}
               </div>
             ) : cards.length > 0 ? (
               <div className="space-y-3">
                 {cards.map((card) => (
                   <div
                     key={card.id}
-                    className="flex min-h-[220px] flex-col justify-between gap-4 rounded-2xl border border-theme-card border-l-4 border-l-theme-primary/60 bg-surface-card p-5 shadow-inner shadow-black/20"
+                    className="flex min-h-[220px] flex-col justify-between gap-4 rounded-2xl border border-theme-card border-l-4 border-l-theme-primary/60 bg-surface-card p-5 shadow-inner shadow-black/20 transition duration-150 ease-out hover:border-theme-primary/60"
                     onClick={() => handleCardClick(card)}
                   >
                     <div className="flex flex-1 flex-col gap-3">
@@ -451,7 +469,7 @@ const ForYou = () => {
                         ) : null}
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" className="w-fit gap-2">
+                    <Button variant="ghost" size="sm" className="w-fit gap-2 transition duration-150 ease-out active:scale-[0.98]">
                       {t("forYou.cardCta")}
                       <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </Button>
@@ -503,15 +521,30 @@ const ForYou = () => {
             ) : null}
 
             {scenarioLoading ? (
-              <div className="rounded-2xl border border-theme-card bg-surface-card p-5 text-sm text-theme-secondary">
-                {t("forYou.scenario.loading")}
+              <div className="space-y-3">
+                {suggestionSkeletons.map((index) => (
+                  <div
+                    key={`scenario-skeleton-${index}`}
+                    className="flex min-h-[220px] flex-col justify-between gap-4 rounded-2xl border border-theme-card bg-surface-card p-5 shadow-inner shadow-black/20"
+                  >
+                    <div className="space-y-4">
+                      <Skeleton className="h-6 w-24 rounded-full" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-3/4" />
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-9 w-28 rounded-full" />
+                  </div>
+                ))}
               </div>
             ) : scenarioCards.length > 0 ? (
               <div className="space-y-3">
                 {scenarioCards.map((card) => (
                   <div
                     key={card.id}
-                    className="flex min-h-[220px] flex-col justify-between gap-4 rounded-2xl border border-theme-card border-l-4 border-l-theme-primary/60 bg-surface-card p-5 shadow-inner shadow-black/20 transition hover:border-theme-primary/60"
+                    className="flex min-h-[220px] flex-col justify-between gap-4 rounded-2xl border border-theme-card border-l-4 border-l-theme-primary/60 bg-surface-card p-5 shadow-inner shadow-black/20 transition duration-150 ease-out hover:border-theme-primary/60"
                     onClick={() => handleScenarioCardClick(card)}
                   >
                     <div className="flex flex-1 flex-col gap-3">
@@ -534,7 +567,7 @@ const ForYou = () => {
                         ) : null}
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm" className="w-fit gap-2">
+                    <Button variant="ghost" size="sm" className="w-fit gap-2 transition duration-150 ease-out active:scale-[0.98]">
                       {t("forYou.cardCta")}
                       <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </Button>
