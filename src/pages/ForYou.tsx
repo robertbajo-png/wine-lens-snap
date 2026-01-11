@@ -248,15 +248,15 @@ const ForYou = () => {
           title={t("forYou.title")}
           subtitle={t("forYou.subtitle")}
           rightActions={(
-            <div className="flex flex-col gap-4 sm:items-end">
-              <span className="inline-flex items-center gap-2 self-start rounded-full border border-[hsl(var(--color-border)/0.4)] bg-surface-canvas px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/80 sm:self-end">
+            <div className="flex w-full flex-col gap-5 sm:w-auto sm:items-end">
+              <span className="inline-flex items-center gap-2 self-end rounded-full border border-[hsl(var(--color-border)/0.4)] bg-[hsl(var(--surface-card)/0.7)] px-4 py-1 text-xs uppercase tracking-[0.25em] text-theme-secondary/80">
                 <Sparkles className="h-3.5 w-3.5 text-theme-primary" aria-hidden="true" />
                 {t("forYou.badge")}
               </span>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+              <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-stretch sm:gap-4">
                 <Button
                   size="lg"
-                  className="group inline-flex items-center gap-2 rounded-full transition duration-150 ease-out active:scale-[0.98]"
+                  className="group w-full min-h-12 items-center gap-2 rounded-full px-6 transition duration-150 ease-out active:scale-[0.98] sm:w-auto"
                   onClick={() => navigate("/scan")}
                 >
                   <Camera className="h-4 w-4 transition group-hover:-translate-y-0.5" aria-hidden="true" />
@@ -265,7 +265,7 @@ const ForYou = () => {
                 <Button
                   variant="secondary"
                   size="lg"
-                  className="gap-2 rounded-full transition duration-150 ease-out active:scale-[0.98]"
+                  className="w-full min-h-12 gap-2 rounded-full px-6 transition duration-150 ease-out active:scale-[0.98] sm:w-auto"
                   onClick={() => navigate("/me/wines")}
                 >
                   {t("forYou.viewHistory")}
