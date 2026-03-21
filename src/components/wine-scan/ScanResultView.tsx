@@ -14,7 +14,7 @@ import { AppHeader } from "@/components/layout/AppHeader";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label as FormLabel } from "@/components/ui/label";
-import { H2, Label, Muted, typography } from "@/components/ui/typography";
+import { Body, H2, Label, Muted, typography } from "@/components/ui/typography";
 import { BookmarkPlus, Download, ImageUp, Loader2, RefreshCcw, Trash2 } from "lucide-react";
 import type { BadgeProps } from "@/components/ui/badge";
 import { computeLabelHash, type EvidenceItem, type WineAnalysisResult } from "@/lib/wineCache";
