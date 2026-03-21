@@ -80,8 +80,18 @@ export default function About() {
                 säkra anrop till vår backend för att förbättra träffsäkerheten.
               </li>
               <li>
-                Historiken sparas på din enhet så att du snabbt kan återbesöka
-                tidigare skanningar och jämföra viner.
+                Historiken sparas på din enhet och, om du är inloggad, synkroniseras
+                till ditt konto så att du kan komma åt den från andra enheter.
+              </li>
+              <li>
+                <strong>Data vi sparar:</strong> skanningsresultat (vinnamn,
+                producent, region, årgång), ett anonymt enhets-ID och, om du
+                loggar in, din e-postadress och profilinfo. Vi säljer aldrig din
+                data till tredje part.
+              </li>
+              <li>
+                Du kan radera ditt konto och all tillhörande data genom att
+                kontakta oss.
               </li>
             </ul>
           </div>

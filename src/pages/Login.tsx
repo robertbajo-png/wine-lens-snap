@@ -123,6 +123,11 @@ const Login = () => {
           <p className="text-center text-sm text-theme-secondary">
             {t("login.exploreWithoutAccount")} <Link to="/scan" className="underline">{t("login.scanNow")}</Link>.
           </p>
+
+          <p className="text-center text-xs text-theme-secondary/60">
+            Genom att logga in godkänner du att vi sparar din skanningshistorik och grundläggande profilinformation.{" "}
+            <Link to="/om" className="underline">Läs mer om hur WineSnap hanterar din data</Link>.
+          </p>
         </CardContent>
       </Card>
     </div>
