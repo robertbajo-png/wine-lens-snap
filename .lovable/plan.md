@@ -1,17 +1,14 @@
 
-
 # Releaseplan – WineSnap
 
-## Klart ✅
-1. **OG-bild** – Egen bild genererad (`public/og-image.png`), `index.html` uppdaterad.
-2. **RLS-policy** – `event_logs` INSERT begränsad till `TO authenticated`.
-3. **GDPR/integritet** – Datainformation tillagd på About-sida och samtycketext på Login.
+## Alla punkter klara ✅
 
-## Kvarvarande (ej kritiska)
-4. **Premium-flagga** – `useUserSettings.ts` returnerar `isPremium: true` hårdkodat. Bestäm om premium ska vara med i release.
-5. **Stor fil-test** – Verifiera felmeddelande vid fil >10 MB i WineSnap.tsx.
-6. **Smoke-test** – Kör igenom alla routes manuellt.
+1. ✅ **OG-bild** – Egen bild (`public/og-image.png`), `index.html` uppdaterad.
+2. ✅ **RLS-policy** – `event_logs` INSERT begränsad till `TO authenticated`.
+3. ✅ **GDPR/integritet** – Datainformation på About-sida + samtycketext på Login.
+4. ✅ **Premium-flagga** – Återkopplad till riktig DB-check i `useUserSettings.ts`.
+5. ✅ **Stor fil-hantering** – Verifierat: felmeddelande visas korrekt vid fil >10 MB.
+6. ✅ **Leaked password** – Accepterad risk, appen använder enbart magic link + Google OAuth.
 
-## Accepterade risker
-- **Leaked password protection** – Inte relevant, appen använder magic link + Google OAuth.
-- **event_logs `WITH CHECK (true)`** – Begränsad till `TO authenticated`, acceptabelt för telemetri.
+## Kvarstår manuellt
+7. 🔲 **Smoke-test** – Testa alla routes manuellt: `/`, `/scan`, `/for-you`, `/explore`, `/me`, `/login`, `/om`
