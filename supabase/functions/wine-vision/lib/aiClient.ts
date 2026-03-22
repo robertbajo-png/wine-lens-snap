@@ -91,18 +91,8 @@ const PERPLEXITY_API = "https://api.perplexity.ai/chat/completions";
 
 // Model mapping - convert friendly names to Google API model names
 function getGeminiModelName(model: string): string {
-  // Remove "google/" prefix if present and map to API model names
-  const cleanModel = model.replace("google/", "");
-  
-  // Use stable model names that are always available
-  const modelMap: Record<string, string> = {
-    "gemini-2.5-flash": "gemini-2.0-flash",
-    "gemini-2.5-pro": "gemini-1.5-pro",
-    "gemini-2.5-flash-lite": "gemini-2.0-flash",
-    "gemini-3-pro-preview": "gemini-1.5-pro",
-  };
-  
-  return modelMap[cleanModel] || cleanModel;
+  // Remove "google/" prefix if present
+  return model.replace("google/", "");
 }
 
 async function fetchWithTimeout(
@@ -167,7 +157,7 @@ Text att reparera:
 <<<${raw}>>>
 `;
 
-  const modelName = getGeminiModelName("gemini-2.5-flash");
+  const modelName = getGeminiModelName("gemini-3-flash-preview");
   const url = `${GEMINI_API}/${modelName}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
@@ -209,7 +199,7 @@ async function gemini(prompt: string, options?: GeminiTextOptions): Promise<stri
 async function gemini(prompt: string, options: GeminiJsonOptions): Promise<Record<string, unknown>>;
 async function gemini(prompt: string, options: GeminiOptions = {}): Promise<string | Record<string, unknown>> {
   const {
-    model = "gemini-2.5-flash",
+    model = "gemini-3-flash-preview",
     json = false,
     temperature = 0.1,
     maxTokens = 2500,
