@@ -157,7 +157,7 @@ Text att reparera:
 <<<${raw}>>>
 `;
 
-  const modelName = getGeminiModelName("gemini-2.5-flash");
+  const modelName = getGeminiModelName("gemini-3-flash-preview");
   const url = `${GEMINI_API}/${modelName}:generateContent?key=${apiKey}`;
 
   const response = await fetch(url, {
