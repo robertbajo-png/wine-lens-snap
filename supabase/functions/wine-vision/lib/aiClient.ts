@@ -199,7 +199,7 @@ async function gemini(prompt: string, options?: GeminiTextOptions): Promise<stri
 async function gemini(prompt: string, options: GeminiJsonOptions): Promise<Record<string, unknown>>;
 async function gemini(prompt: string, options: GeminiOptions = {}): Promise<string | Record<string, unknown>> {
   const {
-    model = "gemini-2.5-flash",
+    model = "gemini-3-flash-preview",
     json = false,
     temperature = 0.1,
     maxTokens = 2500,
