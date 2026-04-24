@@ -63,7 +63,7 @@ export const WineListsSection = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => {
     void loadLists();
@@ -94,7 +94,7 @@ export const WineListsSection = () => {
         setRemoving((prev) => ({ ...prev, [key]: false }));
       }
     },
-    [loadLists, toast],
+    [loadLists, toast, t],
   );
 
   const headerAction = useMemo(
@@ -110,7 +110,7 @@ export const WineListsSection = () => {
         {t("history.refresh")}
       </Button>
     ),
-    [loadLists, loading],
+    [loadLists, loading, t],
   );
 
   return (

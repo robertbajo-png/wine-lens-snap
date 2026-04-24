@@ -726,7 +726,7 @@ const WineSnap = () => {
         handleReset({ reopenPicker: true, useCamera: true });
       }
     }
-  }, [location.state, location.pathname, navigate]);
+  }, [location.state, location.pathname, navigate, handleReset]);
 
   const handleRetryScan = () => {
     if (isProcessing) return;
