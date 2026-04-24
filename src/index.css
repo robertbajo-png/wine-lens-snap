@@ -146,6 +146,53 @@ All colors MUST be HSL.
     word-break: keep-all;
     hyphens: none;
   }
+
+  /* Display font för luxe-headings */
+  .font-display {
+    font-family: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+
+  /* Gradients */
+  .bg-gradient-luxe { background-image: var(--gradient-luxe); }
+  .bg-gradient-gold { background-image: var(--gradient-gold); }
+  .bg-gradient-night { background-image: var(--gradient-night); }
+  .bg-gradient-veil { background-image: var(--gradient-veil); }
+
+  /* Shadows */
+  .shadow-soft { box-shadow: var(--shadow-soft); }
+  .shadow-elegant { box-shadow: var(--shadow-elegant); }
+  .shadow-glow { box-shadow: var(--shadow-glow); }
+
+  /* Gold helpers */
+  .text-gold { color: hsl(var(--gold)); }
+  .bg-gold { background-color: hsl(var(--gold)); }
+  .border-gold { border-color: hsl(var(--gold)); }
+
+  /* Glassmorphism */
+  .glass {
+    background-color: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+
+  .glass-dark {
+    background-color: hsl(345 30% 8% / 0.55);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(0 0% 100% / 0.08);
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.12), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 }
 
 /* Accessibility: Respect user's motion preferences (WCAG 2.3.3).
