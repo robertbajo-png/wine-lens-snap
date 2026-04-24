@@ -1036,6 +1036,7 @@ const WineSnap = () => {
           ocrText={ocrText}
           evidenceLinks={evidenceItems}
           detectedLanguage={results.detekterat_språk}
+          scanLog={logs.length > 0 ? <ScanLog logs={logs} hasError={scanStatus === "error"} /> : null}
         />
       </>
     );
