@@ -31,6 +31,7 @@ interface ScanEmptyStateProps {
   progressLabel: string | null;
   previewImage: string | null;
   showError: boolean;
+  scanLog?: ReactNode;
 }
 
 export const ScanEmptyState = ({
