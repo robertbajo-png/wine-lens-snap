@@ -6,6 +6,7 @@ import {
   terminateScanWorker,
   type PipelineSource,
   type ProgressKey,
+  type ScanLogEntry,
   type ScanPipelineProgress,
   type ScanPipelineResult,
   type ScanStatus,
@@ -31,6 +32,13 @@ export type ScanPipelineState = {
   currentOcrText: string | null;
   remoteScanId: string | null;
   error: string | null;
+  logs: ScanLogEntry[];
+};
+
+let logIdCounter = 0;
+const nextLogId = () => {
+  logIdCounter += 1;
+  return `log-${Date.now()}-${logIdCounter}`;
 };
 
 export const useScanPipeline = () => {
@@ -45,6 +53,7 @@ export const useScanPipeline = () => {
   const [currentOcrText, setCurrentOcrText] = useState<string | null>(null);
   const [remoteScanId, setRemoteScanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [logs, setLogs] = useState<ScanLogEntry[]>([]);
   const scanStartTimeRef = useRef<number | null>(null);
   const lastResponseTimeRef = useRef<number | undefined>(undefined);
 
@@ -56,6 +65,15 @@ export const useScanPipeline = () => {
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
     const elapsed = Math.round(now - scanStartTimeRef.current);
     return elapsed >= 0 ? elapsed : undefined;
+  }, []);
+
+  const appendLog = useCallback((entry: Omit<ScanLogEntry, "id" | "timestamp">) => {
+    const fullEntry: ScanLogEntry = {
+      ...entry,
+      id: nextLogId(),
+      timestamp: Date.now(),
+    };
+    setLogs((prev) => [...prev, fullEntry]);
   }, []);
 
   const reset = useCallback(() => {
@@ -70,11 +88,13 @@ export const useScanPipeline = () => {
     setCurrentOcrText(null);
     setRemoteScanId(null);
     setError(null);
+    setLogs([]);
   }, []);
 
   const startScan = useCallback(
     async ({ source, uiLang, supabaseUrl, supabaseAnonKey, allowFullAnalysis = true }: StartScanOptions) => {
       scanStartTimeRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
+      setLogs([]);
       setScanStatus("processing");
       setIsProcessing(true);
       setError(null);
@@ -82,6 +102,12 @@ export const useScanPipeline = () => {
       setProgressNote("Komprimerar bilden (max 2048px, 90% JPG)…");
       setProgressPercent(5);
       setProgressLabel("Förbereder…");
+      appendLog({
+        stage: "pipeline",
+        level: "info",
+        message: "Skanning startad",
+        data: { allowFullAnalysis, uiLang },
+      });
 
       try {
         const pipelineResult = await runFullScanPipeline({
@@ -96,6 +122,7 @@ export const useScanPipeline = () => {
             setProgressLabel(progress.label);
             setProgressNote(progress.note);
           },
+          onLogEvent: appendLog,
         });
 
         setResults(pipelineResult.result);
@@ -106,6 +133,16 @@ export const useScanPipeline = () => {
         setProgressStep("done");
         setProgressLabel("Analysen klar");
         setProgressPercent(100);
+        appendLog({
+          stage: "pipeline",
+          level: "info",
+          message: `Skanning klar (${pipelineResult.fromCache ? "cache" : pipelineResult.analysisMode})`,
+          data: {
+            fromCache: pipelineResult.fromCache,
+            analysisMode: pipelineResult.analysisMode,
+            responseTimeMs: getResponseTimeMs(),
+          },
+        });
 
         return { ...pipelineResult, responseTimeMs: getResponseTimeMs() } as ScanPipelineResult & {
           responseTimeMs?: number;
@@ -115,6 +152,12 @@ export const useScanPipeline = () => {
         setProgressStep("error");
         setProgressLabel("Skanning misslyckades");
         setError(err instanceof Error ? err.message : "Kunde inte analysera bilden – försök igen i bättre ljus.");
+        appendLog({
+          stage: "pipeline",
+          level: "error",
+          message: err instanceof Error ? err.message : "Skanning misslyckades",
+          data: { responseTimeMs: getResponseTimeMs() },
+        });
         throw err;
       } finally {
         lastResponseTimeRef.current = getResponseTimeMs();
@@ -122,7 +165,7 @@ export const useScanPipeline = () => {
         scanStartTimeRef.current = null;
       }
     },
-    [getResponseTimeMs],
+    [appendLog, getResponseTimeMs],
   );
 
   return {
@@ -138,6 +181,7 @@ export const useScanPipeline = () => {
       currentOcrText,
       remoteScanId,
       error,
+      logs,
     } satisfies ScanPipelineState,
     startScan,
     reset,
@@ -151,6 +195,7 @@ export const useScanPipeline = () => {
     setProgressStep,
     setScanStatus,
     setIsProcessing,
+    appendLog,
     terminateWorker: terminateScanWorker,
     responseTimeoutMs: ANALYSIS_TIMEOUT_MS,
     getResponseTimeMs,
