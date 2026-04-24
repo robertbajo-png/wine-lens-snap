@@ -1075,6 +1075,7 @@ const WineSnap = () => {
         progressLabel={progressLabel}
         previewImage={previewImage}
         showError={scanStatus === "error" && !isProcessing && !results}
+        scanLog={logs.length > 0 ? <ScanLog logs={logs} hasError={scanStatus === "error"} /> : null}
       />
     </div>
   );
