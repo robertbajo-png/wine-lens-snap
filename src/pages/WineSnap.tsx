@@ -20,7 +20,7 @@ import {
   saveWineLocally,
 } from "@/services/scanHistoryService";
 import { useScanPipeline } from "@/hooks/useScanPipeline";
-import type { PipelineSource, ProgressKey, ScanStatus } from "@/services/scanPipelineService";
+import { ScanPipelineError, type PipelineSource, type ProgressKey, type ScanStage, type ScanStatus } from "@/services/scanPipelineService";
 import { ScanResultView } from "@/components/wine-scan/ScanResultView";
 import { ScanEmptyState } from "@/components/wine-scan/ScanEmptyState";
 import { normalizeEvidenceItems } from "@/lib/evidence";
@@ -401,34 +401,68 @@ const WineSnap = () => {
       encounteredError = true;
       setScanStatus("error");
       setProgressStep("error");
-      setProgressLabel("Skanning misslyckades");
-      let errorMessage = "Kunde inte analysera bilden – försök igen i bättre ljus.";
 
-      if (error instanceof Error) {
-        if (error.name === "AbortError") {
-          errorMessage = "Analysen tog för lång tid – försök igen";
-          toast({
-            title: "Timeout",
-            description: "Analysen tog för lång tid. Försök igen.",
-            variant: "destructive",
-          });
-        } else if (error.message.includes("Rate limit")) {
-          errorMessage = error.message;
-          toast({
-            title: "För många förfrågningar",
-            description: "Vänta en stund och försök igen.",
-            variant: "destructive",
-          });
-        } else if (error.message.includes("AI-krediter")) {
-          errorMessage = error.message;
-          toast({
-            title: "Betalning krävs",
-            description: "AI-krediter slut. Kontakta support.",
-            variant: "destructive",
-          });
-        } else {
-          errorMessage = error.message;
-        }
+      // Bestäm vilket delsteg som misslyckades
+      const stage: ScanStage =
+        error instanceof ScanPipelineError
+          ? error.stage
+          : error instanceof Error && error.name === "AbortError"
+            ? "analysis"
+            : "analysis";
+
+      // Steg-specifika titlar, meddelanden och tips
+      const stageMeta: Record<ScanStage, { title: string; progressLabel: string; hint: string }> = {
+        prep: {
+          title: "Bilden kunde inte förberedas",
+          progressLabel: "Bildfel",
+          hint: "Prova att välja en annan bild eller ta ett nytt foto.",
+        },
+        ocr: {
+          title: "Kunde inte läsa etiketten",
+          progressLabel: "OCR misslyckades",
+          hint: "Ta bilden närmare etiketten i bättre ljus och undvik reflexer.",
+        },
+        analysis: {
+          title: "AI-analysen misslyckades",
+          progressLabel: "Analysen misslyckades",
+          hint: "AI-tjänsten kunde inte tolka vinet just nu – försök igen om en stund.",
+        },
+        network: {
+          title: "Nätverksfel",
+          progressLabel: "Ingen anslutning",
+          hint: "Kontrollera din internetanslutning och försök igen.",
+        },
+      };
+
+      const meta = stageMeta[stage];
+      setProgressLabel(meta.progressLabel);
+
+      // Bygg felmeddelande – föredra serverns text om den finns, annars stage-fallback
+      let errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Kunde inte analysera bilden – försök igen.";
+
+      // Specialfall: timeout
+      if (error instanceof Error && error.name === "AbortError") {
+        errorMessage = "Analysen tog för lång tid – försök igen.";
+        toast({
+          title: "Timeout",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      } else if (errorMessage.includes("Rate limit")) {
+        toast({
+          title: "För många förfrågningar",
+          description: "Vänta en stund och försök igen.",
+          variant: "destructive",
+        });
+      } else if (errorMessage.includes("AI-krediter")) {
+        toast({
+          title: "Betalning krävs",
+          description: "AI-krediter slut. Kontakta support.",
+          variant: "destructive",
+        });
       }
 
       const latencyMs = getResponseTimeMs();
@@ -436,14 +470,8 @@ const WineSnap = () => {
         if (error instanceof Error && error.name === "AbortError") {
           return "timeout";
         }
-
-        const lowered = errorMessage.toLowerCase();
-        if (lowered.includes("network") || lowered.includes("fetch")) {
-          return "network";
-        }
-        if (lowered.includes("ai") || lowered.includes("model")) {
-          return "ai_error";
-        }
+        if (stage === "network") return "network";
+        if (stage === "analysis") return "ai_error";
         return "other";
       })();
 
@@ -453,12 +481,14 @@ const WineSnap = () => {
         trigger,
         modeHint,
         errorMessage,
+        stage,
       });
       trackEvent("scan_failed", {
         reason: errorMessage,
         name: error instanceof Error ? error.name : undefined,
         category: normalizedReason,
         responseTimeMs: latencyMs,
+        stage,
       });
 
       const retryAction = currentImageRef.current
@@ -468,18 +498,21 @@ const WineSnap = () => {
             }
           }
         : handleRetryScan;
+
+      // Banner: titel = vad som gick fel, text = beskrivning + tips
       setBanner({
         type: "error",
-        title: "Skanningen misslyckades",
-        text: errorMessage,
+        title: meta.title,
+        text: `${errorMessage} ${meta.hint}`.trim(),
         ctaLabel: "Försök igen",
         onCta: retryAction,
       });
+      setProgressNote(meta.hint);
       shouldAutoRetakeRef.current = false;
 
-      if (!(error instanceof Error && error.name === "AbortError")) {
+      if (!(error instanceof Error && error.name === "AbortError") && !errorMessage.includes("Rate limit") && !errorMessage.includes("AI-krediter")) {
         toast({
-          title: "Skanningen misslyckades",
+          title: meta.title,
           description: errorMessage,
           variant: "destructive",
         });
@@ -492,6 +525,7 @@ const WineSnap = () => {
         {
           category: normalizedReason,
           responseTimeMs: latencyMs,
+          stage,
         },
       );
     } finally {

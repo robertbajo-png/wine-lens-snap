@@ -22,6 +22,26 @@ export const ANALYSIS_TIMEOUT_MS = 120000; // 120s - edge function can take 60-9
 export type ProgressKey = "prep" | "ocr" | "analysis" | "done" | "error" | null;
 export type ScanStatus = "idle" | "processing" | "success" | "error";
 
+export type ScanStage = "prep" | "ocr" | "analysis" | "network";
+
+/**
+ * Fel som kastas av pipeline med info om vilket delsteg som misslyckades.
+ * Används av UI för att visa rätt felmeddelande och vägledning.
+ */
+export class ScanPipelineError extends Error {
+  stage: ScanStage;
+  cause?: unknown;
+  status?: number;
+
+  constructor(stage: ScanStage, message: string, options?: { cause?: unknown; status?: number }) {
+    super(message);
+    this.name = "ScanPipelineError";
+    this.stage = stage;
+    this.cause = options?.cause;
+    this.status = options?.status;
+  }
+}
+
 export type PipelineSource = { dataUrl: string; buffer: ArrayBuffer; type: string; orientation: number };
 
 export type ScanPipelineProgress = {
@@ -272,18 +292,26 @@ export const runFullScanPipeline = async ({
   };
 
   let pipelineResult: PipelineResult;
-  if (supportsOffscreenCanvas()) {
-    try {
-      const blob = new Blob([source.buffer], { type: source.type || "image/jpeg" });
-      const bitmap = await createImageBitmap(blob);
-      console.log(`[scanPipeline] Bitmap created: ${bitmap.width}x${bitmap.height}`);
-      pipelineResult = await runWorkerPipeline(bitmap, options, source.orientation, progressHandler);
-    } catch (workerError) {
-      console.warn("Worker pipeline misslyckades, faller tillbaka på huvudtråden", workerError);
+  try {
+    if (supportsOffscreenCanvas()) {
+      try {
+        const blob = new Blob([source.buffer], { type: source.type || "image/jpeg" });
+        const bitmap = await createImageBitmap(blob);
+        console.log(`[scanPipeline] Bitmap created: ${bitmap.width}x${bitmap.height}`);
+        pipelineResult = await runWorkerPipeline(bitmap, options, source.orientation, progressHandler);
+      } catch (workerError) {
+        console.warn("Worker pipeline misslyckades, faller tillbaka på huvudtråden", workerError);
+        pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
+      }
+    } else {
       pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
     }
-  } else {
-    pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
+  } catch (prepError) {
+    throw new ScanPipelineError(
+      "prep",
+      prepError instanceof Error ? prepError.message : "Bildbearbetningen misslyckades",
+      { cause: prepError },
+    );
   }
 
   // DEBUG: Log processed image size
@@ -296,12 +324,20 @@ export const runFullScanPipeline = async ({
   }
 
   const processedImage = pipelineResult.base64;
-  onProgress?.({ step: "ocr", note: "Läser text (OCR) …", percent: null, label: null });
+  onProgress?.({ step: "ocr", note: "Läser text på etiketten (OCR)…", percent: null, label: "Läser etiketten" });
 
   const ocrKey = await sha1Base64(processedImage);
   let ocrText = getOcrCache(ocrKey);
   if (!ocrText) {
-    ocrText = await ocrRecognize(processedImage, uiLang);
+    try {
+      ocrText = await ocrRecognize(processedImage, uiLang);
+    } catch (ocrError) {
+      throw new ScanPipelineError(
+        "ocr",
+        ocrError instanceof Error ? ocrError.message : "Kunde inte läsa text från etiketten",
+        { cause: ocrError },
+      );
+    }
     if (ocrText && ocrText.length >= 3) {
       setOcrCache(ocrKey, ocrText);
     }
@@ -356,13 +392,37 @@ export const runFullScanPipeline = async ({
     console.log(`[scanPipeline] Skipping cached result (${reason}), forcing fresh full analysis`);
   }
 
-  onProgress?.({ step: "analysis", note: "Analyserar vinet …", percent: null, label: null });
+  onProgress?.({ step: "analysis", note: "AI analyserar vinet (kan ta upp till 90 sek)…", percent: null, label: "Analyserar vinet" });
 
   let response: Response | null = null;
   let analysisMode: "full" | "label_only" = allowFullAnalysis ? "full" : "label_only";
 
+  const callAnalysisOrThrow = async (params: Parameters<typeof callAnalysis>[0]): Promise<Response> => {
+    try {
+      return await callAnalysis(params);
+    } catch (callError) {
+      // AbortError hanteras separat utanför av label_only-fallback
+      if (callError instanceof Error && callError.name === "AbortError") {
+        throw callError;
+      }
+      // TypeError från fetch = nätverksfel (offline, DNS, CORS, etc.)
+      const isNetwork =
+        callError instanceof TypeError ||
+        (callError instanceof Error && /network|fetch|failed to fetch/i.test(callError.message));
+      throw new ScanPipelineError(
+        isNetwork ? "network" : "analysis",
+        isNetwork
+          ? "Ingen kontakt med servern – kontrollera din internetanslutning."
+          : callError instanceof Error
+            ? callError.message
+            : "Kunde inte nå analystjänsten",
+        { cause: callError },
+      );
+    }
+  };
+
   try {
-    response = await callAnalysis({
+    response = await callAnalysisOrThrow({
       supabaseUrl,
       supabaseAnonKey,
       ocrText,
@@ -376,7 +436,7 @@ export const runFullScanPipeline = async ({
     if (allowFullAnalysis && error instanceof Error && error.name === "AbortError") {
       onProgress?.({ step: "analysis", label: "Etikettläge", note: "Webbsökning tog för lång tid – visar etikettinfo.", percent: 65 });
       analysisMode = "label_only";
-      response = await callAnalysis({
+      response = await callAnalysisOrThrow({
         supabaseUrl,
         supabaseAnonKey,
         ocrText,
@@ -386,24 +446,29 @@ export const runFullScanPipeline = async ({
         ocrKey,
         labelOnly: true,
       });
+    } else if (error instanceof Error && error.name === "AbortError") {
+      throw new ScanPipelineError("analysis", "Analysen tog för lång tid – försök igen.", { cause: error });
     } else {
       throw error;
     }
   }
 
   if (!response) {
-    throw new Error("Analysen kunde inte startas");
+    throw new ScanPipelineError("analysis", "Analysen kunde inte startas");
   }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     if (response.status === 429) {
-      throw new Error("Rate limit överskriden – vänta en stund");
+      throw new ScanPipelineError("analysis", "Rate limit överskriden – vänta en stund och försök igen.", { status: 429 });
     }
     if (response.status === 402) {
-      throw new Error("AI-krediter slut");
+      throw new ScanPipelineError("analysis", "AI-krediter slut – kontakta support.", { status: 402 });
     }
-    throw new Error(errorData?.error || `HTTP ${response.status}`);
+    if (response.status >= 500) {
+      throw new ScanPipelineError("analysis", `AI-tjänsten svarade med fel (${response.status}). Försök igen om en stund.`, { status: response.status });
+    }
+    throw new ScanPipelineError("analysis", errorData?.error || `HTTP ${response.status}`, { status: response.status });
   }
 
   const { ok, data, note, timings }: {
@@ -419,11 +484,11 @@ export const runFullScanPipeline = async ({
   const resolvedNote = analysisMode === "label_only" ? note ?? "label_only_fallback" : note;
 
   if (!ok) {
-    throw new Error("Analys misslyckades");
+    throw new ScanPipelineError("analysis", "AI-analysen misslyckades – försök igen.");
   }
 
   if (!data) {
-    throw new Error("Tomt svar från analysen");
+    throw new ScanPipelineError("analysis", "AI-tjänsten gav ett tomt svar – försök igen.");
   }
 
   const result: WineAnalysisResult = {
