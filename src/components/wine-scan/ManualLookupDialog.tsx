@@ -17,13 +17,31 @@ interface ManualLookupDialogProps {
   onSubmit: (query: string) => Promise<void> | void;
 }
 
+const COPY = {
+  sv: {
+    title: "Sök vin manuellt",
+    desc: "Skriv producent, druva eller årgång – AI identifierar resten.",
+    placeholder: "T.ex. Barolo Cannubi 2019",
+    searching: "Söker...",
+    submit: "Identifiera",
+  },
+  en: {
+    title: "Manual wine lookup",
+    desc: "Type producer, grape or vintage — AI handles the rest.",
+    placeholder: "e.g. Barolo Cannubi 2019",
+    searching: "Searching...",
+    submit: "Identify",
+  },
+} as const;
+
 /**
  * ManualLookupDialog – låter användaren söka på vinnamn när ingen bild finns.
  * Förlitar sig på en callback så WineSnap-sidan kan koppla sitt existerande
  * scan-pipeline-flöde utan att denna komponent äger någon affärslogik.
  */
 export function ManualLookupDialog({ open, onOpenChange, onSubmit }: ManualLookupDialogProps) {
-  const { t } = useTranslation();
+  const { locale } = useTranslation();
+  const copy = COPY[locale === "en" ? "en" : "sv"];
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -45,12 +63,8 @@ export function ManualLookupDialog({ open, onOpenChange, onSubmit }: ManualLooku
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-3xl">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl">
-            {t("scan.manualLookupTitle") ?? "Sök vin manuellt"}
-          </DialogTitle>
-          <DialogDescription>
-            {t("scan.manualLookupDesc") ?? "Skriv producent och årgång – AI identifierar resten."}
-          </DialogDescription>
+          <DialogTitle className="font-display text-2xl">{copy.title}</DialogTitle>
+          <DialogDescription>{copy.desc}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
@@ -59,7 +73,7 @@ export function ManualLookupDialog({ open, onOpenChange, onSubmit }: ManualLooku
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("scan.manualLookupPlaceholder") ?? "T.ex. Barolo Cannubi 2019"}
+              placeholder={copy.placeholder}
               className="h-12 rounded-2xl border-border bg-card/60 pl-11"
               disabled={loading}
             />
@@ -72,10 +86,10 @@ export function ManualLookupDialog({ open, onOpenChange, onSubmit }: ManualLooku
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {t("scan.manualLookupSearching") ?? "Söker..."}
+                {copy.searching}
               </>
             ) : (
-              t("scan.manualLookupSubmit") ?? "Identifiera"
+              copy.submit
             )}
           </Button>
         </form>
