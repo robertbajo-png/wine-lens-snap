@@ -539,6 +539,11 @@ export const runFullScanPipeline = async ({
   } catch (error) {
     if (allowFullAnalysis && error instanceof Error && error.name === "AbortError") {
       onProgress?.({ step: "analysis", label: "Etikettläge", note: "Webbsökning tog för lång tid – visar etikettinfo.", percent: 65 });
+      log({
+        stage: "analysis",
+        level: "warn",
+        message: "AI-anrop tog för lång tid – försöker igen i etikettläge",
+      });
       analysisMode = "label_only";
       response = await callAnalysisOrThrow({
         supabaseUrl,
@@ -551,6 +556,7 @@ export const runFullScanPipeline = async ({
         labelOnly: true,
       });
     } else if (error instanceof Error && error.name === "AbortError") {
+      log({ stage: "analysis", level: "error", message: "Analysen tog för lång tid (timeout)" });
       throw new ScanPipelineError("analysis", "Analysen tog för lång tid – försök igen.", { cause: error });
     } else {
       throw error;
@@ -560,6 +566,13 @@ export const runFullScanPipeline = async ({
   if (!response) {
     throw new ScanPipelineError("analysis", "Analysen kunde inte startas");
   }
+
+  log({
+    stage: "analysis",
+    level: response.ok ? "info" : "error",
+    message: `AI-svar mottaget: HTTP ${response.status}`,
+    data: { status: response.status, ok: response.ok },
+  });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -586,6 +599,21 @@ export const runFullScanPipeline = async ({
     }) | null;
   } = await response.json();
   const resolvedNote = analysisMode === "label_only" ? note ?? "label_only_fallback" : note;
+
+  log({
+    stage: "analysis",
+    level: ok ? "info" : "error",
+    message: ok
+      ? `AI-analys klar (mode: ${analysisMode}, note: ${resolvedNote ?? "—"})`
+      : "AI returnerade ok=false",
+    data: {
+      mode: analysisMode,
+      note: resolvedNote,
+      hasData: Boolean(data),
+      sources: data?.sources?.length ?? 0,
+      timings,
+    },
+  });
 
   if (!ok) {
     throw new ScanPipelineError("analysis", "AI-analysen misslyckades – försök igen.");
