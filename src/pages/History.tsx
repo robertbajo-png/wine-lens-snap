@@ -43,6 +43,8 @@ const History = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [devDialogOpen, setDevDialogOpen] = useState(false);
   const [devStatus, setDevStatus] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [regionFilter, setRegionFilter] = useState<string | null>(null);
   const { user } = useAuth();
   const refreshTimeoutRef = useRef<number | null>(null);
   const openLoggedRef = useRef(false);
@@ -166,24 +168,39 @@ const History = () => {
     openLoggedRef.current = true;
   }, [entries.length, isLoading]);
 
-  const { regionsCount, lastTimestamp } = useMemo(() => {
-    const regions = new Set<string>();
+  const { regionsCount, lastTimestamp, topRegions } = useMemo(() => {
+    const regions = new Map<string, number>();
     let latest: string | undefined;
 
     for (const entry of entries) {
       if (entry.result.land_region) {
-        regions.add(entry.result.land_region);
+        regions.set(entry.result.land_region, (regions.get(entry.result.land_region) ?? 0) + 1);
       }
       if (!latest || entry.timestamp.localeCompare(latest) > 0) {
         latest = entry.timestamp;
       }
     }
 
+    const top = [...regions.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([name]) => name);
+
     return {
       regionsCount: regions.size,
       lastTimestamp: latest,
+      topRegions: top,
     };
   }, [entries]);
+
+  const filteredEntries = useMemo(() => {
+    return entries.filter((entry) => {
+      if (regionFilter && entry.result.land_region !== regionFilter) return false;
+      if (!query.trim()) return true;
+      const haystack = `${entry.result.vin ?? ""} ${entry.result.land_region ?? ""} ${entry.result.typ ?? ""} ${entry.result.producent ?? ""}`.toLowerCase();
+      return haystack.includes(query.trim().toLowerCase());
+    });
+  }, [entries, query, regionFilter]);
 
   const skeletonCount = entries.length > 0 ? Math.min(entries.length, 6) : 3;
 
