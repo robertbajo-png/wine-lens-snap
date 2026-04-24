@@ -133,6 +133,7 @@ export const ScanResultView = ({
   ocrText,
   evidenceLinks,
   detectedLanguage,
+  scanLog,
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
   const sectionTitleClassName = cn(typography.label, "text-theme-primary");
