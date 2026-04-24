@@ -290,18 +290,33 @@ ${schemaJSON}
   const perplexityData = perplexityResponse.data;
   const perplexityCitations = perplexityResponse.citations;
 
+  // [diag] Dump raw Perplexity response shape
+  console.log(`[diag] pplx.citations.count=${perplexityCitations.length}`);
+  console.log(`[diag] pplx.citations.sample=${JSON.stringify(perplexityCitations.slice(0, 5))}`);
+  console.log(`[diag] pplx.data.keys=${JSON.stringify(Object.keys(perplexityData))}`);
+  const pplxKällor = Array.isArray((perplexityData as Record<string, unknown>).källor)
+    ? ((perplexityData as Record<string, unknown>).källor as unknown[])
+    : [];
+  console.log(`[diag] pplx.data.källor.count=${pplxKällor.length} sample=${JSON.stringify(pplxKällor.slice(0, 5))}`);
+
   const normalized = normalizeSearchResult(perplexityData);
   normalized.fallback_mode = false;
 
   // Combine any existing sources with Perplexity citations
   const existingSources = normalized.källor ?? [];
   const allSources = [...existingSources, ...perplexityCitations];
-  
+
+  const filteredOut = allSources.filter((u) => typeof u === "string" && !u.startsWith("http"));
+  if (filteredOut.length > 0) {
+    console.log(`[diag] pplx.filteredOut(non-http)=${JSON.stringify(filteredOut.slice(0, 5))}`);
+  }
+
   normalized.källor = Array.from(new Set(allSources))
     .filter((u) => u.startsWith("http"))
     .sort((a, b) => weightSource(b) - weightSource(a))
     .slice(0, CFG.MAX_WEB_URLS);
 
+  console.log(`[diag] pplx.final.källor.count=${normalized.källor.length} sample=${JSON.stringify(normalized.källor)}`);
   console.log(`[${new Date().toISOString()}] Perplexity citations added: ${normalized.källor.length} sources`);
 
   return normalized;
