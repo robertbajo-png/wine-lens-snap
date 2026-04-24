@@ -22,6 +22,26 @@ export const ANALYSIS_TIMEOUT_MS = 120000; // 120s - edge function can take 60-9
 export type ProgressKey = "prep" | "ocr" | "analysis" | "done" | "error" | null;
 export type ScanStatus = "idle" | "processing" | "success" | "error";
 
+export type ScanStage = "prep" | "ocr" | "analysis" | "network";
+
+/**
+ * Fel som kastas av pipeline med info om vilket delsteg som misslyckades.
+ * Används av UI för att visa rätt felmeddelande och vägledning.
+ */
+export class ScanPipelineError extends Error {
+  stage: ScanStage;
+  cause?: unknown;
+  status?: number;
+
+  constructor(stage: ScanStage, message: string, options?: { cause?: unknown; status?: number }) {
+    super(message);
+    this.name = "ScanPipelineError";
+    this.stage = stage;
+    this.cause = options?.cause;
+    this.status = options?.status;
+  }
+}
+
 export type PipelineSource = { dataUrl: string; buffer: ArrayBuffer; type: string; orientation: number };
 
 export type ScanPipelineProgress = {
