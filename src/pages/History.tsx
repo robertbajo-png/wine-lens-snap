@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   clearCache,
   getSavedAnalyses,
@@ -26,16 +26,15 @@ import {
   markAnalysesReadyForSync,
   WINE_CACHE_UPDATED_EVENT,
 } from "@/lib/wineCache";
-import HistorySummary from "@/components/history/HistorySummary";
 import WineCard, { WineCardSkeleton } from "@/components/history/WineCard";
 import { useAuth } from "@/auth/AuthProvider";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
-import { ArrowLeft, Camera, Eraser, Wand2 } from "lucide-react";
+import { Camera, Eraser, Search, Wand2 } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
-import { AmbientBackground } from "@/components/AmbientBackground";
 import { Banner } from "@/components/Banner";
 import { trackEvent } from "@/lib/telemetry";
 import { useTranslation } from "@/hooks/useTranslation";
+import { cn } from "@/lib/utils";
 
 const History = () => {
   const navigate = useNavigate();
