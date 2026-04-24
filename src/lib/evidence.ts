@@ -86,11 +86,11 @@ export function normalizeEvidenceItems({ evidence, sourceStatus, ocrText, source
     items.push(item);
   };
 
-  (Array.isArray(sourceStatus?.evidence_links) ? sourceStatus?.evidence_links : []).forEach((entry) => {
+  (Array.isArray(sourceStatus?.evidence_links) ? sourceStatus.evidence_links : []).forEach((entry) => {
     pushItem(toEvidenceItem(entry, "sources"));
   });
 
-  (Array.isArray(evidence?.items) ? evidence?.items : []).forEach((entry) => {
+  (Array.isArray(evidence?.items) ? evidence.items : []).forEach((entry) => {
     const field = typeof (entry as EvidenceItem).field === "string" ? (entry as EvidenceItem).field : "sources";
     pushItem(toEvidenceItem(entry, field));
   });
