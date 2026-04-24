@@ -452,6 +452,12 @@ export const runFullScanPipeline = async ({
       hasOcr: Boolean(cachedRawOcrValue),
       saved: cachedEntry.saved,
     });
+    log({
+      stage: "analysis",
+      level: "info",
+      message: "Träff i lokal analys-cache – hoppar över AI-anrop",
+      data: { mode: cachedEntry.result.mode, saved: cachedEntry.saved },
+    });
     return {
       result: cachedResult as WineAnalysisResult,
       cacheKey,
@@ -467,9 +473,20 @@ export const runFullScanPipeline = async ({
       ? 'label_only mode' 
       : 'no useful data in cached result';
     console.log(`[scanPipeline] Skipping cached result (${reason}), forcing fresh full analysis`);
+    log({
+      stage: "analysis",
+      level: "warn",
+      message: `Hoppar över cache (${reason}) – kör ny full analys`,
+    });
   }
 
   onProgress?.({ step: "analysis", note: "AI analyserar vinet (kan ta upp till 90 sek)…", percent: null, label: "Analyserar vinet" });
+  log({
+    stage: "analysis",
+    level: "info",
+    message: `Skickar bild + OCR till AI (mode: ${allowFullAnalysis ? "full" : "label_only"})`,
+    data: { hasOcr: Boolean(ocrText), ocrChars: ocrText?.length ?? 0, allowFullAnalysis },
+  });
 
   let response: Response | null = null;
   let analysisMode: "full" | "label_only" = allowFullAnalysis ? "full" : "label_only";
@@ -486,6 +503,16 @@ export const runFullScanPipeline = async ({
       const isNetwork =
         callError instanceof TypeError ||
         (callError instanceof Error && /network|fetch|failed to fetch/i.test(callError.message));
+      log({
+        stage: isNetwork ? "network" : "analysis",
+        level: "error",
+        message: isNetwork
+          ? "Nätverksfel mot AI-tjänsten"
+          : callError instanceof Error
+            ? callError.message
+            : "Okänt fel mot AI-tjänsten",
+        data: { error: String(callError) },
+      });
       throw new ScanPipelineError(
         isNetwork ? "network" : "analysis",
         isNetwork
