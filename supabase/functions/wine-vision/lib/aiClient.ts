@@ -325,12 +325,16 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
  *   schemaHint: '{"vin": "", "producent": ""}'
  * });
  */
-// NOTE: Funktionen heter fortfarande `perplexity` för bakåtkompatibilitet,
-// men använder nu Lovable AI Gateway (OpenAI GPT-5 + web_search-tool) istället.
-// Originalkod finns i aiClient.ts.backup för enkel återställning.
-interface LovableAIToolCall {
-  function?: { name?: string; arguments?: string };
+// Riktig Perplexity Sonar-implementation: använder PERPLEXITY_API_KEY för
+// äkta web search med citations. Faller tillbaka på Lovable Gateway + Gemini
+// google_search-grounding om Perplexity-nyckel saknas.
+
+interface PerplexityNativeResponse {
+  choices?: Array<{ message?: { content?: string | null } }>;
+  citations?: string[];
+  search_results?: Array<{ url?: string }>;
 }
+
 interface LovableAIAnnotation {
   type?: string;
   url?: string;
@@ -338,36 +342,15 @@ interface LovableAIAnnotation {
 }
 interface LovableAIMessage {
   content?: string | null;
-  tool_calls?: LovableAIToolCall[];
   annotations?: LovableAIAnnotation[];
 }
 interface LovableAIResponse {
   choices?: Array<{ message?: LovableAIMessage }>;
 }
 
-async function perplexity(prompt: string, options: PerplexityOptions = {}): Promise<PerplexityResult> {
-  const {
-    siteWhitelist = [],
-    timeoutMs = 25000,
-    systemPrompt,
-  } = options;
+const JSON_INSTRUCTION = `
 
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!lovableApiKey) {
-    throw new Error("LOVABLE_API_KEY not configured");
-  }
-
-  let finalPrompt = prompt;
-  if (siteWhitelist.length > 0) {
-    const siteQueries = siteWhitelist.map((d) => `site:${d}`).join(" OR ");
-    finalPrompt = `${prompt}\n\nPrioritera dessa källor: ${siteQueries}`;
-  }
-
-  // Be modellen returnera ren JSON i en tydlig kodblock-struktur (Gemini stödjer inte
-  // function-calling tillsammans med google_search-grounding via Lovable Gateway).
-  const jsonInstruction = `
-
-VIKTIGT: Returnera ENDAST ett giltigt minifierat JSON-objekt (inget annat) med dessa fält:
+KRITISKT: Returnera ENDAST ett giltigt minifierat JSON-objekt (inget annat, ingen markdown, inga kodblock) med EXAKT dessa fält:
 {
   "vin": string,
   "producent": string,
@@ -380,82 +363,233 @@ VIKTIGT: Returnera ENDAST ett giltigt minifierat JSON-objekt (inget annat) med d
   "karaktär": string,
   "smak": string,
   "servering": string,
-  "passar_till": string[]  // max 3 förslag
+  "passar_till": string[],
+  "källor": string[]
 }
-Om ett fält är okänt, lämna det som tom sträng "".`;
+- "passar_till": max 3 maträtter på svenska.
+- "källor": lista de URL:er du använt (t.ex. systembolaget.se, vivino.com, wine-searcher.com).
+- Om ett fält är okänt: använd tom sträng "" (eller [] för listor). Använd ALDRIG "-".`;
 
-  const messages: Array<{ role: string; content: string }> = [];
-  messages.push({
-    role: "system",
-    content: systemPrompt
-      ?? "Du är en sommelier-assistent. Använd webbsökning för att hitta vinfakta och returnera resultatet som ett rent JSON-objekt.",
-  });
-  messages.push({ role: "user", content: finalPrompt + jsonInstruction });
+function extractJsonFromText(text: string): Record<string, unknown> {
+  const cleaned = text
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "");
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  const jsonStr = match ? match[0] : cleaned;
+  return parseJsonObject(jsonStr);
+}
+
+function extractUrlsFromText(text: string): string[] {
+  const urlRegex = /https?:\/\/[^\s)\]"'<>]+/gi;
+  const matches = text.match(urlRegex) ?? [];
+  return Array.from(new Set(matches.map((u) => u.replace(/[.,;:!?)\]]+$/, ""))));
+}
+
+async function perplexityNative(
+  prompt: string,
+  options: PerplexityOptions,
+  apiKey: string,
+): Promise<PerplexityResult> {
+  const { siteWhitelist = [], timeoutMs = 25000, systemPrompt } = options;
+
+  let finalPrompt = prompt;
+  if (siteWhitelist.length > 0) {
+    const siteQueries = siteWhitelist.map((d) => `site:${d}`).join(" OR ");
+    finalPrompt = `${prompt}\n\nPrioritera dessa källor: ${siteQueries}`;
+  }
+
+  const messages = [
+    {
+      role: "system",
+      content: systemPrompt
+        ?? "Du är en sommelier-assistent. Sök på webben efter vinfakta (Systembolaget, Vivino, Wine-Searcher, producentens sajt) och returnera ENDAST ett rent JSON-objekt på svenska. Inkludera de URL:er du använt i fältet 'källor'.",
+    },
+    { role: "user", content: finalPrompt + JSON_INSTRUCTION },
+  ];
+
+  const response = await fetchWithTimeout(
+    "https://api.perplexity.ai/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "sonar",
+        messages,
+        temperature: 0.1,
+        return_citations: true,
+      }),
+    },
+    timeoutMs,
+  );
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error(`[aiClient.perplexity:native] HTTP ${response.status}:`, errText.slice(0, 300));
+    if (response.status === 429) throw new Error("rate_limit_exceeded");
+    if (response.status === 401 || response.status === 403) throw new Error("perplexity_auth_failed");
+    throw new Error(`Perplexity error: ${response.status}`);
+  }
+
+  const data = (await response.json()) as PerplexityNativeResponse;
+  const rawContent = data?.choices?.[0]?.message?.content ?? "";
+
+  let parsedData: Record<string, unknown>;
+  try {
+    if (!rawContent) throw new Error("Perplexity returned empty content");
+    parsedData = extractJsonFromText(rawContent);
+  } catch (parseError) {
+    console.error("[aiClient.perplexity:native] JSON parse error:", parseError);
+    console.error("Raw content (first 500):", rawContent.substring(0, 500));
+    throw new Error("Perplexity did not return valid JSON");
+  }
+
+  // Slå ihop alla citation-källor: native citations + search_results + URL:er i texten + "källor"-fält
+  const nativeCitations = Array.isArray(data.citations)
+    ? data.citations.filter((u): u is string => typeof u === "string")
+    : [];
+  const searchResultUrls = Array.isArray(data.search_results)
+    ? data.search_results.map((s) => s?.url).filter((u): u is string => typeof u === "string")
+    : [];
+  const inTextUrls = extractUrlsFromText(rawContent);
+  const fromKällorField = Array.isArray((parsedData as Record<string, unknown>).källor)
+    ? ((parsedData as Record<string, unknown>).källor as unknown[]).filter(
+        (u): u is string => typeof u === "string" && u.startsWith("http"),
+      )
+    : [];
+
+  const allCitations = Array.from(
+    new Set([...nativeCitations, ...searchResultUrls, ...inTextUrls, ...fromKällorField]),
+  ).filter((u) => u.startsWith("http"));
+
+  console.log(
+    `[aiClient.perplexity:native] Got ${allCitations.length} citations`,
+    `(native=${nativeCitations.length}, search_results=${searchResultUrls.length}, in-text=${inTextUrls.length}, källor-field=${fromKällorField.length})`,
+    allCitations.slice(0, 3),
+  );
+
+  return { data: parsedData, citations: allCitations };
+}
+
+async function perplexityViaLovableGemini(
+  prompt: string,
+  options: PerplexityOptions,
+  lovableApiKey: string,
+): Promise<PerplexityResult> {
+  const { siteWhitelist = [], timeoutMs = 25000, systemPrompt } = options;
+
+  let finalPrompt = prompt;
+  if (siteWhitelist.length > 0) {
+    const siteQueries = siteWhitelist.map((d) => `site:${d}`).join(" OR ");
+    finalPrompt = `${prompt}\n\nPrioritera dessa källor: ${siteQueries}`;
+  }
+
+  const messages = [
+    {
+      role: "system",
+      content: systemPrompt
+        ?? "Du är en sommelier-assistent. Använd google_search-verktyget MINST 2 gånger för att hitta vinfakta från Systembolaget, Vivino, Wine-Searcher och producentens sajt. Returnera resultatet som ett rent JSON-objekt på svenska och inkludera URL:erna du använt i fältet 'källor'.",
+    },
+    { role: "user", content: finalPrompt + JSON_INSTRUCTION },
+  ];
+
+  const response = await fetchWithTimeout(
+    "https://ai.gateway.lovable.dev/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-pro",
+        messages,
+        tools: [{ type: "google_search" }],
+      }),
+    },
+    timeoutMs,
+  );
+
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error(`[aiClient.perplexity:lovable] HTTP ${response.status}:`, errText.slice(0, 300));
+    if (response.status === 429) throw new Error("rate_limit_exceeded");
+    if (response.status === 402) throw new Error("payment_required");
+    throw new Error(`Lovable AI error: ${response.status}`);
+  }
+
+  const responseData = (await response.json()) as LovableAIResponse;
+  const message = responseData?.choices?.[0]?.message;
+  const rawContent = message?.content ?? "";
+
+  let parsedData: Record<string, unknown>;
+  try {
+    if (!rawContent) throw new Error("Lovable AI returned empty content");
+    parsedData = extractJsonFromText(rawContent);
+  } catch (parseError) {
+    console.error("[aiClient.perplexity:lovable] JSON parse error:", parseError);
+    console.error("Raw content (first 500):", rawContent.substring(0, 500));
+    throw new Error("Lovable AI did not return valid JSON");
+  }
+
+  const annotations = Array.isArray(message?.annotations) ? message!.annotations! : [];
+  const annotationUrls = annotations
+    .map((a) => a?.url_citation?.url ?? a?.url)
+    .filter((u): u is string => typeof u === "string" && u.startsWith("http"));
+  const inTextUrls = extractUrlsFromText(rawContent);
+  const fromKällorField = Array.isArray((parsedData as Record<string, unknown>).källor)
+    ? ((parsedData as Record<string, unknown>).källor as unknown[]).filter(
+        (u): u is string => typeof u === "string" && u.startsWith("http"),
+      )
+    : [];
+
+  const citations = Array.from(new Set([...annotationUrls, ...inTextUrls, ...fromKällorField]));
+
+  console.log(
+    `[aiClient.perplexity:lovable] Got ${citations.length} citations`,
+    `(annotations=${annotationUrls.length}, in-text=${inTextUrls.length}, källor-field=${fromKällorField.length})`,
+    citations.slice(0, 3),
+  );
+
+  return { data: parsedData, citations };
+}
+
+async function perplexity(prompt: string, options: PerplexityOptions = {}): Promise<PerplexityResult> {
+  const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+
+  // Föredra äkta Perplexity Sonar (bäst web search + citations).
+  if (perplexityApiKey) {
+    try {
+      return await perplexityNative(prompt, options, perplexityApiKey);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg === "request_timeout") throw new Error("perplexity_timeout");
+      // Vid auth/rate-fel: försök fallback om vi har lovable-nyckel.
+      if ((msg === "perplexity_auth_failed" || msg === "rate_limit_exceeded") && lovableApiKey) {
+        console.warn(`[aiClient.perplexity] Native failed (${msg}), falling back to Lovable Gemini google_search`);
+        try {
+          return await perplexityViaLovableGemini(prompt, options, lovableApiKey);
+        } catch (fbError) {
+          const fbMsg = fbError instanceof Error ? fbError.message : String(fbError);
+          if (fbMsg === "request_timeout") throw new Error("perplexity_timeout");
+          throw fbError;
+        }
+      }
+      throw error;
+    }
+  }
+
+  if (!lovableApiKey) {
+    throw new Error("Neither PERPLEXITY_API_KEY nor LOVABLE_API_KEY is configured");
+  }
 
   try {
-    const response = await fetchWithTimeout(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
-          messages,
-          tools: [
-            { type: "google_search" },
-          ],
-        }),
-      },
-      timeoutMs,
-    );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`[aiClient.perplexity→lovable/gemini] HTTP ${response.status}:`, errText);
-      if (response.status === 429) throw new Error("rate_limit_exceeded");
-      if (response.status === 402) throw new Error("payment_required");
-      throw new Error(`Lovable AI error: ${response.status}`);
-    }
-
-    const responseData = (await response.json()) as LovableAIResponse;
-    const message = responseData?.choices?.[0]?.message;
-    const rawContent = message?.content ?? "";
-
-    let parsedData: Record<string, unknown>;
-    try {
-      if (!rawContent) {
-        throw new Error("Lovable AI returned empty content");
-      }
-      // Plocka första JSON-objektet ur svaret (kan vara inbäddat i markdown-codefence)
-      const cleaned = rawContent
-        .trim()
-        .replace(/^```json\s*/i, "")
-        .replace(/^```\s*/i, "")
-        .replace(/```\s*$/i, "");
-      const match = cleaned.match(/\{[\s\S]*\}/);
-      const jsonStr = match ? match[0] : cleaned;
-      parsedData = parseJsonObject(jsonStr);
-    } catch (parseError) {
-      console.error("[aiClient.perplexity→lovable/gemini] JSON parse error:", parseError);
-      console.error("Raw content (first 500):", rawContent.substring(0, 500));
-      throw new Error("Lovable AI did not return valid JSON");
-    }
-
-    // Hämta citations från google_search-annotations
-    const annotations = Array.isArray(message?.annotations) ? message!.annotations! : [];
-    const citations = annotations
-      .map((a) => a?.url_citation?.url ?? a?.url)
-      .filter((u): u is string => typeof u === "string" && u.startsWith("http"));
-
-    console.log(`[aiClient.perplexity→lovable/gemini] Got ${citations.length} citations:`, citations.slice(0, 3));
-
-    return {
-      data: parsedData,
-      citations,
-    };
+    return await perplexityViaLovableGemini(prompt, options, lovableApiKey);
   } catch (error) {
     if (error instanceof Error && error.message === "request_timeout") {
       throw new Error("perplexity_timeout");
