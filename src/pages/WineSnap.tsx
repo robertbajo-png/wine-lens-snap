@@ -20,7 +20,7 @@ import {
   saveWineLocally,
 } from "@/services/scanHistoryService";
 import { useScanPipeline } from "@/hooks/useScanPipeline";
-import type { PipelineSource, ProgressKey, ScanStatus } from "@/services/scanPipelineService";
+import { ScanPipelineError, type PipelineSource, type ProgressKey, type ScanStage, type ScanStatus } from "@/services/scanPipelineService";
 import { ScanResultView } from "@/components/wine-scan/ScanResultView";
 import { ScanEmptyState } from "@/components/wine-scan/ScanEmptyState";
 import { normalizeEvidenceItems } from "@/lib/evidence";
