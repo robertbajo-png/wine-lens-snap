@@ -106,7 +106,7 @@ const BottomNav = () => {
   return (
     <nav
       aria-label={t("nav.forYou")}
-      className="sticky bottom-0 left-0 right-0 z-40 border-t border-[var(--bottom-nav-border)] bg-[var(--bottom-nav-bg)] py-3 shadow-theme-bottom-nav backdrop-blur"
+      className="sticky bottom-0 left-0 right-0 z-40 border-t border-border/60 bg-background/80 py-3 shadow-theme-bottom-nav backdrop-blur-xl supports-[backdrop-filter]:bg-background/70"
       style={safeAreaPadding}
     >
       <div className="mx-auto flex w-full max-w-3xl items-center justify-center px-4">
