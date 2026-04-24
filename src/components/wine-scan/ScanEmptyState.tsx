@@ -152,6 +152,8 @@ export const ScanEmptyState = ({
           </div>
         )}
 
+        {scanLog && <div className="w-full">{scanLog}</div>}
+
         {showError && (
           <Card className="w-full border-theme-card bg-theme-elevated">
             <CardContent className="space-y-3 p-4">
