@@ -11,7 +11,8 @@
   --surface-canvas: 34 17% 10%;
   --surface-card: 36 17% 14%;
   --text-primary: 259 56% 96%;
-  --text-secondary: 260 34% 90%;
+  /* Bumped lightness 90% -> 94% so `/70` opacity users clear WCAG AA (>=4.5:1) in dark mode */
+  --text-secondary: 260 34% 94%;
   --accent-primary: 271 86% 67%;
   --card-border: 262 36% 34%;
 }

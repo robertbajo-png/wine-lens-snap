@@ -459,11 +459,26 @@ const ForYou = () => {
                 ) : null}
               </div>
             ) : (
-              <Banner
-                type="info"
-                title={t("forYou.emptySuggestionsTitle")}
-                text={t("forYou.emptySuggestionsSubtitle")}
-              />
+              <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-theme-card bg-surface-card p-8 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full border border-theme-primary/30 bg-theme-primary/10 text-theme-primary">
+                  <Sparkles className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <div className="space-y-1">
+                  <H2 asChild className="text-lg">
+                    <p>{t("forYou.emptySuggestionsTitle")}</p>
+                  </H2>
+                  <Body className="text-sm text-theme-secondary/80">
+                    {t("forYou.emptySuggestionsSubtitle")}
+                  </Body>
+                </div>
+                <Button
+                  className="mt-1 gap-2 transition duration-150 ease-out active:scale-[0.98]"
+                  onClick={() => navigate("/scan")}
+                >
+                  <Camera className="h-4 w-4" aria-hidden="true" />
+                  {t("forYou.tryScan")}
+                </Button>
+              </div>
             )}
           </section>
         </div>
