@@ -518,8 +518,6 @@ const Me = () => {
         </div>
 
         <div className="space-y-6">
-          {/* Premium section temporarily hidden for RC */}
-
           <Card className="border-[hsl(var(--color-border)/0.8)] bg-[hsl(var(--color-surface-alt)/0.8)] shadow-theme-card backdrop-blur">
             <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
