@@ -392,13 +392,37 @@ export const runFullScanPipeline = async ({
     console.log(`[scanPipeline] Skipping cached result (${reason}), forcing fresh full analysis`);
   }
 
-  onProgress?.({ step: "analysis", note: "Analyserar vinet …", percent: null, label: null });
+  onProgress?.({ step: "analysis", note: "AI analyserar vinet (kan ta upp till 90 sek)…", percent: null, label: "Analyserar vinet" });
 
   let response: Response | null = null;
   let analysisMode: "full" | "label_only" = allowFullAnalysis ? "full" : "label_only";
 
+  const callAnalysisOrThrow = async (params: Parameters<typeof callAnalysis>[0]): Promise<Response> => {
+    try {
+      return await callAnalysis(params);
+    } catch (callError) {
+      // AbortError hanteras separat utanför av label_only-fallback
+      if (callError instanceof Error && callError.name === "AbortError") {
+        throw callError;
+      }
+      // TypeError från fetch = nätverksfel (offline, DNS, CORS, etc.)
+      const isNetwork =
+        callError instanceof TypeError ||
+        (callError instanceof Error && /network|fetch|failed to fetch/i.test(callError.message));
+      throw new ScanPipelineError(
+        isNetwork ? "network" : "analysis",
+        isNetwork
+          ? "Ingen kontakt med servern – kontrollera din internetanslutning."
+          : callError instanceof Error
+            ? callError.message
+            : "Kunde inte nå analystjänsten",
+        { cause: callError },
+      );
+    }
+  };
+
   try {
-    response = await callAnalysis({
+    response = await callAnalysisOrThrow({
       supabaseUrl,
       supabaseAnonKey,
       ocrText,
@@ -412,7 +436,7 @@ export const runFullScanPipeline = async ({
     if (allowFullAnalysis && error instanceof Error && error.name === "AbortError") {
       onProgress?.({ step: "analysis", label: "Etikettläge", note: "Webbsökning tog för lång tid – visar etikettinfo.", percent: 65 });
       analysisMode = "label_only";
-      response = await callAnalysis({
+      response = await callAnalysisOrThrow({
         supabaseUrl,
         supabaseAnonKey,
         ocrText,
@@ -422,24 +446,29 @@ export const runFullScanPipeline = async ({
         ocrKey,
         labelOnly: true,
       });
+    } else if (error instanceof Error && error.name === "AbortError") {
+      throw new ScanPipelineError("analysis", "Analysen tog för lång tid – försök igen.", { cause: error });
     } else {
       throw error;
     }
   }
 
   if (!response) {
-    throw new Error("Analysen kunde inte startas");
+    throw new ScanPipelineError("analysis", "Analysen kunde inte startas");
   }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     if (response.status === 429) {
-      throw new Error("Rate limit överskriden – vänta en stund");
+      throw new ScanPipelineError("analysis", "Rate limit överskriden – vänta en stund och försök igen.", { status: 429 });
     }
     if (response.status === 402) {
-      throw new Error("AI-krediter slut");
+      throw new ScanPipelineError("analysis", "AI-krediter slut – kontakta support.", { status: 402 });
     }
-    throw new Error(errorData?.error || `HTTP ${response.status}`);
+    if (response.status >= 500) {
+      throw new ScanPipelineError("analysis", `AI-tjänsten svarade med fel (${response.status}). Försök igen om en stund.`, { status: response.status });
+    }
+    throw new ScanPipelineError("analysis", errorData?.error || `HTTP ${response.status}`, { status: response.status });
   }
 
   const { ok, data, note, timings }: {
