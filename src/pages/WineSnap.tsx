@@ -58,7 +58,6 @@ const readFileAsDataUrl = (file: File) =>
     };
     reader.onerror = () => {
       const errorMsg = reader.error?.message || "Okänt fel vid filläsning";
-      console.error('[readFileAsDataUrl] FileReader error:', reader.error);
       reject(new Error(`Kunde inte läsa filen: ${errorMsg}`));
     };
     reader.onabort = () => {
@@ -66,8 +65,7 @@ const readFileAsDataUrl = (file: File) =>
     };
     try {
       reader.readAsDataURL(file);
-    } catch (err) {
-      console.error('[readFileAsDataUrl] Exception:', err);
+    } catch {
       reject(new Error("Kunde inte starta filläsningen"));
     }
   });
@@ -139,11 +137,9 @@ const WineSnap = () => {
     // Prevent duplicate calls - if we already tried to open the file picker recently, abort
     // But only for a very short time (100ms) to prevent true double-clicks while allowing retries
     if (filePickerPendingRef.current) {
-      console.log('[openFilePicker] Already pending, skipping duplicate call');
       return;
     }
-    
-    console.log('[openFilePicker] Called, useCamera:', useCamera);
+
     filePickerPendingRef.current = true;
     
     // Reset pending status after very short delay to prevent true double-clicks
@@ -155,11 +151,9 @@ const WineSnap = () => {
     cameraOpenedRef.current = true;
     cameraModeRef.current = useCamera;
     const input = document.getElementById("wineImageUpload") as HTMLInputElement | null;
-    console.log('[openFilePicker] Input element found:', !!input);
     if (input) {
       input.value = ''; // Reset to allow same file re-selection
       input.click();
-      console.log('[openFilePicker] Click triggered');
     }
   };
 
@@ -584,15 +578,12 @@ const WineSnap = () => {
       cameraModeRef.current = triggeredByCamera;
 
       try {
-        console.log('[handleFileChange] Reading file:', file.name, 'size:', file.size, 'type:', file.type);
         const [buffer, dataUrl] = await Promise.all([
-          file.arrayBuffer().catch(err => {
-            console.error('[handleFileChange] arrayBuffer error:', err);
+          file.arrayBuffer().catch(() => {
             throw new Error("Kunde inte läsa filens innehåll");
           }),
           readFileAsDataUrl(file)
         ]);
-        console.log('[handleFileChange] File read successfully, dataUrl length:', dataUrl.length);
         const orientation = readExifOrientation(buffer) ?? 1;
         currentImageRef.current = { buffer, dataUrl, type: file.type || "image/jpeg", orientation };
         setPreviewImage(dataUrl);
@@ -620,7 +611,6 @@ const WineSnap = () => {
   };
 
   const handleTakePhoto = () => {
-    console.log('[handleTakePhoto] Called - opening file picker directly in user gesture');
     shouldAutoRetakeRef.current = false;
     
     // Reset state FIRST (but preserve camera flags for handleFileChange)
