@@ -378,13 +378,21 @@ export const runFullScanPipeline = async ({
 
   const processedImage = pipelineResult.base64;
   onProgress?.({ step: "ocr", note: "Läser text på etiketten (OCR)…", percent: null, label: "Läser etiketten" });
+  log({ stage: "ocr", level: "info", message: "Startar OCR på bearbetad bild" });
 
   const ocrKey = await sha1Base64(processedImage);
   let ocrText = getOcrCache(ocrKey);
+  let ocrFromCache = Boolean(ocrText);
   if (!ocrText) {
     try {
       ocrText = await ocrRecognize(processedImage, uiLang);
     } catch (ocrError) {
+      log({
+        stage: "ocr",
+        level: "error",
+        message: ocrError instanceof Error ? ocrError.message : "OCR misslyckades",
+        data: { error: String(ocrError) },
+      });
       throw new ScanPipelineError(
         "ocr",
         ocrError instanceof Error ? ocrError.message : "Kunde inte läsa text från etiketten",
@@ -400,6 +408,22 @@ export const runFullScanPipeline = async ({
   const cacheLookupKey = !noTextFound && ocrText ? ocrText : processedImage;
   const cacheKey = getCacheKey(cacheLookupKey);
   const cachedEntry = getCachedAnalysisEntry(cacheLookupKey);
+
+  log({
+    stage: "ocr",
+    level: noTextFound ? "warn" : "info",
+    message: noTextFound
+      ? `OCR klar – ingen läsbar text hittades (${ocrText?.length ?? 0} tecken)`
+      : `OCR klar – ${ocrText?.length ?? 0} tecken${ocrFromCache ? " (från cache)" : ""}`,
+    data: {
+      chars: ocrText?.length ?? 0,
+      fromCache: ocrFromCache,
+      preview: ocrText ? ocrText.slice(0, 200) : null,
+      noTextFound,
+    },
+  });
+
+
   
   // Helper to check if a cached result has actual useful wine data
   const hasUsefulData = (result: WineAnalysisResult): boolean => {
