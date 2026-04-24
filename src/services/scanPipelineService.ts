@@ -484,11 +484,11 @@ export const runFullScanPipeline = async ({
   const resolvedNote = analysisMode === "label_only" ? note ?? "label_only_fallback" : note;
 
   if (!ok) {
-    throw new Error("Analys misslyckades");
+    throw new ScanPipelineError("analysis", "AI-analysen misslyckades – försök igen.");
   }
 
   if (!data) {
-    throw new Error("Tomt svar från analysen");
+    throw new ScanPipelineError("analysis", "AI-tjänsten gav ett tomt svar – försök igen.");
   }
 
   const result: WineAnalysisResult = {
