@@ -325,99 +325,138 @@ async function gemini(prompt: string, options: GeminiOptions = {}): Promise<stri
  *   schemaHint: '{"vin": "", "producent": ""}'
  * });
  */
+// NOTE: Funktionen heter fortfarande `perplexity` för bakåtkompatibilitet,
+// men använder nu Lovable AI Gateway (OpenAI GPT-5 + web_search-tool) istället.
+// Originalkod finns i aiClient.ts.backup för enkel återställning.
+interface LovableAIToolCall {
+  function?: { name?: string; arguments?: string };
+}
+interface LovableAIAnnotation {
+  type?: string;
+  url?: string;
+  url_citation?: { url?: string };
+}
+interface LovableAIMessage {
+  content?: string | null;
+  tool_calls?: LovableAIToolCall[];
+  annotations?: LovableAIAnnotation[];
+}
+interface LovableAIResponse {
+  choices?: Array<{ message?: LovableAIMessage }>;
+}
+
 async function perplexity(prompt: string, options: PerplexityOptions = {}): Promise<PerplexityResult> {
   const {
-    model = "sonar",
     siteWhitelist = [],
-    temperature = 0.0,
-    maxTokens = 600,
     timeoutMs = 20000,
     systemPrompt,
-    schemaHint,
   } = options;
 
-  const perplexityApiKey = Deno.env.get("PERPLEXITY_API_KEY");
-  const googleApiKey = Deno.env.get("GOOGLE_API_KEY");
-
-  if (!perplexityApiKey) {
-    throw new Error("PERPLEXITY_API_KEY not configured");
-  }
-
-  const messages: PerplexityMessage[] = [];
-
-  // Add system message if provided
-  if (systemPrompt) {
-    messages.push({ role: "system", content: systemPrompt });
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!lovableApiKey) {
+    throw new Error("LOVABLE_API_KEY not configured");
   }
 
   let finalPrompt = prompt;
   if (siteWhitelist.length > 0) {
-    const siteQueries = siteWhitelist.map((domain) => `site:${domain}`).join(" OR ");
-    finalPrompt = `${prompt}\n\nSearch only in: ${siteQueries}`;
+    const siteQueries = siteWhitelist.map((d) => `site:${d}`).join(" OR ");
+    finalPrompt = `${prompt}\n\nPrioritera dessa källor: ${siteQueries}`;
   }
 
+  const messages: Array<{ role: string; content: string }> = [];
+  messages.push({
+    role: "system",
+    content: systemPrompt
+      ?? "Du är en sommelier-assistent. Använd web_search-verktyget för att hitta vinfakta och returnera svaret via verktyget return_wine_facts.",
+  });
   messages.push({ role: "user", content: finalPrompt });
 
   try {
     const response = await fetchWithTimeout(
-      PERPLEXITY_API,
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${perplexityApiKey}`,
+          Authorization: `Bearer ${lovableApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model,
-          temperature,
-          max_tokens: maxTokens,
+          model: "openai/gpt-5",
           messages,
+          tools: [
+            { type: "web_search" },
+            {
+              type: "function",
+              function: {
+                name: "return_wine_facts",
+                description: "Returnera strukturerad vinfakta hittad via webbsökning.",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    vin: { type: "string" },
+                    producent: { type: "string" },
+                    druvor: { type: "string" },
+                    land_region: { type: "string" },
+                    årgång: { type: "string" },
+                    alkoholhalt: { type: "string" },
+                    volym: { type: "string" },
+                    klassificering: { type: "string" },
+                    karaktär: { type: "string" },
+                    smak: { type: "string" },
+                    servering: { type: "string" },
+                    passar_till: { type: "array", items: { type: "string" }, maxItems: 3 },
+                  },
+                  additionalProperties: true,
+                },
+              },
+            },
+          ],
+          tool_choice: { type: "function", function: { name: "return_wine_facts" } },
         }),
       },
-      timeoutMs
+      timeoutMs,
     );
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`[aiClient.perplexity] HTTP ${response.status}:`, errText);
-      throw new Error(`Perplexity error: ${response.status}`);
+      console.error(`[aiClient.perplexity→lovable] HTTP ${response.status}:`, errText);
+      if (response.status === 429) throw new Error("rate_limit_exceeded");
+      if (response.status === 402) throw new Error("payment_required");
+      throw new Error(`Lovable AI error: ${response.status}`);
     }
 
-    const responseData = (await response.json()) as PerplexityResponse;
-    const rawContent = responseData?.choices?.[0]?.message?.content ?? "{}";
-    // Extract citations from Perplexity response
-    const citations = responseData?.citations ?? [];
-
-    console.log(`[aiClient.perplexity] Got ${citations.length} citations:`, citations.slice(0, 3));
-
-    if (typeof rawContent !== "string") {
-      throw new Error("Perplexity response missing content");
-    }
-
-    // Clean markdown code blocks if present
-    const cleaned = rawContent.trim().replace(/^```json\s*|```$/g, "");
+    const responseData = (await response.json()) as LovableAIResponse;
+    const message = responseData?.choices?.[0]?.message;
+    const toolCall = message?.tool_calls?.find((tc) => tc.function?.name === "return_wine_facts");
+    const argsJson = toolCall?.function?.arguments ?? "";
 
     let parsedData: Record<string, unknown>;
-
-    // Use forceJson if schema hint is provided
-    if (schemaHint && googleApiKey) {
-      console.log("Using forceJson for Perplexity response...");
-      parsedData = await forceJson(cleaned, schemaHint, googleApiKey);
-    } else {
-      // Otherwise try direct parse
-      try {
+    try {
+      if (argsJson) {
+        parsedData = parseJsonObject(argsJson);
+      } else if (message?.content) {
+        const cleaned = message.content.trim().replace(/^```json\s*|```$/g, "");
         parsedData = parseJsonObject(cleaned);
-      } catch (parseError) {
-        console.error("Perplexity JSON parse error:", parseError);
-        console.error("Raw content (first 500 chars):", cleaned.substring(0, 500));
-        throw new Error("Perplexity did not return valid JSON");
+      } else {
+        throw new Error("Lovable AI returned no tool call or content");
       }
+    } catch (parseError) {
+      console.error("[aiClient.perplexity→lovable] JSON parse error:", parseError);
+      console.error("Raw args (first 500):", argsJson.substring(0, 500));
+      throw new Error("Lovable AI did not return valid JSON");
     }
 
-    // Return both parsed data and citations
+    // Hämta citations från web_search-annotations
+    const annotations = Array.isArray(message?.annotations) ? message!.annotations! : [];
+    const citations = annotations
+      .map((a) => a?.url_citation?.url ?? a?.url)
+      .filter((u): u is string => typeof u === "string" && u.startsWith("http"));
+
+    console.log(`[aiClient.perplexity→lovable] Got ${citations.length} citations:`, citations.slice(0, 3));
+
     return {
       data: parsedData,
-      citations: citations.filter((url: string) => typeof url === "string" && url.startsWith("http")),
+      citations,
     };
   } catch (error) {
     if (error instanceof Error && error.message === "request_timeout") {
