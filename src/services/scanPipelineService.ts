@@ -292,18 +292,26 @@ export const runFullScanPipeline = async ({
   };
 
   let pipelineResult: PipelineResult;
-  if (supportsOffscreenCanvas()) {
-    try {
-      const blob = new Blob([source.buffer], { type: source.type || "image/jpeg" });
-      const bitmap = await createImageBitmap(blob);
-      console.log(`[scanPipeline] Bitmap created: ${bitmap.width}x${bitmap.height}`);
-      pipelineResult = await runWorkerPipeline(bitmap, options, source.orientation, progressHandler);
-    } catch (workerError) {
-      console.warn("Worker pipeline misslyckades, faller tillbaka på huvudtråden", workerError);
+  try {
+    if (supportsOffscreenCanvas()) {
+      try {
+        const blob = new Blob([source.buffer], { type: source.type || "image/jpeg" });
+        const bitmap = await createImageBitmap(blob);
+        console.log(`[scanPipeline] Bitmap created: ${bitmap.width}x${bitmap.height}`);
+        pipelineResult = await runWorkerPipeline(bitmap, options, source.orientation, progressHandler);
+      } catch (workerError) {
+        console.warn("Worker pipeline misslyckades, faller tillbaka på huvudtråden", workerError);
+        pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
+      }
+    } else {
       pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
     }
-  } else {
-    pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
+  } catch (prepError) {
+    throw new ScanPipelineError(
+      "prep",
+      prepError instanceof Error ? prepError.message : "Bildbearbetningen misslyckades",
+      { cause: prepError },
+    );
   }
 
   // DEBUG: Log processed image size
@@ -316,12 +324,20 @@ export const runFullScanPipeline = async ({
   }
 
   const processedImage = pipelineResult.base64;
-  onProgress?.({ step: "ocr", note: "Läser text (OCR) …", percent: null, label: null });
+  onProgress?.({ step: "ocr", note: "Läser text på etiketten (OCR)…", percent: null, label: "Läser etiketten" });
 
   const ocrKey = await sha1Base64(processedImage);
   let ocrText = getOcrCache(ocrKey);
   if (!ocrText) {
-    ocrText = await ocrRecognize(processedImage, uiLang);
+    try {
+      ocrText = await ocrRecognize(processedImage, uiLang);
+    } catch (ocrError) {
+      throw new ScanPipelineError(
+        "ocr",
+        ocrError instanceof Error ? ocrError.message : "Kunde inte läsa text från etiketten",
+        { cause: ocrError },
+      );
+    }
     if (ocrText && ocrText.length >= 3) {
       setOcrCache(ocrKey, ocrText);
     }
