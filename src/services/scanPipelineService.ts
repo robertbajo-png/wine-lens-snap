@@ -85,6 +85,7 @@ export type RunFullScanPipelineParams = {
   supabaseUrl: string;
   supabaseAnonKey: string;
   onProgress?: (progress: ScanPipelineProgress) => void;
+  onLogEvent?: ScanLogEmitter;
   allowFullAnalysis?: boolean;
 };
 
