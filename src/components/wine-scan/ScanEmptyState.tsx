@@ -1,14 +1,15 @@
+import { useState, type ReactNode } from "react";
 import { ProgressBanner } from "@/components/ProgressBanner";
 import ResultSkeleton from "@/components/result/ResultSkeleton";
 import { ScanLoadingView } from "@/components/wine-scan/ScanLoadingView";
+import { ManualLookupDialog } from "@/components/wine-scan/ManualLookupDialog";
+import { AppShell } from "@/components/layout/AppShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { AppHeader } from "@/components/layout/AppHeader";
 import type { BadgeProps } from "@/components/ui/badge";
-import { Body, H1, H2, Label, Muted } from "@/components/ui/typography";
-import { Camera, Download, ImageUp, RefreshCcw, Sparkles, Wine } from "lucide-react";
-import { ReactNode } from "react";
+import { Camera, Download, ImageUp, RefreshCcw, Search, Sparkles, Wine } from "lucide-react";
+import heroWine from "@/assets/hero-wine.jpg";
 
 type Step = "prep" | "ocr" | "analysis" | "done" | "error" | null;
 
@@ -32,14 +33,19 @@ interface ScanEmptyStateProps {
   previewImage: string | null;
   showError: boolean;
   scanLog?: ReactNode;
+  /** Valfri callback – om satt visas "Sök manuellt"-knapp och dialog */
+  onManualLookup?: (query: string) => Promise<void> | void;
 }
 
+/**
+ * ScanEmptyState – lyxig scan-hemsida enligt ScentSnap-struktur, vin-färgad.
+ * Hero-bild med veil + gradient-luxe-CTA + 01/02/03 how-it-works.
+ * Behåller alla WineSnap-callbacks (pipeline-logik) intakta.
+ */
 export const ScanEmptyState = ({
   banner,
   isInstallCTAVisible,
   onInstall,
-  onNavigateHome,
-  onNavigateProfile,
   onNavigateHistory,
   statusLabel,
   statusTone,
@@ -54,212 +60,245 @@ export const ScanEmptyState = ({
   previewImage,
   showError,
   scanLog,
+  onManualLookup,
 }: ScanEmptyStateProps) => {
   const showProgress = isProcessing || progressStep || progressNote || progressPercent !== null;
+  const [lookupOpen, setLookupOpen] = useState(false);
 
   return (
-    <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center px-4 pb-20 pt-12 text-center sm:px-8">
-      <div className="mb-10 w-full">
-        <AppHeader
-          variant="compact"
-          title="WineSnap"
-          subtitle="Skanna vinetiketter med AI"
-          rightActions={(
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-theme-secondary transition duration-150 ease-out hover:text-theme-primary active:scale-[0.98]"
-                onClick={onNavigateHome}
-              >
-                Hem
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-theme-secondary transition duration-150 ease-out hover:text-theme-primary active:scale-[0.98]"
-                onClick={onNavigateProfile}
-              >
-                Profil
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="transition duration-150 ease-out active:scale-[0.98]"
-                onClick={onNavigateHistory}
-              >
-                Historik
-              </Button>
-            </div>
-          )}
-        />
+    <AppShell>
+      {/* Header: logo + historik-snabblänk */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Wine className="h-5 w-5 text-primary" aria-hidden />
+          <span className="font-display text-xl tracking-tight text-foreground">WineSnap</span>
+        </div>
+        <button
+          type="button"
+          onClick={onNavigateHistory}
+          className="text-[11px] font-medium uppercase tracking-[0.2em] text-muted-foreground transition hover:text-foreground"
+        >
+          Historik
+        </button>
       </div>
 
-      {banner}
+      {/* Eyebrow + display-headline */}
+      <section className="mt-8 text-center">
+        <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-gold">
+          <Sparkles className="mr-1 inline h-3 w-3" aria-hidden />
+          AI-sommelier
+        </p>
+        <h1 className="mt-3 font-display text-4xl leading-tight text-foreground text-wrap-balance">
+          Skanna vinet,
+          <br />
+          <span className="italic text-primary">upptäck själen</span>
+        </h1>
+        <p className="mx-auto mt-3 max-w-xs text-sm text-muted-foreground">
+          Fota etiketten – AI levererar en komplett vinprofil med smaknoter, servering och matmatchningar.
+        </p>
+      </section>
 
-      {isProcessing && !previewImage && (
-        <div className="mb-8 w-full rounded-3xl border border-theme-card bg-theme-elevated p-6 text-left">
+      {banner && <div className="mt-5">{banner}</div>}
+
+      {/* Hero eller preview */}
+      <div className="relative mt-6">
+        {previewImage ? (
+          <ScanLoadingView
+            previewImage={previewImage}
+            isProcessing={isProcessing}
+            progressStep={progressStep}
+            progressNote={progressNote}
+            progressPercent={progressPercent}
+            progressLabel={progressLabel}
+          />
+        ) : (
+          <div className="relative overflow-hidden rounded-3xl border border-border shadow-elegant">
+            <img
+              src={heroWine}
+              alt="Rödvin i karaffstämning"
+              width={1024}
+              height={1280}
+              className="aspect-[4/5] w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-veil" />
+            <div className="absolute inset-x-0 bottom-0 p-5">
+              <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-gold/90">
+                Sommelier i fickan
+              </p>
+              <p className="mt-1 font-display text-xl text-white">
+                Fyll glaset med kunskap.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Status + progress */}
+      {(isProcessing || showProgress) && !previewImage && (
+        <div className="mt-5 rounded-3xl border border-border/60 bg-card/40 p-4 backdrop-blur">
           <ResultSkeleton />
         </div>
       )}
 
-      <div className="flex w-full max-w-md flex-col items-center gap-8">
-        <div className="space-y-3">
-          <p className="inline-flex items-center gap-2 rounded-full border border-theme-card bg-theme-elevated px-4 py-1 text-sm text-purple-100">
-            <Sparkles className="h-4 w-4" />
-            Klar för nästa skanning
-          </p>
-          <H1>Din digitala sommelier</H1>
-          <Body>
-            Fota etiketten och låt AI:n skapa en komplett vinprofil med smaknoter, serveringstips och matmatchningar – sparat lokalt för nästa gång.
-          </Body>
+      {showProgress && previewImage && (
+        <div className="mt-4">
+          <ProgressBanner
+            step={progressStep}
+            note={progressNote}
+            progress={progressPercent}
+            label={progressLabel}
+          />
         </div>
+      )}
 
-        <div className="flex w-full flex-wrap items-center gap-3">
-          <Badge variant={statusTone}>{statusLabel}</Badge>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onRetryScan}
-              disabled={isProcessing}
-              className="transition duration-150 ease-out active:scale-[0.98]"
-            >
-              <RefreshCcw className="mr-2 h-4 w-4" />
-              Starta om
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onChangeImage}
-              disabled={isProcessing}
-              className="text-theme-primary transition duration-150 ease-out hover:bg-theme-elevated active:scale-[0.98]"
-            >
-              <ImageUp className="mr-2 h-4 w-4" />
-              Byt bild
-            </Button>
-          </div>
-        </div>
+      {scanLog && <div className="mt-4">{scanLog}</div>}
 
-        {showProgress && (
-          <div className="w-full">
-            <ProgressBanner
-              step={progressStep}
-              note={progressNote}
-              progress={progressPercent}
-              label={progressLabel}
-            />
-          </div>
-        )}
-
-        {scanLog && <div className="w-full">{scanLog}</div>}
-
-        {showError && (
-          <Card className="w-full border-theme-card bg-theme-elevated">
-            <CardContent className="space-y-3 p-4">
-              <div className="flex items-center gap-2 text-theme-primary">
-                <Wine className="h-5 w-5" />
-                <H2 asChild className="text-base">
-                  <p>Något gick snett</p>
-                </H2>
-              </div>
-              <Muted className="text-sm">
-                Kontrollera ljuset och prova igen. Du kan starta om eller välja en annan bild utan att ladda om sidan.
-              </Muted>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={onRetryScan}
-                  className="transition duration-150 ease-out active:scale-[0.98]"
-                >
-                  <RefreshCcw className="mr-2 h-4 w-4" />
-                  Starta om skanning
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={onChangeImage}
-                  className="transition duration-150 ease-out active:scale-[0.98]"
-                >
-                  <ImageUp className="mr-2 h-4 w-4" />
-                  Byt bild
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <ScanLoadingView
-          previewImage={previewImage}
-          isProcessing={isProcessing}
-          progressStep={progressStep}
-          progressNote={progressNote}
-          progressPercent={progressPercent}
-          progressLabel={progressLabel}
-        />
-
-        {!previewImage && (
-          <div className="w-full space-y-4">
-            <Button
-              onClick={onTakePhoto}
-              size="lg"
-              className="w-full transition duration-150 ease-out active:scale-[0.98]"
-              disabled={isProcessing}
-            >
-              <Camera className="mr-2 h-5 w-5" />
-              Fota vinflaska
-            </Button>
-            <Muted className="text-sm">
-              Bäst resultat när etiketten fyller rutan och du fotar i mjukt ljus.
-            </Muted>
-          </div>
-        )}
-
-        <div className="w-full rounded-3xl border border-theme-card bg-theme-elevated p-5 text-left text-base leading-relaxed text-theme-secondary">
-          <H2 asChild className="text-base">
-            <p>Så funkar skanningen</p>
-          </H2>
-          <div className="mt-4 space-y-3">
-            {[
-              {
-                tip: "Justera flaskan tills guidelinjen blir grön.",
-                Icon: Camera,
-              },
-              {
-                tip: "Vi kör OCR och AI-analys i bakgrunden.",
-                Icon: Sparkles,
-              },
-              {
-                tip: "Spara själv när du vill lägga till vinet i historiken.",
-                Icon: Wine,
-              },
-            ].map(({ tip, Icon }, idx) => (
-              <div key={tip} className="flex items-start gap-3 rounded-2xl border border-theme-card bg-black/25 p-4">
-                <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-theme-primary text-sm font-semibold text-white shadow-sm">
-                  {idx + 1}
-                </span>
-                <div className="flex flex-1 items-start gap-3">
-                  <Icon className="mt-0.5 h-5 w-5 text-theme-primary" />
-                  <Body className="flex-1 leading-relaxed">{tip}</Body>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {/* Status-badge (diskret) */}
+      <div className="mt-4 flex items-center justify-center gap-2">
+        <Badge variant={statusTone} className="rounded-full">
+          {statusLabel}
+        </Badge>
       </div>
 
-      {isInstallCTAVisible && (
-        <div className="absolute right-4 top-4 z-10">
+      {/* Error-kort */}
+      {showError && (
+        <Card className="mt-4 border-destructive/40 bg-card/80">
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-center gap-2 text-foreground">
+              <Wine className="h-5 w-5 text-destructive" aria-hidden />
+              <p className="font-display text-lg">Något gick snett</p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Kontrollera ljuset och prova igen. Du kan starta om eller välja en annan bild.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={onRetryScan} size="sm" className="rounded-full">
+                <RefreshCcw className="mr-2 h-4 w-4" aria-hidden />
+                Starta om
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onChangeImage}
+                className="rounded-full"
+              >
+                <ImageUp className="mr-2 h-4 w-4" aria-hidden />
+                Byt bild
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Primär-CTA */}
+      {!previewImage && (
+        <div className="mt-6 grid gap-3">
           <Button
-            onClick={onInstall}
-            variant="secondary"
-            size="sm"
-            className="shadow-lg backdrop-blur transition duration-150 ease-out active:scale-[0.98]"
+            onClick={onTakePhoto}
+            size="lg"
+            disabled={isProcessing}
+            className="h-14 rounded-2xl bg-gradient-luxe text-base font-medium text-primary-foreground shadow-elegant hover:opacity-90"
           >
-            <Download className="mr-2 h-4 w-4" />
-            Installera app
+            <Camera className="mr-2 h-5 w-5" aria-hidden />
+            Fota vinetikett
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={onTakePhoto}
+            disabled={isProcessing}
+            className="h-14 rounded-2xl border-border bg-card/50 text-base font-medium backdrop-blur hover:bg-card"
+          >
+            <ImageUp className="mr-2 h-5 w-5" aria-hidden />
+            Ladda upp bild
+          </Button>
+          {onManualLookup && (
+            <button
+              type="button"
+              onClick={() => setLookupOpen(true)}
+              className="mt-1 inline-flex items-center justify-center gap-2 rounded-xl py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground transition hover:text-foreground"
+            >
+              <Search className="h-3.5 w-3.5" aria-hidden />
+              Sök manuellt
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Reset-actions när bild är laddad men inte processar */}
+      {previewImage && !isProcessing && (
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <Button variant="outline" size="sm" onClick={onChangeImage} className="rounded-full">
+            <ImageUp className="mr-2 h-4 w-4" aria-hidden />
+            Byt bild
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onRetryScan} className="rounded-full">
+            <RefreshCcw className="mr-2 h-4 w-4" aria-hidden />
+            Starta om
           </Button>
         </div>
       )}
-    </div>
+
+      {/* Så funkar det – 01/02/03 */}
+      <section className="mt-10">
+        <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-muted-foreground">
+          Så funkar det
+        </p>
+        <ol className="mt-3 space-y-3">
+          {[
+            {
+              n: "01",
+              title: "Fota etiketten",
+              sub: "Se till att etiketten fyller rutan i mjukt ljus.",
+            },
+            {
+              n: "02",
+              title: "AI läser och analyserar",
+              sub: "OCR + web-sommelier i bakgrunden på sekunder.",
+            },
+            {
+              n: "03",
+              title: "Få en komplett profil",
+              sub: "Smak, servering, parning och liknande viner.",
+            },
+          ].map((step) => (
+            <li
+              key={step.n}
+              className="flex gap-4 rounded-2xl border border-border/60 bg-card/40 p-4 backdrop-blur"
+            >
+              <span className="font-display text-2xl text-gold">{step.n}</span>
+              <div>
+                <p className="font-medium text-foreground">{step.title}</p>
+                <p className="text-xs text-muted-foreground">{step.sub}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      {/* PWA-install-CTA */}
+      {isInstallCTAVisible && (
+        <div className="mt-6 flex justify-center">
+          <Button
+            onClick={onInstall}
+            variant="outline"
+            size="sm"
+            className="rounded-full border-border/60 bg-card/50 backdrop-blur"
+          >
+            <Download className="mr-2 h-4 w-4" aria-hidden />
+            Installera appen
+          </Button>
+        </div>
+      )}
+
+      {onManualLookup && (
+        <ManualLookupDialog
+          open={lookupOpen}
+          onOpenChange={setLookupOpen}
+          onSubmit={onManualLookup}
+        />
+      )}
+    </AppShell>
   );
 };
 
