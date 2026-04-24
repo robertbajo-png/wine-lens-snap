@@ -331,6 +331,8 @@ export const ScanResultView = ({
 
           {banner}
 
+          {scanLog && <div className="mb-4">{scanLog}</div>}
+
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <Badge variant={statusTone}>{statusLabel}</Badge>
             <div className="flex flex-wrap gap-2">
