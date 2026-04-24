@@ -51,6 +51,19 @@ export type ScanPipelineProgress = {
   note: string | null;
 };
 
+export type ScanLogLevel = "info" | "warn" | "error";
+
+export type ScanLogEntry = {
+  id: string;
+  timestamp: number;
+  stage: ScanStage | "pipeline";
+  level: ScanLogLevel;
+  message: string;
+  data?: Record<string, unknown> | null;
+};
+
+export type ScanLogEmitter = (entry: Omit<ScanLogEntry, "id" | "timestamp">) => void;
+
 export type ScanPipelineResult = {
   result: WineAnalysisResult;
   cacheKey: string;
