@@ -81,6 +81,7 @@ interface ScanResultViewProps {
   ocrText?: string | null;
   evidenceLinks?: EvidenceItem[] | null;
   detectedLanguage?: string;
+  scanLog?: ReactNode;
 }
 
 export const ScanResultView = ({
