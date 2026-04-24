@@ -297,6 +297,12 @@ export const runFullScanPipeline = async ({
   // DEBUG: Log original image size
   const originalSizeKB = Math.round(source.buffer.byteLength / 1024);
   console.log(`[scanPipeline] Original image: ${originalSizeKB}KB, type: ${source.type}`);
+  log({
+    stage: "prep",
+    level: "info",
+    message: `Startar bildförberedelse (${originalSizeKB} KB, ${source.type || "okänd typ"})`,
+    data: { originalSizeKB, type: source.type, orientation: source.orientation },
+  });
 
   const options: PipelineOptions = {
     autoCrop: null, // DISABLED for debugging - to see if auto-crop is cutting text
@@ -315,21 +321,35 @@ export const runFullScanPipeline = async ({
   };
 
   let pipelineResult: PipelineResult;
+  let bitmapDims: { width: number; height: number } | null = null;
   try {
     if (supportsOffscreenCanvas()) {
       try {
         const blob = new Blob([source.buffer], { type: source.type || "image/jpeg" });
         const bitmap = await createImageBitmap(blob);
+        bitmapDims = { width: bitmap.width, height: bitmap.height };
         console.log(`[scanPipeline] Bitmap created: ${bitmap.width}x${bitmap.height}`);
         pipelineResult = await runWorkerPipeline(bitmap, options, source.orientation, progressHandler);
       } catch (workerError) {
         console.warn("Worker pipeline misslyckades, faller tillbaka på huvudtråden", workerError);
+        log({
+          stage: "prep",
+          level: "warn",
+          message: "Worker-pipeline misslyckades – faller tillbaka på huvudtråden",
+          data: { error: workerError instanceof Error ? workerError.message : String(workerError) },
+        });
         pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
       }
     } else {
       pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
     }
   } catch (prepError) {
+    log({
+      stage: "prep",
+      level: "error",
+      message: prepError instanceof Error ? prepError.message : "Bildbearbetningen misslyckades",
+      data: { error: String(prepError) },
+    });
     throw new ScanPipelineError(
       "prep",
       prepError instanceof Error ? prepError.message : "Bildbearbetningen misslyckades",
@@ -341,6 +361,16 @@ export const runFullScanPipeline = async ({
   const processedSizeKB = Math.round((pipelineResult.base64.length * 0.75) / 1024);
   console.log(`[scanPipeline] Processed image: ~${processedSizeKB}KB base64 (after pipeline)`);
   console.log(`[scanPipeline] Size change: ${originalSizeKB}KB -> ~${processedSizeKB}KB`);
+  log({
+    stage: "prep",
+    level: "info",
+    message: `Bild förberedd: ${originalSizeKB} KB → ~${processedSizeKB} KB`,
+    data: {
+      originalSizeKB,
+      processedSizeKB,
+      dimensions: bitmapDims,
+    },
+  });
 
   if (pipelineResult.bitmap) {
     pipelineResult.bitmap.close();
