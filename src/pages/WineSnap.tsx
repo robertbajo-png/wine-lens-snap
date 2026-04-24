@@ -23,6 +23,7 @@ import { useScanPipeline } from "@/hooks/useScanPipeline";
 import { ScanPipelineError, type PipelineSource, type ProgressKey, type ScanStage, type ScanStatus } from "@/services/scanPipelineService";
 import { ScanResultView } from "@/components/wine-scan/ScanResultView";
 import { ScanEmptyState } from "@/components/wine-scan/ScanEmptyState";
+import { ScanLog } from "@/components/wine-scan/ScanLog";
 import { normalizeEvidenceItems } from "@/lib/evidence";
 
 const INTRO_ROUTE = "/for-you";
@@ -104,6 +105,7 @@ const WineSnap = () => {
       currentCacheKey,
       currentOcrText,
       remoteScanId,
+      logs,
     },
     startScan,
     reset: resetScanState,
@@ -1034,6 +1036,7 @@ const WineSnap = () => {
           ocrText={ocrText}
           evidenceLinks={evidenceItems}
           detectedLanguage={results.detekterat_språk}
+          scanLog={logs.length > 0 ? <ScanLog logs={logs} hasError={scanStatus === "error"} /> : null}
         />
       </>
     );
@@ -1072,6 +1075,7 @@ const WineSnap = () => {
         progressLabel={progressLabel}
         previewImage={previewImage}
         showError={scanStatus === "error" && !isProcessing && !results}
+        scanLog={logs.length > 0 ? <ScanLog logs={logs} hasError={scanStatus === "error"} /> : null}
       />
     </div>
   );

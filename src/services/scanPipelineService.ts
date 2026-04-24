@@ -51,6 +51,19 @@ export type ScanPipelineProgress = {
   note: string | null;
 };
 
+export type ScanLogLevel = "info" | "warn" | "error";
+
+export type ScanLogEntry = {
+  id: string;
+  timestamp: number;
+  stage: ScanStage | "pipeline";
+  level: ScanLogLevel;
+  message: string;
+  data?: Record<string, unknown> | null;
+};
+
+export type ScanLogEmitter = (entry: Omit<ScanLogEntry, "id" | "timestamp">) => void;
+
 export type ScanPipelineResult = {
   result: WineAnalysisResult;
   cacheKey: string;
@@ -72,6 +85,7 @@ export type RunFullScanPipelineParams = {
   supabaseUrl: string;
   supabaseAnonKey: string;
   onProgress?: (progress: ScanPipelineProgress) => void;
+  onLogEvent?: ScanLogEmitter;
   allowFullAnalysis?: boolean;
 };
 
@@ -265,8 +279,17 @@ export const runFullScanPipeline = async ({
   supabaseUrl,
   supabaseAnonKey,
   onProgress,
+  onLogEvent,
   allowFullAnalysis = true,
 }: RunFullScanPipelineParams): Promise<ScanPipelineResult> => {
+  const log: ScanLogEmitter = (entry) => {
+    try {
+      onLogEvent?.(entry);
+    } catch {
+      // ignore log emitter failures
+    }
+  };
+
   await prewarmOcr(uiLang).catch(() => {
     // ignorerad förladdningsfail
   });
@@ -274,6 +297,12 @@ export const runFullScanPipeline = async ({
   // DEBUG: Log original image size
   const originalSizeKB = Math.round(source.buffer.byteLength / 1024);
   console.log(`[scanPipeline] Original image: ${originalSizeKB}KB, type: ${source.type}`);
+  log({
+    stage: "prep",
+    level: "info",
+    message: `Startar bildförberedelse (${originalSizeKB} KB, ${source.type || "okänd typ"})`,
+    data: { originalSizeKB, type: source.type, orientation: source.orientation },
+  });
 
   const options: PipelineOptions = {
     autoCrop: null, // DISABLED for debugging - to see if auto-crop is cutting text
@@ -292,21 +321,35 @@ export const runFullScanPipeline = async ({
   };
 
   let pipelineResult: PipelineResult;
+  let bitmapDims: { width: number; height: number } | null = null;
   try {
     if (supportsOffscreenCanvas()) {
       try {
         const blob = new Blob([source.buffer], { type: source.type || "image/jpeg" });
         const bitmap = await createImageBitmap(blob);
+        bitmapDims = { width: bitmap.width, height: bitmap.height };
         console.log(`[scanPipeline] Bitmap created: ${bitmap.width}x${bitmap.height}`);
         pipelineResult = await runWorkerPipeline(bitmap, options, source.orientation, progressHandler);
       } catch (workerError) {
         console.warn("Worker pipeline misslyckades, faller tillbaka på huvudtråden", workerError);
+        log({
+          stage: "prep",
+          level: "warn",
+          message: "Worker-pipeline misslyckades – faller tillbaka på huvudtråden",
+          data: { error: workerError instanceof Error ? workerError.message : String(workerError) },
+        });
         pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
       }
     } else {
       pipelineResult = await runPipelineOnMain(source.dataUrl, options, progressHandler);
     }
   } catch (prepError) {
+    log({
+      stage: "prep",
+      level: "error",
+      message: prepError instanceof Error ? prepError.message : "Bildbearbetningen misslyckades",
+      data: { error: String(prepError) },
+    });
     throw new ScanPipelineError(
       "prep",
       prepError instanceof Error ? prepError.message : "Bildbearbetningen misslyckades",
@@ -318,6 +361,16 @@ export const runFullScanPipeline = async ({
   const processedSizeKB = Math.round((pipelineResult.base64.length * 0.75) / 1024);
   console.log(`[scanPipeline] Processed image: ~${processedSizeKB}KB base64 (after pipeline)`);
   console.log(`[scanPipeline] Size change: ${originalSizeKB}KB -> ~${processedSizeKB}KB`);
+  log({
+    stage: "prep",
+    level: "info",
+    message: `Bild förberedd: ${originalSizeKB} KB → ~${processedSizeKB} KB`,
+    data: {
+      originalSizeKB,
+      processedSizeKB,
+      dimensions: bitmapDims,
+    },
+  });
 
   if (pipelineResult.bitmap) {
     pipelineResult.bitmap.close();
@@ -325,13 +378,21 @@ export const runFullScanPipeline = async ({
 
   const processedImage = pipelineResult.base64;
   onProgress?.({ step: "ocr", note: "Läser text på etiketten (OCR)…", percent: null, label: "Läser etiketten" });
+  log({ stage: "ocr", level: "info", message: "Startar OCR på bearbetad bild" });
 
   const ocrKey = await sha1Base64(processedImage);
   let ocrText = getOcrCache(ocrKey);
+  let ocrFromCache = Boolean(ocrText);
   if (!ocrText) {
     try {
       ocrText = await ocrRecognize(processedImage, uiLang);
     } catch (ocrError) {
+      log({
+        stage: "ocr",
+        level: "error",
+        message: ocrError instanceof Error ? ocrError.message : "OCR misslyckades",
+        data: { error: String(ocrError) },
+      });
       throw new ScanPipelineError(
         "ocr",
         ocrError instanceof Error ? ocrError.message : "Kunde inte läsa text från etiketten",
@@ -347,6 +408,22 @@ export const runFullScanPipeline = async ({
   const cacheLookupKey = !noTextFound && ocrText ? ocrText : processedImage;
   const cacheKey = getCacheKey(cacheLookupKey);
   const cachedEntry = getCachedAnalysisEntry(cacheLookupKey);
+
+  log({
+    stage: "ocr",
+    level: noTextFound ? "warn" : "info",
+    message: noTextFound
+      ? `OCR klar – ingen läsbar text hittades (${ocrText?.length ?? 0} tecken)`
+      : `OCR klar – ${ocrText?.length ?? 0} tecken${ocrFromCache ? " (från cache)" : ""}`,
+    data: {
+      chars: ocrText?.length ?? 0,
+      fromCache: ocrFromCache,
+      preview: ocrText ? ocrText.slice(0, 200) : null,
+      noTextFound,
+    },
+  });
+
+
   
   // Helper to check if a cached result has actual useful wine data
   const hasUsefulData = (result: WineAnalysisResult): boolean => {
@@ -375,6 +452,12 @@ export const runFullScanPipeline = async ({
       hasOcr: Boolean(cachedRawOcrValue),
       saved: cachedEntry.saved,
     });
+    log({
+      stage: "analysis",
+      level: "info",
+      message: "Träff i lokal analys-cache – hoppar över AI-anrop",
+      data: { mode: cachedEntry.result.mode, saved: cachedEntry.saved },
+    });
     return {
       result: cachedResult as WineAnalysisResult,
       cacheKey,
@@ -390,9 +473,20 @@ export const runFullScanPipeline = async ({
       ? 'label_only mode' 
       : 'no useful data in cached result';
     console.log(`[scanPipeline] Skipping cached result (${reason}), forcing fresh full analysis`);
+    log({
+      stage: "analysis",
+      level: "warn",
+      message: `Hoppar över cache (${reason}) – kör ny full analys`,
+    });
   }
 
   onProgress?.({ step: "analysis", note: "AI analyserar vinet (kan ta upp till 90 sek)…", percent: null, label: "Analyserar vinet" });
+  log({
+    stage: "analysis",
+    level: "info",
+    message: `Skickar bild + OCR till AI (mode: ${allowFullAnalysis ? "full" : "label_only"})`,
+    data: { hasOcr: Boolean(ocrText), ocrChars: ocrText?.length ?? 0, allowFullAnalysis },
+  });
 
   let response: Response | null = null;
   let analysisMode: "full" | "label_only" = allowFullAnalysis ? "full" : "label_only";
@@ -409,6 +503,16 @@ export const runFullScanPipeline = async ({
       const isNetwork =
         callError instanceof TypeError ||
         (callError instanceof Error && /network|fetch|failed to fetch/i.test(callError.message));
+      log({
+        stage: isNetwork ? "network" : "analysis",
+        level: "error",
+        message: isNetwork
+          ? "Nätverksfel mot AI-tjänsten"
+          : callError instanceof Error
+            ? callError.message
+            : "Okänt fel mot AI-tjänsten",
+        data: { error: String(callError) },
+      });
       throw new ScanPipelineError(
         isNetwork ? "network" : "analysis",
         isNetwork
@@ -435,6 +539,11 @@ export const runFullScanPipeline = async ({
   } catch (error) {
     if (allowFullAnalysis && error instanceof Error && error.name === "AbortError") {
       onProgress?.({ step: "analysis", label: "Etikettläge", note: "Webbsökning tog för lång tid – visar etikettinfo.", percent: 65 });
+      log({
+        stage: "analysis",
+        level: "warn",
+        message: "AI-anrop tog för lång tid – försöker igen i etikettläge",
+      });
       analysisMode = "label_only";
       response = await callAnalysisOrThrow({
         supabaseUrl,
@@ -447,6 +556,7 @@ export const runFullScanPipeline = async ({
         labelOnly: true,
       });
     } else if (error instanceof Error && error.name === "AbortError") {
+      log({ stage: "analysis", level: "error", message: "Analysen tog för lång tid (timeout)" });
       throw new ScanPipelineError("analysis", "Analysen tog för lång tid – försök igen.", { cause: error });
     } else {
       throw error;
@@ -456,6 +566,13 @@ export const runFullScanPipeline = async ({
   if (!response) {
     throw new ScanPipelineError("analysis", "Analysen kunde inte startas");
   }
+
+  log({
+    stage: "analysis",
+    level: response.ok ? "info" : "error",
+    message: `AI-svar mottaget: HTTP ${response.status}`,
+    data: { status: response.status, ok: response.ok },
+  });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -482,6 +599,21 @@ export const runFullScanPipeline = async ({
     }) | null;
   } = await response.json();
   const resolvedNote = analysisMode === "label_only" ? note ?? "label_only_fallback" : note;
+
+  log({
+    stage: "analysis",
+    level: ok ? "info" : "error",
+    message: ok
+      ? `AI-analys klar (mode: ${analysisMode}, note: ${resolvedNote ?? "—"})`
+      : "AI returnerade ok=false",
+    data: {
+      mode: analysisMode,
+      note: resolvedNote,
+      hasData: Boolean(data),
+      sources: data?.sources?.length ?? 0,
+      timings,
+    },
+  });
 
   if (!ok) {
     throw new ScanPipelineError("analysis", "AI-analysen misslyckades – försök igen.");

@@ -31,6 +31,7 @@ interface ScanEmptyStateProps {
   progressLabel: string | null;
   previewImage: string | null;
   showError: boolean;
+  scanLog?: ReactNode;
 }
 
 export const ScanEmptyState = ({
@@ -52,6 +53,7 @@ export const ScanEmptyState = ({
   progressLabel,
   previewImage,
   showError,
+  scanLog,
 }: ScanEmptyStateProps) => {
   const showProgress = isProcessing || progressStep || progressNote || progressPercent !== null;
 
@@ -149,6 +151,8 @@ export const ScanEmptyState = ({
             />
           </div>
         )}
+
+        {scanLog && <div className="w-full">{scanLog}</div>}
 
         {showError && (
           <Card className="w-full border-theme-card bg-theme-elevated">

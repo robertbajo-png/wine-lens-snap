@@ -81,6 +81,7 @@ interface ScanResultViewProps {
   ocrText?: string | null;
   evidenceLinks?: EvidenceItem[] | null;
   detectedLanguage?: string;
+  scanLog?: ReactNode;
 }
 
 export const ScanResultView = ({
@@ -132,6 +133,7 @@ export const ScanResultView = ({
   ocrText,
   evidenceLinks,
   detectedLanguage,
+  scanLog,
 }: ScanResultViewProps) => {
   const isLabelOnly = results.mode === "label_only";
   const sectionTitleClassName = cn(typography.label, "text-theme-primary");
@@ -328,6 +330,8 @@ export const ScanResultView = ({
           </div>
 
           {banner}
+
+          {scanLog && <div className="mb-4">{scanLog}</div>}
 
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <Badge variant={statusTone}>{statusLabel}</Badge>
