@@ -726,6 +726,10 @@ const WineSnap = () => {
         handleReset({ reopenPicker: true, useCamera: true });
       }
     }
+    // handleReset is intentionally omitted: it's recreated on every render but is
+    // guarded by lastTriggerRef so re-runs are idempotent. Including it would cause
+    // an infinite loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state, location.pathname, navigate]);
 
   const handleRetryScan = () => {

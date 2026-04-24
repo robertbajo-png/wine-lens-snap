@@ -174,7 +174,7 @@ export const WineListsPanel = ({ scanId, ensureScanId, isPersistingScan }: WineL
         setCreatingList(false);
       }
     },
-    [creatingList, ensureScanId, newListName, refreshLists, refreshMembership, scanId, toast],
+    [creatingList, ensureScanId, newListName, refreshLists, refreshMembership, scanId, toast, user?.id],
   );
 
   const isBusy =

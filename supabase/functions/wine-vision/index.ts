@@ -1785,7 +1785,7 @@ Deno.serve(async (req) => {
       if (!text || text.length < 10) return false;
       
       // Check for garbage characters ratio - if too many weird symbols, reject
-      const garbageChars = (text.match(/[|;{}\[\]<>@#$%&*_=+\\^~`]/g) || []).length;
+      const garbageChars = (text.match(/[|;{}[\]<>@#$%&*_=+\\^~`]/g) || []).length;
       const totalChars = text.length;
       if (garbageChars / totalChars > 0.1) {
         console.log(`[OCR Validation] Failed: too many garbage chars (${garbageChars}/${totalChars} = ${(garbageChars/totalChars*100).toFixed(1)}%)`);
@@ -1793,7 +1793,7 @@ Deno.serve(async (req) => {
       }
       
       // Check for broken text patterns (newlines with single chars, repeated symbols)
-      const brokenPatterns = /(\n.{1,2}\n)|(\n-\s)|(\s-\s\n)|([\|;]{2,})/g;
+      const brokenPatterns = /(\n.{1,2}\n)|(\n-\s)|(\s-\s\n)|([|;]{2,})/g;
       if (brokenPatterns.test(text)) {
         console.log(`[OCR Validation] Failed: broken text patterns detected`);
         return false;

@@ -62,10 +62,20 @@ const createMockDb = () => {
 };
 
 const mockOpenDb = vi.hoisted(() => vi.fn());
-const mockUpgradeDb = {
-  objectStoreNames: { contains: () => true },
-  transaction: { objectStore: () => ({ indexNames: { contains: () => true }, createIndex: vi.fn() }) },
-  createObjectStore: () => ({ indexNames: { contains: () => true }, createIndex: vi.fn() }),
+
+const createMockUpgradeDb = () => {
+  const objectStore = {
+    indexNames: { contains: () => true },
+    createIndex: vi.fn(),
+  };
+  return {
+    objectStoreNames: { contains: () => true },
+    createObjectStore: () => objectStore,
+    // db.transaction(...) is called as a function in the upgrade fallback path
+    transaction: (_storeName: string, _mode?: string) => ({
+      objectStore: () => objectStore,
+    }),
+  };
 };
 
 vi.mock("idb", () => ({
@@ -77,7 +87,7 @@ describe("scanLocalStore", () => {
     const mockDbInstance = createMockDb();
 
     mockOpenDb.mockImplementation(async (_name: string, _version: number, options?: { upgrade?: (db: unknown) => void }) => {
-      options?.upgrade?.(mockUpgradeDb);
+      options?.upgrade?.(createMockUpgradeDb());
       return mockDbInstance;
     });
 

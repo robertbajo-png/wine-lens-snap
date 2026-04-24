@@ -53,10 +53,13 @@ export const useUserSettings = () => {
 };
 
 export const useIsPremium = () => {
+  // Always call the hook unconditionally to obey React's Rules of Hooks.
+  const { isPremium, premiumSince, isLoading } = useUserSettings();
+
+  // Gate the returned value by release channel instead of gating the hook call.
   if (isPlayRC) {
     return { isPremium: false, premiumSince: null, isLoading: false } as const;
   }
 
-  const { isPremium, premiumSince, isLoading } = useUserSettings();
   return { isPremium, premiumSince, isLoading } as const;
 };

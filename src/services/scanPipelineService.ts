@@ -101,7 +101,7 @@ const isValidClientOcr = (text: string | null): boolean => {
   if (!text || text.length < 10) return false;
   
   // Check for garbage characters ratio - if too many weird symbols, reject
-  const garbageChars = (text.match(/[|;{}\[\]<>@#$%&*_=+\\^~`]/g) || []).length;
+  const garbageChars = (text.match(/[|;{}[\]<>@#$%&*_=+\\^~`]/g) || []).length;
   const totalChars = text.length;
   if (garbageChars / totalChars > 0.1) {
     console.log(`[Client OCR] Rejected: too many garbage chars (${garbageChars}/${totalChars})`);
@@ -109,7 +109,7 @@ const isValidClientOcr = (text: string | null): boolean => {
   }
   
   // Check for broken text patterns
-  const brokenPatterns = /(\n.{1,2}\n)|(\n-\s)|(\s-\s\n)|([\|;]{2,})/g;
+  const brokenPatterns = /(\n.{1,2}\n)|(\n-\s)|(\s-\s\n)|([|;]{2,})/g;
   if (brokenPatterns.test(text)) {
     console.log(`[Client OCR] Rejected: broken text patterns detected`);
     return false;
@@ -382,7 +382,7 @@ export const runFullScanPipeline = async ({
 
   const ocrKey = await sha1Base64(processedImage);
   let ocrText = getOcrCache(ocrKey);
-  let ocrFromCache = Boolean(ocrText);
+  const ocrFromCache = Boolean(ocrText);
   if (!ocrText) {
     try {
       ocrText = await ocrRecognize(processedImage, uiLang);
