@@ -53,6 +53,7 @@ export const ScanEmptyState = ({
   progressLabel,
   previewImage,
   showError,
+  scanLog,
 }: ScanEmptyStateProps) => {
   const showProgress = isProcessing || progressStep || progressNote || progressPercent !== null;
 
