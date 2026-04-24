@@ -348,7 +348,7 @@ interface LovableAIResponse {
 async function perplexity(prompt: string, options: PerplexityOptions = {}): Promise<PerplexityResult> {
   const {
     siteWhitelist = [],
-    timeoutMs = 20000,
+    timeoutMs = 25000,
     systemPrompt,
   } = options;
 
@@ -363,13 +363,34 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
     finalPrompt = `${prompt}\n\nPrioritera dessa källor: ${siteQueries}`;
   }
 
+  // Be modellen returnera ren JSON i en tydlig kodblock-struktur (Gemini stödjer inte
+  // function-calling tillsammans med google_search-grounding via Lovable Gateway).
+  const jsonInstruction = `
+
+VIKTIGT: Returnera ENDAST ett giltigt minifierat JSON-objekt (inget annat) med dessa fält:
+{
+  "vin": string,
+  "producent": string,
+  "druvor": string,
+  "land_region": string,
+  "årgång": string,
+  "alkoholhalt": string,
+  "volym": string,
+  "klassificering": string,
+  "karaktär": string,
+  "smak": string,
+  "servering": string,
+  "passar_till": string[]  // max 3 förslag
+}
+Om ett fält är okänt, lämna det som tom sträng "".`;
+
   const messages: Array<{ role: string; content: string }> = [];
   messages.push({
     role: "system",
     content: systemPrompt
-      ?? "Du är en sommelier-assistent. Använd web_search-verktyget för att hitta vinfakta och returnera svaret via verktyget return_wine_facts.",
+      ?? "Du är en sommelier-assistent. Använd webbsökning för att hitta vinfakta och returnera resultatet som ett rent JSON-objekt.",
   });
-  messages.push({ role: "user", content: finalPrompt });
+  messages.push({ role: "user", content: finalPrompt + jsonInstruction });
 
   try {
     const response = await fetchWithTimeout(
@@ -381,37 +402,11 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "openai/gpt-5",
+          model: "google/gemini-2.5-pro",
           messages,
           tools: [
-            { type: "web_search" },
-            {
-              type: "function",
-              function: {
-                name: "return_wine_facts",
-                description: "Returnera strukturerad vinfakta hittad via webbsökning.",
-                parameters: {
-                  type: "object",
-                  properties: {
-                    vin: { type: "string" },
-                    producent: { type: "string" },
-                    druvor: { type: "string" },
-                    land_region: { type: "string" },
-                    årgång: { type: "string" },
-                    alkoholhalt: { type: "string" },
-                    volym: { type: "string" },
-                    klassificering: { type: "string" },
-                    karaktär: { type: "string" },
-                    smak: { type: "string" },
-                    servering: { type: "string" },
-                    passar_till: { type: "array", items: { type: "string" }, maxItems: 3 },
-                  },
-                  additionalProperties: true,
-                },
-              },
-            },
+            { type: "google_search" },
           ],
-          tool_choice: { type: "function", function: { name: "return_wine_facts" } },
         }),
       },
       timeoutMs,
@@ -419,7 +414,7 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`[aiClient.perplexity→lovable] HTTP ${response.status}:`, errText);
+      console.error(`[aiClient.perplexity→lovable/gemini] HTTP ${response.status}:`, errText);
       if (response.status === 429) throw new Error("rate_limit_exceeded");
       if (response.status === 402) throw new Error("payment_required");
       throw new Error(`Lovable AI error: ${response.status}`);
@@ -427,32 +422,35 @@ async function perplexity(prompt: string, options: PerplexityOptions = {}): Prom
 
     const responseData = (await response.json()) as LovableAIResponse;
     const message = responseData?.choices?.[0]?.message;
-    const toolCall = message?.tool_calls?.find((tc) => tc.function?.name === "return_wine_facts");
-    const argsJson = toolCall?.function?.arguments ?? "";
+    const rawContent = message?.content ?? "";
 
     let parsedData: Record<string, unknown>;
     try {
-      if (argsJson) {
-        parsedData = parseJsonObject(argsJson);
-      } else if (message?.content) {
-        const cleaned = message.content.trim().replace(/^```json\s*|```$/g, "");
-        parsedData = parseJsonObject(cleaned);
-      } else {
-        throw new Error("Lovable AI returned no tool call or content");
+      if (!rawContent) {
+        throw new Error("Lovable AI returned empty content");
       }
+      // Plocka första JSON-objektet ur svaret (kan vara inbäddat i markdown-codefence)
+      const cleaned = rawContent
+        .trim()
+        .replace(/^```json\s*/i, "")
+        .replace(/^```\s*/i, "")
+        .replace(/```\s*$/i, "");
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      const jsonStr = match ? match[0] : cleaned;
+      parsedData = parseJsonObject(jsonStr);
     } catch (parseError) {
-      console.error("[aiClient.perplexity→lovable] JSON parse error:", parseError);
-      console.error("Raw args (first 500):", argsJson.substring(0, 500));
+      console.error("[aiClient.perplexity→lovable/gemini] JSON parse error:", parseError);
+      console.error("Raw content (first 500):", rawContent.substring(0, 500));
       throw new Error("Lovable AI did not return valid JSON");
     }
 
-    // Hämta citations från web_search-annotations
+    // Hämta citations från google_search-annotations
     const annotations = Array.isArray(message?.annotations) ? message!.annotations! : [];
     const citations = annotations
       .map((a) => a?.url_citation?.url ?? a?.url)
       .filter((u): u is string => typeof u === "string" && u.startsWith("http"));
 
-    console.log(`[aiClient.perplexity→lovable] Got ${citations.length} citations:`, citations.slice(0, 3));
+    console.log(`[aiClient.perplexity→lovable/gemini] Got ${citations.length} citations:`, citations.slice(0, 3));
 
     return {
       data: parsedData,
