@@ -279,8 +279,17 @@ export const runFullScanPipeline = async ({
   supabaseUrl,
   supabaseAnonKey,
   onProgress,
+  onLogEvent,
   allowFullAnalysis = true,
 }: RunFullScanPipelineParams): Promise<ScanPipelineResult> => {
+  const log: ScanLogEmitter = (entry) => {
+    try {
+      onLogEvent?.(entry);
+    } catch {
+      // ignore log emitter failures
+    }
+  };
+
   await prewarmOcr(uiLang).catch(() => {
     // ignorerad förladdningsfail
   });
