@@ -329,150 +329,185 @@ const History = () => {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
-      <AmbientBackground />
-
-      <div className="relative z-10 mx-auto flex max-w-6xl flex-col gap-8 px-4 pb-20 pt-12 sm:px-6 lg:px-8">
+    <div className="relative min-h-[calc(100vh-6.5rem)] bg-background">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[60vh] opacity-70"
+        style={{
+          background:
+            "radial-gradient(60% 50% at 50% 0%, hsl(var(--gold) / 0.15) 0%, transparent 70%)",
+        }}
+      />
+      <main className="mx-auto w-full max-w-md px-5 pt-6">
         {isOffline && (
           <Banner
             type="warning"
             title={t("history.offlineTitle")}
             text={t("history.offlineText")}
+            className="mb-4"
           />
         )}
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => navigate(-1)}
-              className="gap-2 shadow-lg shadow-purple-900/20 backdrop-blur"
-              aria-label={t("common.goBack")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {t("history.back")}
-            </Button>
-            <Badge variant="outline" className="rounded-full border-theme-card bg-theme-elevated text-xs uppercase tracking-[0.25em] text-theme-secondary/80">
+        {/* Rubrik */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-display text-3xl leading-tight text-foreground">
+              {t("history.title") ?? "Historik"}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               {isLoading
                 ? t("history.loadingHistory")
                 : entries.length === 0
                 ? t("history.emptyHistory")
                 : t("history.savedWines", { count: entries.length })}
-            </Badge>
+              {lastTimestamp && ` · ${formatRelativeTime(lastTimestamp)}`}
+              {regionsCount > 0 && ` · ${regionsCount} regioner`}
+            </p>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              onClick={handleRefresh}
-              aria-label={t("history.refresh")}
-            >
-              {t("history.refresh")}
-            </Button>
-            <Dialog open={devDialogOpen} onOpenChange={setDevDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="gap-2 border-dashed bg-theme-elevated shadow-sm backdrop-blur transition hover:bg-[hsl(var(--surface-elevated)/0.85)]"
-                  aria-label={t("history.testTools")}
-                >
-                  <Wand2 className="h-4 w-4" />
-                  {t("history.testTools")}
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>{t("history.testToolsTitle")}</DialogTitle>
-                  <DialogDescription>
-                    {t("history.testToolsSubtitle")}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 text-theme-secondary">
-                  <div className="rounded-xl border border-theme-card bg-theme-elevated p-4 text-sm">
-                    <p className="font-medium text-theme-primary">{t("history.tip")}</p>
-                    <p>{t("history.tipText")}</p>
-                  </div>
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button
-                      onClick={handleSeedDemo}
-                      className="gap-2 sm:flex-1"
-                      aria-label={t("history.fillWithDemo")}
-                    >
-                      <Wand2 className="h-4 w-4" />
-                      {t("history.fillWithDemo")}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleClearAll}
-                      className="gap-2 border-destructive/60 text-destructive hover:bg-destructive/10 sm:flex-1"
-                      aria-label={t("history.clearHistory")}
-                    >
-                      <Eraser className="h-4 w-4" />
-                      {t("history.clearHistory")}
-                    </Button>
-                  </div>
-                  {devStatus && <Banner type="info" text={devStatus} className="text-left" />}
-                </div>
-              </DialogContent>
-            </Dialog>
-            <Button
-              onClick={() => navigate("/scan")}
-              className="gap-2"
-              aria-label={t("history.newScan")}
-            >
-              <Camera className="h-4 w-4" />
-              {t("history.newScan")}
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            onClick={() => navigate("/scan")}
+            className="flex-none rounded-full bg-gradient-luxe text-primary-foreground shadow-soft hover:opacity-90"
+            aria-label={t("history.newScan")}
+          >
+            <Camera className="mr-1.5 h-4 w-4" />
+            {t("history.newScan")}
+          </Button>
         </div>
 
-        <HistorySummary
-          total={entries.length}
-          lastRelative={lastTimestamp ? formatRelativeTime(lastTimestamp) : undefined}
-          lastAbsolute={lastTimestamp ? formatDate(lastTimestamp) : undefined}
-          regionsCount={regionsCount}
-          isLoading={isLoading}
-        />
+        {/* Sökfält */}
+        <div className="relative mt-5">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("history.searchPlaceholder") ?? "Sök vin, region, druva..."}
+            className="h-12 rounded-2xl border-border bg-card/60 pl-11 backdrop-blur"
+          />
+        </div>
 
-        {isLoading ? (
-          <div className="space-y-6">
-            {Array.from({ length: skeletonCount }).map((_, index) => (
-              <WineCardSkeleton key={index} />
+        {/* Region-chips */}
+        {topRegions.length > 0 && (
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <button
+              onClick={() => setRegionFilter(null)}
+              className={cn(
+                "flex-none rounded-full px-3 py-1 text-[11px] uppercase tracking-wider transition",
+                regionFilter === null
+                  ? "bg-gold/15 text-gold"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Alla regioner
+            </button>
+            {topRegions.map((region) => (
+              <button
+                key={region}
+                onClick={() => setRegionFilter(regionFilter === region ? null : region)}
+                className={cn(
+                  "flex-none rounded-full px-3 py-1 text-[11px] uppercase tracking-wider transition",
+                  regionFilter === region
+                    ? "bg-gold/15 text-gold"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {region}
+              </button>
             ))}
           </div>
-        ) : entries.length === 0 ? (
-          <Card className="border border-dashed border-theme-card bg-theme-elevated text-center text-theme-primary shadow-xl backdrop-blur">
-            <CardHeader className="space-y-2">
-              <CardTitle className="text-2xl text-theme-primary">
-                {t("history.noSavedWines")}
-              </CardTitle>
-              <CardDescription className="text-base text-theme-secondary">
-                {t("history.scanAndSave")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center gap-4 pb-10">
-              <Button
-                onClick={() => navigate("/scan")}
-                className="gap-2"
-                aria-label={t("history.scanWine")}
+        )}
+
+        {/* Dev tools + refresh (diskret rad) */}
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground transition hover:text-foreground"
+          >
+            {t("history.refresh")}
+          </button>
+          <Dialog open={devDialogOpen} onOpenChange={setDevDialogOpen}>
+            <DialogTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider text-muted-foreground transition hover:text-foreground"
+                aria-label={t("history.testTools")}
               >
-                <Camera className="h-4 w-4" />
-                {t("history.scanWine")}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setDevDialogOpen(true)}
-                className="gap-2 border-dashed bg-theme-elevated"
-                aria-label={t("history.showTestTools")}
-              >
-                <Wand2 className="h-4 w-4" />
-                {t("history.showTestTools")}
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {entries.map((entry) => (
+                <Wand2 className="h-3 w-3" />
+                {t("history.testTools")}
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg rounded-3xl">
+              <DialogHeader>
+                <DialogTitle className="font-display text-2xl">{t("history.testToolsTitle")}</DialogTitle>
+                <DialogDescription>{t("history.testToolsSubtitle")}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="rounded-xl border border-border bg-card/60 p-4 text-sm">
+                  <p className="font-medium text-foreground">{t("history.tip")}</p>
+                  <p className="text-muted-foreground">{t("history.tipText")}</p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button onClick={handleSeedDemo} className="gap-2 rounded-2xl sm:flex-1">
+                    <Wand2 className="h-4 w-4" />
+                    {t("history.fillWithDemo")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleClearAll}
+                    className="gap-2 rounded-2xl border-destructive/60 text-destructive hover:bg-destructive/10 sm:flex-1"
+                  >
+                    <Eraser className="h-4 w-4" />
+                    {t("history.clearHistory")}
+                  </Button>
+                </div>
+                {devStatus && <Banner type="info" text={devStatus} className="text-left" />}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Lista */}
+        <div className="mt-5 space-y-4">
+          {isLoading ? (
+            Array.from({ length: skeletonCount }).map((_, i) => <WineCardSkeleton key={i} />)
+          ) : filteredEntries.length === 0 ? (
+            <Card className="rounded-3xl border border-dashed border-border bg-card/50 text-center backdrop-blur">
+              <CardHeader className="space-y-2">
+                <CardTitle className="font-display text-2xl text-foreground">
+                  {entries.length === 0
+                    ? t("history.noSavedWines")
+                    : (t("history.emptyFilter") ?? "Inga träffar med filtren")}
+                </CardTitle>
+                <CardDescription className="text-sm text-muted-foreground">
+                  {entries.length === 0 ? t("history.scanAndSave") : "Prova att rensa sök eller region-chips."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center gap-3 pb-8">
+                {entries.length === 0 ? (
+                  <Button
+                    onClick={() => navigate("/scan")}
+                    className="gap-2 rounded-2xl bg-gradient-luxe text-primary-foreground shadow-elegant"
+                  >
+                    <Camera className="h-4 w-4" />
+                    {t("history.scanWine")}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setQuery("");
+                      setRegionFilter(null);
+                    }}
+                    className="gap-2 rounded-2xl"
+                  >
+                    Rensa filter
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            filteredEntries.map((entry) => (
               <WineCard
                 key={entry.key}
                 entry={entry}
@@ -481,10 +516,10 @@ const History = () => {
                 onShare={handleShare}
                 onRemove={handleRemove}
               />
-            ))}
-          </div>
-        )}
-      </div>
+            ))
+          )}
+        </div>
+      </main>
     </div>
   );
 };
