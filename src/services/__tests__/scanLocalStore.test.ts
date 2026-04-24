@@ -87,7 +87,7 @@ describe("scanLocalStore", () => {
     const mockDbInstance = createMockDb();
 
     mockOpenDb.mockImplementation(async (_name: string, _version: number, options?: { upgrade?: (db: unknown) => void }) => {
-      options?.upgrade?.(mockUpgradeDb);
+      options?.upgrade?.(createMockUpgradeDb());
       return mockDbInstance;
     });
 
