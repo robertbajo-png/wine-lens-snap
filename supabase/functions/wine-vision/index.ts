@@ -625,6 +625,9 @@ async function parallelWeb(ocrText: string, imageUrl?: string): Promise<{ web: W
     }
   }
 
+  // [diag] Final web result going back to caller
+  console.log(`[diag] parallelWeb.return pplx_status=${pplx_status} gemini_status=${gemini_status} hasWeb=${!!web} källor.count=${web?.källor?.length ?? 0} källor.sample=${JSON.stringify(web?.källor?.slice(0, 5) ?? [])}`);
+
   return {
     web,
     meta: { fastPathHit, pplx_ms, gemini_ms, pplx_status, gemini_status },
@@ -826,6 +829,17 @@ const normalizeAnalysisMetadata = (result: WineAnalysisResult): WineAnalysisResu
     .map((item) => item.url as string)
     .slice(0, CFG.MAX_WEB_URLS);
   const mode: AnalysisMode = sources.length > 0 ? "label+web" : "label_only";
+
+  // [diag] Mode classification breakdown
+  const evidenceByType = dedupedEvidence.reduce<Record<string, number>>((acc, item) => {
+    acc[item.type] = (acc[item.type] ?? 0) + 1;
+    return acc;
+  }, {});
+  console.log(`[diag] mode=${mode} sources.count=${sources.length} dedupedEvidence.count=${dedupedEvidence.length} byType=${JSON.stringify(evidenceByType)} sources.sample=${JSON.stringify(sources)}`);
+  if (sources.length === 0 && dedupedEvidence.length > 0) {
+    console.log(`[diag] mode=label_only DESPITE evidence: items=${JSON.stringify(dedupedEvidence.slice(0, 3).map(e => ({ type: e.type, url: e.url, title: e.title?.slice(0, 60) })))}`);
+  }
+
   const confidenceBase = typeof result.confidence === "number" ? result.confidence : mode === "label+web" ? 0.7 : 0.4;
   const confidence = Math.min(1, Math.max(0, confidenceBase));
 
