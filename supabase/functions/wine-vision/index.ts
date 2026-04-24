@@ -828,15 +828,28 @@ const normalizeAnalysisMetadata = (result: WineAnalysisResult): WineAnalysisResu
     .filter((item) => item.type === "web" && item.url)
     .map((item) => item.url as string)
     .slice(0, CFG.MAX_WEB_URLS);
-  const mode: AnalysisMode = sources.length > 0 ? "label+web" : "label_only";
+
+  // Detect enriched data (Gemini Vision or other heuristic AI gave us real wine facts).
+  // If we have enriched fields beyond the bare label, treat as "label+web" even without URLs.
+  const hasEnrichedFields = (
+    hasLabelSignal(result.karaktär) ||
+    hasLabelSignal(result.smak) ||
+    hasLabelSignal(result.servering) ||
+    hasLabelSignal(result.klassificering) ||
+    hasLabelSignal(result.alkoholhalt) ||
+    (Array.isArray(result.passar_till) && result.passar_till.length > 0) ||
+    (result.meters && Object.values(result.meters).some((v) => typeof v === "number"))
+  );
+
+  const mode: AnalysisMode = sources.length > 0 || hasEnrichedFields ? "label+web" : "label_only";
 
   // [diag] Mode classification breakdown
   const evidenceByType = dedupedEvidence.reduce<Record<string, number>>((acc, item) => {
     acc[item.type] = (acc[item.type] ?? 0) + 1;
     return acc;
   }, {});
-  console.log(`[diag] mode=${mode} sources.count=${sources.length} dedupedEvidence.count=${dedupedEvidence.length} byType=${JSON.stringify(evidenceByType)} sources.sample=${JSON.stringify(sources)}`);
-  if (sources.length === 0 && dedupedEvidence.length > 0) {
+  console.log(`[diag] mode=${mode} sources.count=${sources.length} enriched=${hasEnrichedFields} dedupedEvidence.count=${dedupedEvidence.length} byType=${JSON.stringify(evidenceByType)} sources.sample=${JSON.stringify(sources)}`);
+  if (sources.length === 0 && dedupedEvidence.length > 0 && !hasEnrichedFields) {
     console.log(`[diag] mode=label_only DESPITE evidence: items=${JSON.stringify(dedupedEvidence.slice(0, 3).map(e => ({ type: e.type, url: e.url, title: e.title?.slice(0, 60) })))}`);
   }
 
