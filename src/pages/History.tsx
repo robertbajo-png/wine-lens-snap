@@ -352,7 +352,7 @@ const History = () => {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-display text-3xl leading-tight text-foreground">
-              {t("history.title") ?? "Historik"}
+              {locale === "en" ? "History" : "Historik"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {isLoading
@@ -381,7 +381,7 @@ const History = () => {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("history.searchPlaceholder") ?? "Sök vin, region, druva..."}
+            placeholder={locale === "en" ? "Search wine, region, grape..." : "Sök vin, region, druva..."}
             className="h-12 rounded-2xl border-border bg-card/60 pl-11 backdrop-blur"
           />
         </div>
@@ -477,7 +477,7 @@ const History = () => {
                 <CardTitle className="font-display text-2xl text-foreground">
                   {entries.length === 0
                     ? t("history.noSavedWines")
-                    : (t("history.emptyFilter") ?? "Inga träffar med filtren")}
+                    : (locale === "en" ? "No matches with filters" : "Inga träffar med filtren")}
                 </CardTitle>
                 <CardDescription className="text-sm text-muted-foreground">
                   {entries.length === 0 ? t("history.scanAndSave") : "Prova att rensa sök eller region-chips."}
