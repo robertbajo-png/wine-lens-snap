@@ -105,6 +105,7 @@ const WineSnap = () => {
       currentCacheKey,
       currentOcrText,
       remoteScanId,
+      logs,
     },
     startScan,
     reset: resetScanState,
