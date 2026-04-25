@@ -1,35 +1,34 @@
 import type { ReactNode } from "react";
 import { Camera, Brain, Database, Shield, Wine } from "lucide-react";
 import { Link } from "react-router-dom";
-import { AmbientBackground } from "@/components/AmbientBackground";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
+import { AppShell } from "@/components/layout/AppShell";
 
 export default function About() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-theme-canvas text-theme-secondary">
-      <AmbientBackground />
-      {/* Page container */}
-      <div className="relative z-10 mx-auto max-w-4xl px-5 py-12 md:py-16">
+    <AppShell>
+      <div className="space-y-12 pb-16">
         {/* Header */}
-        <header className="mb-10 md:mb-14">
-          <div className="inline-flex items-center gap-2 rounded-full bg-theme-elevated px-3 py-1 text-xs tracking-wide text-purple-200/80 ring-1 ring-theme-card">
-            <Wine className="h-3.5 w-3.5" />
-            OM WINESNAP
+        <header className="space-y-5 text-center">
+          <Logo size="md" className="justify-center" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <Wine className="h-3.5 w-3.5 text-gold" />
+            Om WineSnap
           </div>
-          <h1 className="mt-4 text-3xl font-bold leading-tight text-theme-primary md:text-4xl">
+          <h1 className="font-display text-4xl font-semibold leading-tight text-foreground sm:text-5xl">
             Din digitala sommelier
           </h1>
-          <p className="mt-3 max-w-2xl text-lg text-theme-secondary">
+          <p className="mx-auto max-w-md text-base text-muted-foreground">
             WineSnap känner igen vinetiketter med AI och skapar automatiskt din
-            vinprofil – smak, stil och serveringstips på sekunder. Skanna, få
-            svar och spara resultaten till nästa gång.
+            vinprofil – smak, stil och serveringstips på sekunder.
           </p>
         </header>
 
-        {/* Why section */}
-        <section className="mb-10 md:mb-14">
-          <h2 className="text-2xl font-semibold text-theme-primary">Varför WineSnap?</h2>
-          <p className="mt-3 text-theme-secondary">
+        {/* Why */}
+        <section className="rounded-3xl border border-border bg-card/60 p-6 shadow-soft backdrop-blur">
+          <h2 className="font-display text-2xl font-semibold text-foreground">Varför WineSnap?</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             Vinetiketter kan vara svåra att tolka – språk, druvor, regioner och
             klassificeringar varierar. WineSnap översätter etiketterna till en
             tydlig vinprofil så att du snabbt förstår vad du håller i handen.
@@ -37,109 +36,109 @@ export default function About() {
         </section>
 
         {/* How it works */}
-        <section className="mb-10 md:mb-14">
-          <h2 className="text-2xl font-semibold text-theme-primary">Så fungerar det</h2>
-          <ul className="mt-5 grid gap-4 sm:grid-cols-2">
+        <section className="space-y-4">
+          <h2 className="font-display text-2xl font-semibold text-foreground">Så fungerar det</h2>
+          <ul className="grid gap-3">
             <FeatureCard
               icon={<Camera className="h-5 w-5" />}
+              step="01"
               title="Fotografera etiketten"
               text="Fyll sökramen och ta en tydlig bild – helst i mjukt ljus."
             />
             <FeatureCard
               icon={<Brain className="h-5 w-5" />}
+              step="02"
               title="AI läser och tolkar"
-              text="Bildigenkänning (OCR) och AI plockar ut namn, druvor, region och årgång."
+              text="Bildigenkänning och AI plockar ut namn, druvor, region och årgång."
             />
             <FeatureCard
               icon={<Wine className="h-5 w-5" />}
+              step="03"
               title="Vinprofil skapas"
-              text="Du får smakprofil, serveringstips och matchningar på sekunder."
+              text="Smakprofil, serveringstips och matchningar på sekunder."
             />
             <FeatureCard
               icon={<Database className="h-5 w-5" />}
+              step="04"
               title="Sparas i historiken"
               text="Resultat lagras lokalt och kan öppnas igen vid nästa tillfälle."
             />
           </ul>
         </section>
 
-        {/* Tech & privacy */}
-        <section className="mb-10 md:mb-14">
-          <div className="rounded-2xl border border-theme-card bg-theme-elevated p-5 backdrop-blur">
-            <div className="mb-2 inline-flex items-center gap-2 text-sm font-medium text-purple-200/90">
-              <Shield className="h-4 w-4" />
-              Teknik & integritet
-            </div>
-            <ul className="space-y-2 text-sm text-theme-secondary">
-              <li>
-                WineSnap använder bildigenkänning (OCR) och AI för att analysera
-                etiketter och bygga vinprofilen.
-              </li>
-              <li>
-                Bilder hanteras i första hand lokalt på enheten. Vid behov görs
-                säkra anrop till vår backend för att förbättra träffsäkerheten.
-              </li>
-              <li>
-                Historiken sparas på din enhet och, om du är inloggad, synkroniseras
-                till ditt konto så att du kan komma åt den från andra enheter.
-              </li>
-              <li>
-                <strong>Data vi sparar:</strong> skanningsresultat (vinnamn,
-                producent, region, årgång), ett anonymt enhets-ID och, om du
-                loggar in, din e-postadress och profilinfo. Vi säljer aldrig din
-                data till tredje part.
-              </li>
-              <li>
-                Du kan radera ditt konto och all tillhörande data genom att
-                kontakta oss.
-              </li>
-            </ul>
+        {/* Privacy */}
+        <section className="rounded-3xl border border-border bg-gradient-luxe p-6 text-primary-foreground shadow-elegant">
+          <div className="mb-3 inline-flex items-center gap-2 text-sm font-medium">
+            <Shield className="h-4 w-4 text-gold" />
+            Teknik & integritet
           </div>
+          <ul className="space-y-2.5 text-sm leading-relaxed opacity-90">
+            <li>
+              WineSnap använder bildigenkänning (OCR) och AI för att analysera
+              etiketter och bygga vinprofilen.
+            </li>
+            <li>
+              Bilder hanteras i första hand lokalt på enheten. Vid behov görs
+              säkra anrop till vår backend för att förbättra träffsäkerheten.
+            </li>
+            <li>
+              Historiken sparas på din enhet och, om du är inloggad, synkroniseras
+              till ditt konto så att du kan komma åt den från andra enheter.
+            </li>
+            <li>
+              <strong>Data vi sparar:</strong> skanningsresultat, ett anonymt
+              enhets-ID och, om du loggar in, din e-postadress och profilinfo.
+              Vi säljer aldrig din data till tredje part.
+            </li>
+          </ul>
         </section>
 
-        {/* Vision / team (optional short note) */}
-        <section className="mb-12">
-          <h2 className="text-2xl font-semibold text-theme-primary">Vision</h2>
-          <p className="mt-3 text-theme-secondary">
+        {/* Vision */}
+        <section className="space-y-3 text-center">
+          <h2 className="font-display text-2xl font-semibold text-foreground">Vision</h2>
+          <p className="mx-auto max-w-md text-sm text-muted-foreground">
             Vi bygger WineSnap för att göra vinvärlden mer lättillgänglig –
-            nyfikenhet först, jargong sen. En smart hjälpreda i fickan som gör
-            det roligare att hitta dina favoriter.
+            nyfikenhet först, jargong sen. En smart hjälpreda i fickan.
           </p>
         </section>
 
         {/* CTA */}
-        <footer className="flex flex-col gap-3 sm:flex-row">
-          <Button asChild size="lg">
+        <footer className="flex flex-col gap-3">
+          <Button asChild size="lg" className="h-12 rounded-2xl bg-gradient-luxe shadow-elegant">
             <Link to="/">Starta skanning</Link>
           </Button>
-          <Button asChild size="lg" variant="secondary">
+          <Button asChild size="lg" variant="outline" className="h-12 rounded-2xl border-border bg-card/60">
             <Link to="/me/wines">Öppna historiken</Link>
           </Button>
         </footer>
       </div>
-    </main>
+    </AppShell>
   );
 }
 
-/** --- Small presentational card --- */
 function FeatureCard({
   icon,
+  step,
   title,
   text,
 }: {
   icon: ReactNode;
+  step: string;
   title: string;
   text: string;
 }) {
   return (
-    <li className="rounded-2xl border border-theme-card bg-theme-elevated p-4 backdrop-blur">
-      <div className="mb-2 inline-flex items-center gap-2 text-sm text-purple-200/90">
-        <span className="grid h-7 w-7 place-content-center rounded-full bg-purple-500/15 ring-1 ring-purple-400/20">
-          {icon}
-        </span>
-        <span className="font-semibold text-theme-primary">{title}</span>
+    <li className="flex gap-4 rounded-2xl border border-border bg-card/60 p-4 shadow-soft backdrop-blur">
+      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-gold text-primary-foreground shadow-soft">
+        {icon}
       </div>
-      <p className="text-sm leading-relaxed text-theme-secondary">{text}</p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-display text-xs tracking-[0.2em] text-gold">{step}</span>
+          <span className="text-sm font-semibold text-foreground">{title}</span>
+        </div>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{text}</p>
+      </div>
     </li>
   );
 }

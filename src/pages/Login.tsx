@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/auth/AuthProvider";
 import { useTranslation } from "@/hooks/useTranslation";
+import { Logo } from "@/components/Logo";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -76,18 +77,27 @@ const Login = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-theme-canvas px-4 py-12 text-theme-primary">
-      <Card className="w-full max-w-md border-theme-card/60 bg-theme-elevated/80 backdrop-blur">
-        <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-2xl font-semibold">{t("login.title")}</CardTitle>
-          <CardDescription className="text-theme-secondary">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12 text-foreground">
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[60vh] opacity-70"
+        style={{
+          background:
+            "radial-gradient(60% 50% at 50% 0%, hsl(var(--gold) / 0.18) 0%, transparent 70%)",
+        }}
+      />
+      <Logo size="lg" className="mb-8" />
+      <Card className="w-full max-w-md rounded-3xl border-border bg-card/70 shadow-elegant backdrop-blur">
+        <CardHeader className="space-y-3 text-center">
+          <CardTitle className="font-display text-3xl font-semibold">{t("login.title")}</CardTitle>
+          <CardDescription className="text-muted-foreground">
             {t("login.subtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <form className="space-y-4" onSubmit={handleEmailSubmit}>
             <div className="space-y-2 text-left">
-              <Label htmlFor="email" className="text-theme-primary">
+              <Label htmlFor="email" className="text-foreground">
                 {t("login.emailLabel")}
               </Label>
               <Input
@@ -97,36 +107,49 @@ const Login = () => {
                 placeholder={t("login.emailPlaceholder")}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="border-theme-card bg-theme-surface text-theme-primary"
+                className="h-12 rounded-2xl border-border bg-background"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={submitting}>
+            <Button
+              type="submit"
+              className="h-12 w-full rounded-2xl bg-gradient-luxe text-primary-foreground shadow-elegant hover:opacity-90"
+              disabled={submitting}
+            >
               {submitting ? t("login.sending") : t("login.sendMagicLink")}
             </Button>
             {emailSent ? (
-              <p className="text-sm text-theme-secondary">
+              <p className="text-sm text-muted-foreground">
                 {t("login.linkOnTheWay", { email })}
               </p>
             ) : null}
           </form>
 
-          <div className="flex items-center gap-2 text-sm text-theme-secondary">
-            <span className="h-px flex-1 bg-theme-card/60" />
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
             <span>{t("login.or")}</span>
-            <span className="h-px flex-1 bg-theme-card/60" />
+            <span className="h-px flex-1 bg-border" />
           </div>
 
-          <Button type="button" variant="outline" className="w-full" onClick={handleGoogleSignIn}>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 w-full rounded-2xl border-border bg-card/60"
+            onClick={handleGoogleSignIn}
+          >
             {t("login.googleSignIn")}
           </Button>
 
-          <p className="text-center text-sm text-theme-secondary">
-            {t("login.exploreWithoutAccount")} <Link to="/scan" className="underline">{t("login.scanNow")}</Link>.
+          <p className="text-center text-sm text-muted-foreground">
+            {t("login.exploreWithoutAccount")}{" "}
+            <Link to="/scan" className="font-medium text-gold underline-offset-4 hover:underline">
+              {t("login.scanNow")}
+            </Link>
+            .
           </p>
 
-          <p className="text-center text-xs text-theme-secondary/60">
+          <p className="text-center text-xs text-muted-foreground/70">
             Genom att logga in godkänner du att vi sparar din skanningshistorik och grundläggande profilinformation.{" "}
-            <Link to="/om" className="underline">Läs mer om hur WineSnap hanterar din data</Link>.
+            <Link to="/om" className="underline">Läs mer</Link>.
           </p>
         </CardContent>
       </Card>
